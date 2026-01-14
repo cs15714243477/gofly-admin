@@ -18,6 +18,8 @@ import (
 	"gofly/utils/gf"
 	_ "gofly/app/business/dbtablemgr"
 	_ "gofly/app/business/apidoc"
+	_ "gofly/app/business/area"
+	_ "gofly/app/business/houses"
 )
 
 // 路由中间件/路由钩子，noAuths无需路由验证接口，可以从c获取请求各种参数

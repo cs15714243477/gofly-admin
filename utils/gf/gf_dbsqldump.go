@@ -2,6 +2,7 @@ package gf
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -401,23 +402,102 @@ func GetDBNameFromDNS(dns string) (string, error) {
 }
 
 // 导入sql数据文件
-func ImportSql(SqlPath string) error {
+func ImportSql(SqlPath string) (retErr error) {
+	ctx := context.Background()
+
+	// 捕获panic
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("[ImportSql] PANIC捕获:", r)
+			Log().Error(ctx, fmt.Sprintf("[ImportSql] PANIC捕获: %v", r))
+			retErr = fmt.Errorf("ImportSql panic: %v", r)
+		}
+	}()
+
+	fmt.Println("[ImportSql] 开始导入SQL文件:", SqlPath)
+	Log().Info(ctx, fmt.Sprintf("[ImportSql] 开始导入SQL文件: %s", SqlPath))
+
+	// 检查文件是否存在
+	if _, err := os.Stat(SqlPath); os.IsNotExist(err) {
+		fmt.Println("[ImportSql] SQL文件不存在:", SqlPath)
+		Log().Error(ctx, fmt.Sprintf("[ImportSql] SQL文件不存在: %s", SqlPath))
+		return fmt.Errorf("SQL文件不存在: %s", SqlPath)
+	}
+
 	driverName := String(dbConf_arr["type"])
 	if String(dbConf_arr["type"]) == "pgsql" {
 		driverName = "postgres"
 	}
-	db, err := sql.Open(driverName, GetDB_dsn())
+	fmt.Println("[ImportSql] 数据库驱动:", driverName)
+	Log().Info(ctx, fmt.Sprintf("[ImportSql] 数据库驱动: %s", driverName))
+
+	// 使用加长超时的DSN用于大SQL文件导入
+	dsn := getImportSqlDsn()
+	fmt.Println("[ImportSql] 数据库连接(长超时):", dsn)
+	Log().Info(ctx, fmt.Sprintf("[ImportSql] 数据库连接(长超时): %s", dsn))
+
+	db, err := sql.Open(driverName, dsn)
 	if err != nil {
-		return err
+		fmt.Println("[ImportSql] 打开数据库连接失败:", err)
+		Log().Error(ctx, fmt.Sprintf("[ImportSql] 打开数据库连接失败: %v", err))
+		return fmt.Errorf("打开数据库连接失败: %w", err)
 	}
+	defer db.Close()
+
+	// 设置连接池参数
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(30 * time.Minute)
+
+	// 测试连接
+	if err := db.Ping(); err != nil {
+		fmt.Println("[ImportSql] 数据库连接测试失败:", err)
+		Log().Error(ctx, fmt.Sprintf("[ImportSql] 数据库连接测试失败: %v", err))
+		return fmt.Errorf("数据库连接测试失败: %w", err)
+	}
+	fmt.Println("[ImportSql] 数据库连接成功")
+	Log().Info(ctx, "[ImportSql] 数据库连接成功")
+
 	content, err := os.ReadFile(SqlPath)
 	if err != nil {
-		return err
+		fmt.Println("[ImportSql] 读取SQL文件失败:", err)
+		Log().Error(ctx, fmt.Sprintf("[ImportSql] 读取SQL文件失败: %v", err))
+		return fmt.Errorf("读取SQL文件失败: %w", err)
 	}
-	_, err = db.Exec(string(content))
+	fmt.Printf("[ImportSql] SQL文件大小: %d bytes\n", len(content))
+	Log().Info(ctx, fmt.Sprintf("[ImportSql] SQL文件大小: %d bytes", len(content)))
+
+	if len(content) == 0 {
+		fmt.Println("[ImportSql] SQL文件为空，跳过导入")
+		Log().Warning(ctx, "[ImportSql] SQL文件为空，跳过导入")
+		return nil
+	}
+
+	fmt.Println("[ImportSql] 开始执行SQL语句...")
+	fmt.Printf("[ImportSql] SQL语句数量约: %d 条\n", strings.Count(string(content), ";"))
+	Log().Info(ctx, "[ImportSql] 开始执行SQL语句")
+
+	start := time.Now()
+	result, err := db.Exec(string(content))
+	elapsed := time.Since(start)
+	fmt.Printf("[ImportSql] SQL执行耗时: %v\n", elapsed)
+
 	if err != nil {
-		return err
+		fmt.Println("[ImportSql] 执行SQL失败:", err)
+		Log().Error(ctx, fmt.Sprintf("[ImportSql] 执行SQL失败: %v", err))
+		// 只显示前500字符
+		previewLen := len(content)
+		if previewLen > 500 {
+			previewLen = 500
+		}
+		Log().Error(ctx, fmt.Sprintf("[ImportSql] SQL内容预览: %s...", string(content[:previewLen])))
+		return fmt.Errorf("执行SQL失败: %w", err)
 	}
+
+	rowsAffected, _ := result.RowsAffected()
+	fmt.Printf("[ImportSql] SQL执行成功, 影响行数: %d\n", rowsAffected)
+	Log().Info(ctx, fmt.Sprintf("[ImportSql] SQL执行成功, 影响行数: %d", rowsAffected))
+	fmt.Println("[ImportSql] ===== 导入完成 =====")
 	return nil
 }
 
@@ -429,6 +509,20 @@ func GetDB_dsn() string {
 		return fmt.Sprintf("user=%v password=%v host=%v port=%v dbname=%v sslmode=disable timezone=Asia/Shanghai", dbConf_arr["username"], dbConf_arr["password"], dbConf_arr["hostname"], dbConf_arr["hostport"], dbConf_arr["dbname"])
 	} else if String(dbConf_arr["type"]) == "mssql" {
 		return fmt.Sprintf("user id=%s;password=%s;server=%s;port=%s;database=%s;encrypt=disable", dbConf_arr["username"], dbConf_arr["password"], dbConf_arr["hostname"], dbConf_arr["hostport"], dbConf_arr["dbname"])
+	} else {
+		return ""
+	}
+}
+
+// 获取用于SQL导入的长超时DSN（10分钟超时）
+func getImportSqlDsn() string {
+	if String(dbConf_arr["type"]) == "mysql" || String(dbConf_arr["type"]) == "mariadb" || String(dbConf_arr["type"]) == "tidb" {
+		// 设置较长的超时时间：连接超时30秒，读写超时10分钟
+		return fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=True&loc=Local&timeout=30s&readTimeout=600s&writeTimeout=600s&sql_mode=%s&multiStatements=true", dbConf_arr["username"], dbConf_arr["password"], dbConf_arr["hostname"], dbConf_arr["hostport"], dbConf_arr["dbname"], dbConf_arr["sqlmode"])
+	} else if String(dbConf_arr["type"]) == "pgsql" {
+		return fmt.Sprintf("user=%v password=%v host=%v port=%v dbname=%v sslmode=disable timezone=Asia/Shanghai connect_timeout=30", dbConf_arr["username"], dbConf_arr["password"], dbConf_arr["hostname"], dbConf_arr["hostport"], dbConf_arr["dbname"])
+	} else if String(dbConf_arr["type"]) == "mssql" {
+		return fmt.Sprintf("user id=%s;password=%s;server=%s;port=%s;database=%s;encrypt=disable;connection timeout=600", dbConf_arr["username"], dbConf_arr["password"], dbConf_arr["hostname"], dbConf_arr["hostport"], dbConf_arr["dbname"])
 	} else {
 		return ""
 	}

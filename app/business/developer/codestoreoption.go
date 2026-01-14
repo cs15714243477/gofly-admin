@@ -78,91 +78,143 @@ func (api *Codestoreoption) DownCode(c *gf.GinCtx) {
 
 // 安装代码
 func (api *Codestoreoption) InstallCode(c *gf.GinCtx) {
+	fmt.Println("[InstallCode] ===== 开始安装代码包 =====")
+	gf.Log().Info(ctx, "[InstallCode] 开始安装代码包")
 	prefix := dbConf_arr["prefix"]
 	if prefix == nil {
 		prefix = ""
 	}
 	userID := c.GetInt64("userID") //当前用户ID
+	fmt.Printf("[InstallCode] 当前用户ID: %d, 数据库前缀: %s\n", userID, prefix)
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 当前用户ID: %d, 数据库前缀: %s", userID, prefix))
 	//更新配置
 	cf, _ := gcfg.New()
 	data := cf.MustGet(ctx, "app")
 	appConf_arr = gconv.Map(data)
 	parameter, perr := gf.PostParam(c)
 	packName := gconv.String(parameter["name"])
+	fmt.Println("[InstallCode] 安装包名称:", packName)
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 安装包名称: %s", packName))
 	if appConf_arr["runEnv"] == "release" {
+		gf.Log().Error(ctx, "[InstallCode] 生产环境禁止操作")
 		gf.Failed().SetMsg("生产环境禁止操作，请在开发环境下操作").Regin(c)
 		return
 	}
 	if packName == "" || perr != nil {
+		gf.Log().Error(ctx, fmt.Sprintf("[InstallCode] 参数错误: packName=%s, err=%v", packName, perr))
 		gf.Failed().SetMsg("安装包名称不能为空").Regin(c)
 		return
 	}
 	path, err := os.Getwd()
 	if err != nil {
+		gf.Log().Error(ctx, fmt.Sprintf("[InstallCode] 获取项目路径失败: %v", err))
 		gf.Failed().SetMsg("项目路径获取失败").Regin(c)
 		return
 	}
-	//1.安装后端go
-	CopyAllDir(filepath.Join(path, "/devsource/codemarket/install", packName, "/go/app"), filepath.Join(path, "/app"))
-	//utils扩展
-	CopyAllDir(filepath.Join(path, "/devsource/codemarket/install", packName, "/go/plugin"), filepath.Join(path, "/utils/plugin"))
-	//2.导入数据表
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 项目路径: %s", path))
+
+	// ====== 注意：先执行SQL和菜单导入，最后再复制Go代码 ======
+	// 因为复制Go代码会触发Air热重载，导致HTTP请求中断
+
+	//1.导入数据表（优先执行，不会触发Air重启）
+	fmt.Println("[InstallCode] 步骤1: 开始导入SQL数据")
+	gf.Log().Info(ctx, "[InstallCode] 步骤1: 开始导入SQL数据")
 	SqlPath := filepath.Join(path, "/devsource/codemarket/install", packName, "/install.sql")
+	fmt.Println("[InstallCode] SQL文件路径:", SqlPath)
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] SQL文件路径: %s", SqlPath))
 	aqlerr := ImportSqlFile(SqlPath)
+	fmt.Println("[InstallCode] SQL导入结果:", aqlerr)
 	if aqlerr != nil {
+		fmt.Println("[InstallCode] 导入SQL失败:", aqlerr)
+		gf.Log().Error(ctx, fmt.Sprintf("[InstallCode] 导入SQL失败: %v", aqlerr))
 		gf.Failed().SetMsg("导入插件sql数据文件失败").SetData(aqlerr).Regin(c)
 		return
 	}
+	fmt.Println("[InstallCode] SQL导入成功")
+	gf.Log().Info(ctx, "[InstallCode] SQL导入成功")
+
 	//代码包配置
-	install_cofig, _ := GetInstallConfig(filepath.Join(path, "/devsource/codemarket/install", packName))
+	gf.Log().Info(ctx, "[InstallCode] 步骤2: 读取安装配置")
+	install_cofig, configErr := GetInstallConfig(filepath.Join(path, "/devsource/codemarket/install", packName))
+	if configErr != nil {
+		gf.Log().Error(ctx, fmt.Sprintf("[InstallCode] 读取配置失败: %v", configErr))
+	}
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 配置信息: %+v", install_cofig))
+
 	//如果存在前缀-添加导入表前缀
 	if prefix != "" && install_cofig.Sqldb.Packtables != "" {
+		gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 步骤3: 重命名数据表，添加前缀: %s", prefix))
 		var tableNames_arr = strings.Split(install_cofig.Sqldb.Packtables, ",")
 		for _, tableName := range tableNames_arr {
 			if tableName != "" {
-				gf.DB().Exec(c, "ALTER TABLE "+tableName+" RENAME TO "+gf.String(prefix)+tableName+";")
+				sql := "ALTER TABLE " + tableName + " RENAME TO " + gf.String(prefix) + tableName + ";"
+				gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 执行SQL: %s", sql))
+				gf.DB().Exec(c, sql)
 			}
 		}
 	}
-	//3.导入菜单
+
+	//2.导入菜单
+	gf.Log().Info(ctx, "[InstallCode] 步骤4: 开始导入business菜单")
 	businessmenuPath := filepath.Join(path, "/devsource/codemarket/install", packName, "/businessmenu.json")
-	bmenufile, _ := os.Open(businessmenuPath)
-	bmenubytes, bmenuerr := io.ReadAll(bmenufile)
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Business菜单文件: %s", businessmenuPath))
 	bnenuids := ""
-	if bmenuerr == nil && bmenubytes != nil {
-		var data interface{}
-		json.Unmarshal(bmenubytes, &data)
-		if install_cofig.Sqldb.Businessmenuids != "" { //删除菜单
-			gf.DB().Exec(c, "DELETE FROM "+gf.String(prefix)+"business_auth_rule WHERE id IN ("+install_cofig.Sqldb.Businessmenuids+")")
+	if bmenufile, bmenuOpenErr := os.Open(businessmenuPath); bmenuOpenErr == nil {
+		defer bmenufile.Close()
+		if bmenubytes, bmenuerr := io.ReadAll(bmenufile); bmenuerr == nil && bmenubytes != nil {
+			gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Business菜单内容长度: %d bytes", len(bmenubytes)))
+			var data interface{}
+			json.Unmarshal(bmenubytes, &data)
+			if install_cofig.Sqldb.Businessmenuids != "" {
+				delSql := "DELETE FROM " + gf.String(prefix) + "business_auth_rule WHERE id IN (" + install_cofig.Sqldb.Businessmenuids + ")"
+				gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 删除旧菜单: %s", delSql))
+				gf.DB().Exec(c, delSql)
+			}
+			m_nenuids := Insertmenu(userID, data, 0, "business_auth_rule")
+			bnenuids = strings.Join(m_nenuids, ",")
+			gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Business菜单ID: %s", bnenuids))
 		}
-		m_nenuids := Insertmenu(userID, data, 0, "business_auth_rule")
-		bnenuids = strings.Join(m_nenuids, ",")
+	} else {
+		gf.Log().Warning(ctx, fmt.Sprintf("[InstallCode] 打开business菜单文件失败: %v", bmenuOpenErr))
 	}
-	//关闭menu.json读取
-	bmenufile.Close()
+
 	//admin端
+	gf.Log().Info(ctx, "[InstallCode] 步骤5: 开始导入admin菜单")
 	adminmenuPath := filepath.Join(path, "/devsource/codemarket/install", packName, "/adminmenu.json")
-	amenufile, _ := os.Open(adminmenuPath)
-	amenubytes, amenuerr := io.ReadAll(amenufile)
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Admin菜单文件: %s", adminmenuPath))
 	anenuids := ""
-	if amenuerr == nil && amenubytes != nil {
-		var data interface{}
-		json.Unmarshal([]byte(amenubytes), &data)
-		if install_cofig.Sqldb.Adminmenuids != "" { //删除菜单
-			gf.DB().Exec(c, "DELETE FROM "+gf.String(prefix)+"admin_auth_rule WHERE id IN ("+install_cofig.Sqldb.Adminmenuids+")")
+	if amenufile, amenuOpenErr := os.Open(adminmenuPath); amenuOpenErr == nil {
+		defer amenufile.Close()
+		if amenubytes, amenuerr := io.ReadAll(amenufile); amenuerr == nil && amenubytes != nil {
+			gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Admin菜单内容长度: %d bytes", len(amenubytes)))
+			var data interface{}
+			json.Unmarshal(amenubytes, &data)
+			if install_cofig.Sqldb.Adminmenuids != "" {
+				delSql := "DELETE FROM " + gf.String(prefix) + "admin_auth_rule WHERE id IN (" + install_cofig.Sqldb.Adminmenuids + ")"
+				gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 删除旧admin菜单: %s", delSql))
+				gf.DB().Exec(c, delSql)
+			}
+			m_nenuids := Insertmenu(userID, data, 0, "admin_auth_rule")
+			anenuids = strings.Join(m_nenuids, ",")
+			gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Admin菜单ID: %s", anenuids))
 		}
-		m_nenuids := Insertmenu(userID, data, 0, "admin_auth_rule")
-		anenuids = strings.Join(m_nenuids, ",")
+	} else {
+		gf.Log().Warning(ctx, fmt.Sprintf("[InstallCode] 打开admin菜单文件失败: %v", amenuOpenErr))
 	}
-	//关闭menu.json读取
-	amenufile.Close()
+
 	//安装前端代码
+	gf.Log().Info(ctx, "[InstallCode] 步骤6: 开始安装前端代码")
 	vueobjrootPath := filepath.Join(gconv.String(appConf_arr["vueobjroot"]))
 	vueobjrootPathadmin := filepath.Join(gconv.String(appConf_arr["vueobjroot"]), gconv.String(appConf_arr["adminDirName"]))
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Vue根路径: %s", vueobjrootPath))
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Admin路径: %s", vueobjrootPathadmin))
 	//获取文件路径
 	vue_views, _ := GetAllFile(filepath.Join(path, "/devsource/codemarket/install", packName, "/vue/business/views"))
 	vue_components, _ := GetAllFile(filepath.Join(path, "/devsource/codemarket/install", packName, "/vue/business/components"))
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Business Views: %v", vue_views))
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Business Components: %v", vue_components))
 	if _, err := os.Stat(vueobjrootPath); !os.IsNotExist(err) {
+		gf.Log().Info(ctx, "[InstallCode] Vue根路径存在，开始复制前端文件")
 		if install_cofig.App.Installcover { //覆盖安装删除原来代码
 			b_views := strings.Split(gf.String(vue_views["folders"]), ",")
 			for _, fpath := range b_views {
@@ -178,11 +230,16 @@ func (api *Codestoreoption) InstallCode(c *gf.GinCtx) {
 			CopyAllDir(filepath.Join(path, "/devsource/codemarket/install/", packName, "/vue/admin/components"), filepath.Join(gconv.String(appConf_arr["vueobjroot"]), gconv.String(appConf_arr["adminDirName"]), "/src/components"))
 		}
 	}
-	//5.更新配置文件
+
+	//更新配置文件
+	gf.Log().Info(ctx, "[InstallCode] 步骤7: 更新配置文件")
 	go_app_str, go_app_arr, _ := GetAllFileApp(filepath.Join(path, "/devsource/codemarket/install", packName, "/go/app"))
 	utilsfiles, _ := GetAllFile(filepath.Join(path, "/devsource/codemarket/install", packName, "/go/plugin"))
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Go App目录: %s", go_app_str))
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] Utils文件: %v", utilsfiles))
 	upconf := gf.Map{"viewsfilesbusiness": vue_views["files"], "viewsfoldersbusiness": vue_views["folders"], "componentfilesbusiness": vue_components["files"], "componentfoldersbusiness": vue_components["folders"],
 		"appfolders": go_app_str, "utilsfiles": utilsfiles["files"], "isinstall": true, "businessmenuids": bnenuids, "adminmenuids": anenuids}
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 配置内容: %+v", upconf))
 	//如果存在admin
 	if _, err := os.Stat(vueobjrootPathadmin); !os.IsNotExist(err) {
 		vue_views, _ := GetAllFile(filepath.Join(path, "/devsource/codemarket/install", packName, "/vue/admin/views"))
@@ -194,50 +251,82 @@ func (api *Codestoreoption) InstallCode(c *gf.GinCtx) {
 	}
 	cferr := UpConfFieldData(path+"/devsource/codemarket/install/"+packName, upconf)
 	if cferr != nil {
+		gf.Log().Error(ctx, fmt.Sprintf("[InstallCode] 更新配置失败: %v", cferr))
 		gf.Success().SetMsg("更新配置失败，请重新安装").SetData(packName).Regin(c)
 		return
-	} else {
-		//判断模块控制器是否存在
-		for _, go_app_dir := range go_app_arr {
-			modelname := ""
-			//添加根模块-在app下的控制器
-			if strings.Contains(go_app_dir, "/") {
-				go_path_arr := strings.Split(go_app_dir, "/")
-				modelname = go_path_arr[0]
-				//判断安装模块下是否存在控制器controller.go文件，haseMoleCtr=true是存在
-				var haseMoleCtr bool = false
-				if _, err := os.Stat(filepath.Join(path, "/devsource/codemarket/install", packName, "/go/app/", modelname, "controller.go")); !os.IsNotExist(err) {
-					haseMoleCtr = true
-				}
-				CheckIsAddController("", modelname, haseMoleCtr)
-			}
-			//过滤lib-添加类型模块控制-例如business下面的控制
-			if !strings.HasSuffix(go_app_dir, "lib") {
-				CheckIsAddController(modelname, go_app_dir, false)
-			}
-		}
-		if install_cofig.Installgo.NoVerifyAPIRoot != "" {
-			//同时判断模块是否添加token和合法性验证
-			AddOrRemoveValidity(install_cofig.Installgo.NoVerifyAPIRoot, "install", path, appConf_arr)
-		}
-		//分别复制配置文件到resource的的配置文件夹
-		if !install_cofig.App.Installcover {
-			gfile.CopyFile(filepath.Join(path, "/devsource/codemarket/install/", packName, "config.yml"), filepath.Join(path, "/resource/codeinstall", packName, "config.yml"))
-		}
-		//复制包配置到/resource/config下
-		confFilePath := filepath.Join(path, "/devsource/codemarket/install/", packName, packName+".yaml")
-		if _, err := os.Stat(confFilePath); !os.IsNotExist(err) { //存在
-			gfile.CopyFile(confFilePath, filepath.Join(path, "/resource/config", packName+".yaml"))
-		}
-		// 如存在附件资源存在则复制到 /resource/static下
-		staticFilePath := filepath.Join(path, "/devsource/codemarket/install/", packName, packName)
-		if _, err := os.Stat(staticFilePath); !os.IsNotExist(err) { //存在
-			CopyAllDir(staticFilePath, filepath.Join(path, "/resource/static", packName))
-		}
-		//删除安装文件包
-		os.RemoveAll(filepath.Join(path, "/devsource/codemarket/install/", packName))
-		gf.Success().SetMsg("安装成功").SetData(packName).Regin(c)
 	}
+	gf.Log().Info(ctx, "[InstallCode] 配置更新成功")
+
+	//判断模块控制器是否存在
+	for _, go_app_dir := range go_app_arr {
+		modelname := ""
+		//添加根模块-在app下的控制器
+		if strings.Contains(go_app_dir, "/") {
+			go_path_arr := strings.Split(go_app_dir, "/")
+			modelname = go_path_arr[0]
+			//判断安装模块下是否存在控制器controller.go文件，haseMoleCtr=true是存在
+			var haseMoleCtr bool = false
+			if _, err := os.Stat(filepath.Join(path, "/devsource/codemarket/install", packName, "/go/app/", modelname, "controller.go")); !os.IsNotExist(err) {
+				haseMoleCtr = true
+			}
+			CheckIsAddController("", modelname, haseMoleCtr)
+		}
+		//过滤lib-添加类型模块控制-例如business下面的控制
+		if !strings.HasSuffix(go_app_dir, "lib") {
+			CheckIsAddController(modelname, go_app_dir, false)
+		}
+	}
+	if install_cofig.Installgo.NoVerifyAPIRoot != "" {
+		//同时判断模块是否添加token和合法性验证
+		AddOrRemoveValidity(install_cofig.Installgo.NoVerifyAPIRoot, "install", path, appConf_arr)
+	}
+	//分别复制配置文件到resource的的配置文件夹
+	if !install_cofig.App.Installcover {
+		gfile.CopyFile(filepath.Join(path, "/devsource/codemarket/install/", packName, "config.yml"), filepath.Join(path, "/resource/codeinstall", packName, "config.yml"))
+	}
+	//复制包配置到/resource/config下
+	confFilePath := filepath.Join(path, "/devsource/codemarket/install/", packName, packName+".yaml")
+	if _, err := os.Stat(confFilePath); !os.IsNotExist(err) { //存在
+		gfile.CopyFile(confFilePath, filepath.Join(path, "/resource/config", packName+".yaml"))
+	}
+	// 如存在附件资源存在则复制到 /resource/static下
+	staticFilePath := filepath.Join(path, "/devsource/codemarket/install/", packName, packName)
+	if _, err := os.Stat(staticFilePath); !os.IsNotExist(err) { //存在
+		CopyAllDir(staticFilePath, filepath.Join(path, "/resource/static", packName))
+	}
+
+	// ====== 先返回成功响应给前端，再异步复制Go代码 ======
+	// 因为复制Go代码会触发Air热重载，导致HTTP连接断开
+	fmt.Printf("[InstallCode] ===== 安装成功: %s =====\n", packName)
+	gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] ===== 安装成功: %s =====", packName))
+	gf.Success().SetMsg("安装成功，Air将自动重启").SetData(packName).Regin(c)
+
+	// 异步复制Go代码（会触发Air热重载）
+	go func() {
+		fmt.Println("[InstallCode] 步骤8: 开始复制后端Go代码（异步）")
+		gf.Log().Info(ctx, "[InstallCode] 步骤8: 开始复制后端Go代码（异步）")
+		goAppSrc := filepath.Join(path, "/devsource/codemarket/install", packName, "/go/app")
+		goAppDst := filepath.Join(path, "/app")
+		gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 复制Go代码: %s -> %s", goAppSrc, goAppDst))
+		CopyAllDir(goAppSrc, goAppDst)
+
+		//utils扩展
+		fmt.Println("[InstallCode] 步骤9: 开始复制utils插件（异步）")
+		gf.Log().Info(ctx, "[InstallCode] 步骤9: 开始复制utils插件（异步）")
+		pluginSrc := filepath.Join(path, "/devsource/codemarket/install", packName, "/go/plugin")
+		pluginDst := filepath.Join(path, "/utils/plugin")
+		gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 复制插件: %s -> %s", pluginSrc, pluginDst))
+		CopyAllDir(pluginSrc, pluginDst)
+
+		//删除安装文件包
+		fmt.Println("[InstallCode] 步骤10: 清理安装文件")
+		gf.Log().Info(ctx, "[InstallCode] 步骤10: 清理安装文件")
+		installPath := filepath.Join(path, "/devsource/codemarket/install/", packName)
+		fmt.Println("[InstallCode] 删除安装包:", installPath)
+		gf.Log().Info(ctx, fmt.Sprintf("[InstallCode] 删除安装包: %s", installPath))
+		os.RemoveAll(installPath)
+		fmt.Println("[InstallCode] ===== 异步任务完成 =====")
+	}()
 }
 
 // 卸载代码
