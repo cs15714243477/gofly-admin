@@ -21,12 +21,13 @@ type Index struct {
 
 // 初始化路由
 func init() {
+	// B端接口：login、logout 不需要登录态
 	fpath := Index{NoNeedLogin: []string{"login", "logout"}, NoNeedAuths: []string{"*"}}
 	gf.Register(&fpath, fpath)
 }
 
 /**
-*1.《登录》
+*1.《b端用户登录登录》
  */
 func (api *Index) Login(c *gf.GinCtx) {
 	param, _ := gf.RequestParam(c)
@@ -87,7 +88,7 @@ func (api *Index) Login(c *gf.GinCtx) {
 		} else {
 			gf.Model("business_account").Where("id", data["id"]).Data(map[string]interface{}{"loginstatus": 1, "last_login_time": gtime.Timestamp(), "last_login_ip": gf.GetIp(c)}).Update()
 			gf.AddloginLog(c, gf.Map{"uid": data["id"], "account_id": data["account_id"], "business_id": data["business_id"], "type": "business", "status": 0, "des": "账号登录"})
-			gf.Success().SetMsg("登录成功！").SetData(token).Regin(c)
+			gf.Success().SetMsg("登录成功！").SetData(token).SetToken(gf.String(token)).Regin(c)
 		}
 	} else if email, ok := param["email"]; ok {
 		data, err := gf.Model("business_account").Fields("id,account_id,business_id,password,salt,name,status,login_attempts,lock_time").Where("email", email).Find()
@@ -127,7 +128,7 @@ func (api *Index) Login(c *gf.GinCtx) {
 		} else {
 			gf.Model("business_account").Where("id", data["id"]).Data(map[string]interface{}{"loginstatus": 1, "last_login_time": gtime.Timestamp(), "last_login_ip": gf.GetIp(c)}).Update()
 			gf.AddloginLog(c, gf.Map{"uid": data["id"], "account_id": data["account_id"], "business_id": data["business_id"], "type": "business", "status": 0, "des": "邮箱登录"})
-			gf.Success().SetMsg("登录成功返回token！").SetData(token).Regin(c)
+			gf.Success().SetMsg("登录成功返回token！").SetData(token).SetToken(gf.String(token)).Regin(c)
 		}
 	} else if mobile, ok := param["mobile"]; ok {
 		data, err := gf.Model("business_account").Fields("id,account_id,business_id,password,salt,name,status,login_attempts,lock_time").Where("mobile", mobile).Find()
@@ -167,7 +168,7 @@ func (api *Index) Login(c *gf.GinCtx) {
 		} else {
 			gf.Model("business_account").Where("id", data["id"]).Data(gf.Map{"last_login_time": gtime.Timestamp(), "last_login_ip": gf.GetIp(c)}).Update()
 			gf.AddloginLog(c, gf.Map{"uid": data["id"], "account_id": data["account_id"], "business_id": data["business_id"], "type": "business", "status": 0, "des": "手机号登录"})
-			gf.Success().SetMsg("登录成功！").SetData(token).Regin(c)
+			gf.Success().SetMsg("登录成功！").SetData(token).SetToken(gf.String(token)).Regin(c)
 		}
 	} else {
 		gf.Failed().SetMsg("该登录方式为开发请使用其他方式登录！").Regin(c)
@@ -175,7 +176,7 @@ func (api *Index) Login(c *gf.GinCtx) {
 }
 
 /**
-* 2.《获取用户》
+* 2.《b端获取用户》
  */
 func (api *Index) GetUserinfo(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
@@ -199,7 +200,7 @@ func (api *Index) GetUserinfo(c *gf.GinCtx) {
 }
 
 /**
-*  3退出登录
+*  3b端退出登录
  */
 func (api *Index) Logout(c *gf.GinCtx) {
 	user, err := gf.ParseTokenNoValid(c) //当前用户

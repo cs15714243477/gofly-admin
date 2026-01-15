@@ -1,0 +1,123 @@
+{
+	"pages": [
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/registration/registration",
+			"style": {
+				"navigationBarTitleText": "注册",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": "推荐",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/property_list/property_list",
+			"style": {
+				"navigationBarTitleText": "房源列表",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/property_detail/property_detail",
+			"style": {
+				"navigationBarTitleText": "房源详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/agent_workbench_home/agent_workbench_home",
+			"style": {
+				"navigationBarTitleText": "工作台",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/unlock_details/unlock_details",
+			"style": {
+				"navigationBarTitleText": "开锁详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/unlock_steps/unlock_steps",
+			"style": {
+				"navigationBarTitleText": "开锁步骤",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/my_business_card/my_business_card",
+			"style": {
+				"navigationBarTitleText": "我的名片",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/marketing_posters/marketing_posters",
+			"style": {
+				"navigationBarTitleText": "获客海报",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/records/record_follow",
+			"style": {
+				"navigationBarTitleText": "关注记录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/records/record_unlock",
+			"style": {
+				"navigationBarTitleText": "开锁记录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/records/record_showing",
+			"style": {
+				"navigationBarTitleText": "带看记录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/records/record_view",
+			"style": {
+				"navigationBarTitleText": "浏览记录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/records/record_share",
+			"style": {
+				"navigationBarTitleText": "分享记录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/records/record_call",
+			"style": {
+				"navigationBarTitleText": "通话记录",
+				"navigationStyle": "custom"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "极速房",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"uniIdRouter": {}
+}

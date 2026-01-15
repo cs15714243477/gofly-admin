@@ -1,6 +1,7 @@
 package houses
 
 import (
+	"encoding/json"
 	"gofly/utils/gf"
 	"gofly/utils/tools/gconv"
 	"gofly/utils/tools/gmap"
@@ -36,23 +37,45 @@ func normalizeTagsToString(v interface{}) string {
 	if v == nil {
 		return ""
 	}
-	// 兼容前端传数组（a-input-tag）或字符串
-	if strings.HasPrefix(gconv.String(v), "[") && strings.HasSuffix(gconv.String(v), "]") {
-		// 若是 JSON 字符串数组，交给 gf 处理可能失败，这里走最保守的字符串落库
-		return normalizeCommaText(v)
-	}
-	switch v.(type) {
+	// 先处理数组类型
+	switch val := v.(type) {
 	case []interface{}:
-		return gf.ArrayToStr(v, ",")
-	case []string:
-		arr := make([]interface{}, 0)
-		for _, it := range v.([]string) {
-			arr = append(arr, it)
+		parts := make([]string, 0, len(val))
+		for _, it := range val {
+			s := strings.TrimSpace(gconv.String(it))
+			if s != "" {
+				parts = append(parts, s)
+			}
 		}
-		return gf.ArrayToStr(arr, ",")
-	default:
-		return normalizeCommaText(v)
+		return strings.Join(parts, ",")
+	case []string:
+		parts := make([]string, 0, len(val))
+		for _, it := range val {
+			s := strings.TrimSpace(it)
+			if s != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, ",")
 	}
+	// 字符串类型处理
+	s := gconv.String(v)
+	// 如果是 JSON 数组字符串，解析它
+	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
+		var arr []string
+		if err := json.Unmarshal([]byte(s), &arr); err == nil {
+			parts := make([]string, 0, len(arr))
+			for _, it := range arr {
+				it = strings.TrimSpace(it)
+				if it != "" {
+					parts = append(parts, it)
+				}
+			}
+			return strings.Join(parts, ",")
+		}
+	}
+	// 普通逗号分隔字符串
+	return normalizeCommaText(s)
 }
 
 func pickMap(param map[string]interface{}, keys ...string) gf.Map {
@@ -225,5 +248,82 @@ func (api *Houses) Del(c *gf.GinCtx) {
 		gf.Failed().SetMsg("删除失败").SetData(err).Regin(c)
 	} else {
 		gf.Success().SetMsg("删除成功").Regin(c)
+	}
+}
+
+// 获取装修信息
+func (api *Houses) GetRenovation(c *gf.GinCtx) {
+	propertyId := c.DefaultQuery("property_id", "")
+	if propertyId == "" {
+		gf.Failed().SetMsg("请传参数property_id").Regin(c)
+		return
+	}
+	// 先校验房源是否属于当前商户
+	property, _ := gf.Model("business_properties").Where("business_id", c.GetInt64("businessID")).Where("id", propertyId).Find()
+	if property == nil || len(property) == 0 {
+		gf.Failed().SetMsg("房源不存在或无权限").Regin(c)
+		return
+	}
+	data, err := gf.Model("business_renovations").Where("property_id", propertyId).Find()
+	if err != nil {
+		gf.Failed().SetMsg("获取装修信息失败").SetData(err).Regin(c)
+		return
+	}
+	// 处理 materials 字段：后端逗号分隔，前端数组
+	if data != nil && data["materials"] != nil && data["materials"].String() != "" {
+		data["materials"] = gf.VarNew(gf.SplitAndStr(data["materials"].String(), ","))
+	} else if data != nil {
+		data["materials"] = gf.VarNew(make([]string, 0))
+	}
+	gf.Success().SetMsg("获取装修信息成功").SetData(data).Regin(c)
+}
+
+// 保存装修信息
+func (api *Houses) SaveRenovation(c *gf.GinCtx) {
+	param, _ := gf.RequestParam(c)
+	propertyId := gconv.Int64(param["property_id"])
+	if propertyId == 0 {
+		gf.Failed().SetMsg("请传参数property_id").Regin(c)
+		return
+	}
+	// 校验房源是否属于当前商户
+	property, _ := gf.Model("business_properties").Where("business_id", c.GetInt64("businessID")).Where("id", propertyId).Find()
+	if property == nil || len(property) == 0 {
+		gf.Failed().SetMsg("房源不存在或无权限").Regin(c)
+		return
+	}
+	// 仅允许写入的字段
+	saveData := pickMap(param,
+		"renovation_status", "progress_percentage", "current_stage",
+		"start_date", "estimated_finish_date", "actual_finish_date",
+		"materials", "images", "notes", "status",
+	)
+	// 处理 materials 字段（数组转逗号分隔字符串）
+	if _, ok := saveData["materials"]; ok {
+		saveData["materials"] = normalizeTagsToString(saveData["materials"])
+	}
+	// 处理 images 字段
+	if _, ok := saveData["images"]; ok {
+		saveData["images"] = normalizeCommaText(saveData["images"])
+	}
+	// 查询是否已存在装修记录
+	existing, _ := gf.Model("business_renovations").Where("property_id", propertyId).Find()
+	if existing == nil || len(existing) == 0 {
+		// 新增
+		saveData["property_id"] = propertyId
+		_, err := gf.Model("business_renovations").Data(saveData).InsertAndGetId()
+		if err != nil {
+			gf.Failed().SetMsg("添加装修信息失败").SetData(err).Regin(c)
+		} else {
+			gf.Success().SetMsg("添加装修信息成功").Regin(c)
+		}
+	} else {
+		// 更新
+		_, err := gf.Model("business_renovations").Where("property_id", propertyId).Update(saveData)
+		if err != nil {
+			gf.Failed().SetMsg("更新装修信息失败").SetData(err).Regin(c)
+		} else {
+			gf.Success().SetMsg("更新装修信息成功").Regin(c)
+		}
 	}
 }

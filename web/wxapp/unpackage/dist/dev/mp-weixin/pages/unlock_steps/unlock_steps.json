@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "开锁步骤",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "top-header": "../../components/TopHeader"
+  }
+}

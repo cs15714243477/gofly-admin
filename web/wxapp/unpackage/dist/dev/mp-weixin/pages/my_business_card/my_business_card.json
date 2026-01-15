@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "我的名片",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "bottom-tab-bar": "../../components/BottomTabBar",
+    "top-header": "../../components/TopHeader"
+  }
+}

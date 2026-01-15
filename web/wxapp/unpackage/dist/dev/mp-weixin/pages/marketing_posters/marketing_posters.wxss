@@ -1,0 +1,202 @@
+/**
+ * 这里是uni-app内置的常用样式变量
+ *
+ * uni-app 官方扩展插件及插件市场（https://ext.dcloud.net.cn）上很多三方插件均使用了这些样式变量
+ * 如果你是插件开发者，建议你使用scss预处理，并在插件代码中直接使用这些变量（无需 import 这个文件），方便用户通过搭积木的方式开发整体风格一致的App
+ *
+ */
+/**
+ * 如果你是App开发者（插件使用者），你可以通过修改这些变量来定制自己的插件主题，实现自定义主题功能
+ *
+ * 如果你的项目同样使用了scss预处理，你也可以直接在你的 scss 代码中使用如下变量，同时无需 import 这个文件
+ */
+/* 颜色变量 */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+.poster-container {
+  height: 100vh;
+  background-color: #f5f7f8;
+  display: flex;
+  flex-direction: column;
+}
+.header {
+  background-color: #ffffff;
+  /* 已改为 TopHeader 承担导航栏高度与左右间距，这里只保留容器外观 */
+  padding: 0;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.02);
+  z-index: 50;
+}
+.header .search-box {
+  width: 50%;
+  min-width: 320rpx;
+  height: 80rpx;
+  background-color: #f5f7f8;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+  margin-left: auto;
+}
+.header .search-box .search-icon {
+  font-size: 40rpx;
+  color: #94a3b8;
+}
+.header .search-box .search-input {
+  flex: 1;
+  margin-left: 16rpx;
+  font-size: 28rpx;
+  color: #0f172a;
+}
+.main-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.sidebar {
+  width: 180rpx;
+  background-color: #f5f7f8;
+}
+.sidebar .category-list {
+  padding: 16rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.sidebar .cat-item {
+  height: 112rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  color: #64748b;
+  font-size: 28rpx;
+  font-weight: 500;
+  border-radius: 16rpx;
+  transition: all 0.2s;
+}
+.sidebar .cat-item.active {
+  background-color: #ffffff;
+  color: #0d7ff2;
+  font-weight: bold;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+.sidebar .cat-item.active .active-bar {
+  position: absolute;
+  left: 0;
+  top: 24rpx;
+  bottom: 24rpx;
+  width: 8rpx;
+  background-color: #0d7ff2;
+  border-radius: 0 8rpx 8rpx 0;
+}
+.sidebar .cat-item:active {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+.poster-content {
+  flex: 1;
+  background-color: #ffffff;
+  padding: 24rpx;
+}
+.waterfall {
+  display: flex;
+  gap: 24rpx;
+  align-items: flex-start;
+}
+.waterfall .poster-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.waterfall .poster-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.waterfall .poster-card .poster-img-box {
+  width: 100%;
+  border-radius: 16rpx;
+  overflow: hidden;
+  position: relative;
+  background-color: #f1f5f9;
+}
+.waterfall .poster-card .poster-img-box .poster-image {
+  width: 100%;
+  height: 100%;
+}
+.waterfall .poster-card .poster-img-box .poster-tag {
+  position: absolute;
+  top: 16rpx;
+  left: 16rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 40rpx;
+  font-size: 20rpx;
+  font-weight: bold;
+  color: #ffffff;
+  box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+.waterfall .poster-card .poster-img-box .poster-tag.accent {
+  background-color: #f97316;
+}
+.waterfall .poster-card .poster-img-box .poster-tag.primary {
+  background-color: #0d7ff2;
+}
+.waterfall .poster-card .poster-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+.waterfall .poster-card .poster-info .poster-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #0f172a;
+  line-height: 1.2;
+}
+.waterfall .poster-card .poster-info .poster-desc {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+.waterfall .poster-card:active .poster-image {
+  transform: scale(1.05);
+}
+.fab-btn {
+  position: fixed;
+  bottom: 48rpx;
+  right: 32rpx;
+  height: 96rpx;
+  padding: 0 40rpx;
+  background-color: #0d7ff2;
+  color: #ffffff;
+  border-radius: 48rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  box-shadow: 0 12rpx 30rpx rgba(13, 127, 242, 0.3);
+  z-index: 100;
+}
+.fab-btn .fab-icon {
+  font-size: 40rpx;
+}
+.fab-btn .fab-text {
+  font-size: 28rpx;
+  font-weight: bold;
+}
+.fab-btn:active {
+  transform: scale(0.95);
+}
+.bottom-spacer {
+  height: 120rpx;
+}
+.placeholder {
+  color: #94a3b8;
+}
