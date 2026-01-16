@@ -96,8 +96,12 @@ const http = new Request({
  */
 http.interceptors.request.use(
   (config) => {
-    if (config.custom.auth && !$store('user').isLogin) {
-		console.log(" 这里做未登录拦截",$store('user').isLogin)
+	// 兼容：小程序“重新打开/刷新”时 store 可能尚未恢复 isLogin，但本地 token 已存在
+	const token = uni.getStorageSync('token');
+	if (token && !$store('user').isLogin) {
+	  $store('user').setToken(token);
+	}
+    if (config.custom.auth && !token && !$store('user').isLogin) {
       // 这里做未登录拦截
       return Promise.reject();
     }
@@ -121,7 +125,6 @@ http.interceptors.request.use(
 		'Businessid': import.meta.env.GF_BUSINESUSSID,
 		'apiverify': base64Encode(passstr+"#"+timestamp),
 	};
-	 const token = uni.getStorageSync('token');
 	if (token) {
 		baseheader=Object.assign({},baseheader,{
 			Authorization: `${token}`	// 这里是token(可自行修改)
@@ -242,9 +245,34 @@ http.interceptors.response.use(
 );
 
 const request = (config) => {
+  // -------- URL 规范化：避免出现 /uniapp/uniapp/*、/business/business/* ----------
+  // 场景：baseURL 已包含 apiModel(/uniapp)，而调用方 url 也写了 /uniapp/xxx，拼接后变成 /uniapp/uniapp/xxx
+  if (config && typeof config.url === 'string') {
+    const url = config.url;
+    const model = typeof apiModel === 'string' ? apiModel : '';
+    const pathPrefix = typeof apiPath === 'string' ? apiPath : '';
+    // 去掉重复的 apiModel 前缀
+    if (model && model.startsWith('/') && url.startsWith(model + '/')) {
+      config.url = url.slice(model.length);
+    }
+    // 去掉重复的 apiPath 前缀
+    if (pathPrefix && pathPrefix.startsWith('/') && config.url.startsWith(pathPrefix + '/')) {
+      config.url = config.url.slice(pathPrefix.length);
+    }
+    // 常见重复：/business/business/*
+    if (config.url.startsWith('/business/business/')) {
+      config.url = config.url.replace('/business/business/', '/business/');
+    }
+    // 常见重复：/uniapp/uniapp/*
+    if (config.url.startsWith('/uniapp/uniapp/')) {
+      config.url = config.url.replace('/uniapp/uniapp/', '/uniapp/');
+    }
+  }
+
   // 兼容接口前缀：你期望后端路径为 /business/xxx/yyy
   // 若环境变量未配置 apiModel/apiPath 的 /business 前缀，则这里兜底补齐。
   // 只对业务接口做前缀补齐，避免影响绝对地址或第三方请求。
+
   const needBusinessPrefix =
     (typeof apiModel !== 'string' || !apiModel.includes('/business')) &&
     (typeof apiPath !== 'string' || !apiPath.startsWith('/business'));

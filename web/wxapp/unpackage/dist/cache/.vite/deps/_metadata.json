@@ -2,7 +2,36 @@
   "hash": "7327e890",
   "configHash": "21ad25b2",
   "lockfileHash": "590b8997",
-  "browserHash": "e28300ca",
-  "optimized": {},
-  "chunks": {}
+  "browserHash": "a179e4ce",
+  "optimized": {
+    "pinia-plugin-persist-uni": {
+      "src": "../../../../../node_modules/pinia-plugin-persist-uni/dist/pinia-persist-uni.es.js",
+      "file": "pinia-plugin-persist-uni.js",
+      "fileHash": "c6b4bb82",
+      "needsInterop": false
+    },
+    "lodash/cloneDeep": {
+      "src": "../../../../../node_modules/lodash/cloneDeep.js",
+      "file": "lodash_cloneDeep.js",
+      "fileHash": "f08cf8a2",
+      "needsInterop": true
+    },
+    "luch-request": {
+      "src": "../../../../../node_modules/luch-request/src/lib/luch-request.js",
+      "file": "luch-request.js",
+      "fileHash": "7dd5684e",
+      "needsInterop": false
+    },
+    "js-md5": {
+      "src": "../../../../../node_modules/js-md5/src/md5.js",
+      "file": "js-md5.js",
+      "fileHash": "389f7a36",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-Y2F7D3TJ": {
+      "file": "chunk-Y2F7D3TJ.js"
+    }
+  }
 }

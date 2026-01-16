@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 /*
@@ -30,7 +29,7 @@ func init() {
 
 // 《登录》（手机号验证码登录）
 // 入参：mobile、captcha
-// 说明：当前沿用 business_account 作为小程序端账号表（与 GetUserinfo 保持一致）
+// 说明：小程序端用户表使用 business_user（经纪人表）
 func (api *Index) Login(c *gf.GinCtx) {
 	param, _ := gf.RequestParam(c)
 	mobile := gf.String(param["mobile"])
@@ -44,36 +43,65 @@ func (api *Index) Login(c *gf.GinCtx) {
 		return
 	}
 
-	data, err := gf.Model("business_account").
-		Fields("id,account_id,business_id,status,lock_time").
-		Where("mobile", mobile).
-		Find()
-	if data == nil || err != nil {
-		gf.Failed().SetMsg("手机账号不存在！").Regin(c)
-		return
+	// business_id：可由前端传 business_id；未传则使用默认 1（兼容单商户场景）
+	businessID := int64(1)
+	if v, ok := param["business_id"]; ok {
+		if vv := gf.Int64(v); vv > 0 {
+			businessID = vv
+		}
 	}
-	if data["status"].Int() == 1 {
+
+	// 查找用户（手机号即账号）
+	user, err := gf.Model("business_user").
+		Fields("id,business_id,status,logintime").
+		Where("mobile", mobile).
+		Where("deletetime", nil).
+		Find()
+	// 未绑定则自动创建（避免再次出现“手机号未绑定账号”）
+	if err != nil || user == nil {
+		addID, addErr := gf.Model("business_user").Data(gf.Map{
+			"business_id": businessID,
+			"username":    mobile,
+			"name":        "",
+			"nickname":    mobile,
+			"mobile":      mobile,
+			"avatar":      "resource/uploads/static/avatar.png",
+			"sex":         0,
+			"role":        "user",
+			"status":      0,
+			"loginip":     gf.GetIp(c),
+			"prevtime":    0,
+			"logintime":   gtime.Timestamp(),
+		}).InsertAndGetId()
+		if addErr != nil || addID == 0 {
+			gf.Failed().SetMsg("创建用户失败").SetData(addErr).Regin(c)
+			return
+		}
+		user, _ = gf.Model("business_user").Fields("id,business_id,status,logintime").Where("id", addID).Find()
+	}
+
+	if user["status"].Int() == 1 {
 		gf.Failed().SetMsg("账号被禁用了").Regin(c)
 		return
 	}
-	if time.Now().Before(data["lock_time"].Time()) {
-		gf.Failed().SetMsg("账户已被锁定，请稍后再试").Regin(c)
-		return
-	}
 	token, err := gf.CreateToken(gf.Map{
-		"ID":          data["id"].Int64(),
-		"account_id":  data["account_id"].Int64(),
-		"business_id": data["business_id"].Int64(),
+		"ID":          user["id"].Int64(),
+		"account_id":  0,
+		"business_id": user["business_id"].Int64(),
 	})
 	if err != nil {
 		gf.Failed().SetMsg(err.Error()).Regin(c)
 		return
 	}
-	gf.Model("business_account").
-		Where("id", data["id"]).
-		Data(gf.Map{"loginstatus": 1, "last_login_time": gtime.Timestamp(), "last_login_ip": gf.GetIp(c)}).
+
+	// 更新登录信息
+	prev := user["logintime"].Int64()
+	gf.Model("business_user").
+		Where("id", user["id"]).
+		Data(gf.Map{"prevtime": prev, "logintime": gtime.Timestamp(), "loginip": gf.GetIp(c)}).
 		Update()
-	gf.AddloginLog(c, gf.Map{"uid": data["id"], "account_id": data["account_id"], "business_id": data["business_id"], "type": "business", "status": 0, "des": "小程序手机号验证码登录"})
+
+	gf.AddloginLog(c, gf.Map{"uid": user["id"], "account_id": 0, "business_id": user["business_id"], "type": "uniapp", "status": 0, "des": "小程序手机号验证码登录"})
 	gf.Success().SetMsg("登录成功！").SetData(token).SetToken(gf.String(token)).Regin(c)
 }
 
@@ -108,48 +136,94 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 		return
 	}
 
-	data, err := gf.Model("business_account").
-		Fields("id,account_id,business_id,status,lock_time").
+	// business_id：可由前端传 business_id；未传则使用默认 1（兼容单商户场景）
+	businessID := int64(1)
+	if v, ok := param["business_id"]; ok {
+		if vv := gf.Int64(v); vv > 0 {
+			businessID = vv
+		}
+	}
+
+	user, err := gf.Model("business_user").
+		Fields("id,business_id,status,logintime").
 		Where("mobile", phone).
+		Where("deletetime", nil).
 		Find()
-	if err != nil || data == nil {
-		gf.Failed().SetMsg("手机号未绑定账号").Regin(c)
-		return
+	// 未绑定则自动创建
+	if err != nil || user == nil {
+		addID, addErr := gf.Model("business_user").Data(gf.Map{
+			"business_id": businessID,
+			"username":    phone,
+			"name":        "",
+			"nickname":    phone,
+			"mobile":      phone,
+			"avatar":      "resource/uploads/static/avatar.png",
+			"sex":         0,
+			"role":        "user",
+			"openid":      "",
+			"unionid":     "",
+			"status":      0,
+			"loginip":     gf.GetIp(c),
+			"prevtime":    0,
+			"logintime":   gtime.Timestamp(),
+		}).InsertAndGetId()
+		if addErr != nil || addID == 0 {
+			gf.Failed().SetMsg("创建用户失败").SetData(addErr).Regin(c)
+			return
+		}
+		user, _ = gf.Model("business_user").Fields("id,business_id,status,logintime").Where("id", addID).Find()
 	}
-	if data["status"].Int() == 1 {
+
+	if user["status"].Int() == 1 {
 		gf.Failed().SetMsg("账号被禁用了").Regin(c)
-		return
-	}
-	if time.Now().Before(data["lock_time"].Time()) {
-		gf.Failed().SetMsg("账户已被锁定，请稍后再试").Regin(c)
 		return
 	}
 
 	token, err := gf.CreateToken(gf.Map{
-		"ID":          data["id"].Int64(),
-		"account_id":  data["account_id"].Int64(),
-		"business_id": data["business_id"].Int64(),
+		"ID":          user["id"].Int64(),
+		"account_id":  0,
+		"business_id": user["business_id"].Int64(),
 	})
 	if err != nil {
 		gf.Failed().SetMsg(err.Error()).Regin(c)
 		return
 	}
-	gf.Model("business_account").
-		Where("id", data["id"]).
-		Data(gf.Map{"loginstatus": 1, "last_login_time": gtime.Timestamp(), "last_login_ip": gf.GetIp(c)}).
+
+	prev := user["logintime"].Int64()
+	gf.Model("business_user").
+		Where("id", user["id"]).
+		Data(gf.Map{"prevtime": prev, "logintime": gtime.Timestamp(), "loginip": gf.GetIp(c)}).
 		Update()
-	gf.AddloginLog(c, gf.Map{"uid": data["id"], "account_id": data["account_id"], "business_id": data["business_id"], "type": "business", "status": 0, "des": "小程序微信手机号一键登录"})
+	gf.AddloginLog(c, gf.Map{"uid": user["id"], "account_id": 0, "business_id": user["business_id"], "type": "uniapp", "status": 0, "des": "小程序微信手机号一键登录"})
 	gf.Success().SetMsg("登录成功！").SetData(token).SetToken(gf.String(token)).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
 }
 
 // 《获取用户信息》
 func (api *Index) GetUserinfo(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
-	userdata, err := gf.Model("business_account").Fields("id,business_id,name,nickname,mobile,email,avatar,status,createtime,pwd_reset_time").Where("id", userID).Find()
+	userdata, err := gf.Model("business_user").Fields("id,business_id,username,name,nickname,mobile,email,avatar,sex,role,store_id,title,status,createtime,updatetime").Where("id", userID).Where("deletetime", nil).Find()
 	if err != nil {
 		gf.Failed().SetMsg("查找用户数据错误：" + err.Error()).Regin(c)
 		return
 	}
+	// 门店信息（不让前端展示 store_id）
+	storeName := "未绑定"
+	storeAddr := ""
+	if userdata != nil && userdata["store_id"].Int64() > 0 {
+		store, serr := gf.Model("business_stores").
+			Fields("id,name,address").
+			Where("id", userdata["store_id"].Int64()).
+			Where("business_id", userdata["business_id"].Int64()).
+			Find()
+		if serr == nil && store != nil {
+			if store["name"].String() != "" {
+				storeName = store["name"].String()
+			}
+			storeAddr = store["address"].String()
+		}
+	}
+	userdata["store_name"] = gf.VarNew(storeName)
+	userdata["store_address"] = gf.VarNew(storeAddr)
 	if userdata["avatar"] == nil {
 		userdata["avatar"] = gvar.New(gf.GetLocalUrl() + "resource/uploads/static/avatar.png")
 	} else if !strings.Contains(userdata["avatar"].String(), "http") {
@@ -166,10 +240,6 @@ func (api *Index) GetUserinfo(c *gf.GinCtx) {
 
 // 《退出登录》
 func (api *Index) Logout(c *gf.GinCtx) {
-	user, err := gf.ParseTokenNoValid(c) //当前用户
-	if err == nil {
-		gf.Model("business_account").Where("id", user.ID).Data(gf.Map{"loginstatus": 0}).Update()
-	}
 	gf.RemoveToken(c) //清除token，让当前token失效
 	gf.Success().SetMsg("退出登录").SetData(true).Regin(c)
 }

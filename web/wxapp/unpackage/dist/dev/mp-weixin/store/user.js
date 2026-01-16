@@ -51,8 +51,8 @@ const user = common_vendor.defineStore({
     // 登出
     async logout(force = false) {
       if (!force) {
-        const { error } = await api_user.userApi.logout();
-        if (error === 0) {
+        const res = await api_user.userApi.logout();
+        if (res && res.code === 0) {
           this.resetUserData();
         }
       }

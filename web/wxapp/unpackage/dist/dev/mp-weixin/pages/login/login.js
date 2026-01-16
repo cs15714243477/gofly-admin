@@ -45,6 +45,14 @@ const _sfc_main = {
         this.submitting = false;
       }
     },
+    /**
+     * 切换更多登录方式的显示状态
+     *
+     * 用于控制微信小程序中更多登录方式按钮的展开/收起状态
+     * 通过反转 showMoreLogin 数据属性的值来实现状态切换
+     *
+     * @returns {void} 无返回值
+     */
     toggleMoreLogin() {
       this.showMoreLogin = !this.showMoreLogin;
     },

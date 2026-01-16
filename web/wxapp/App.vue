@@ -1,5 +1,72 @@
 <script>
+	// #ifdef MP-WEIXIN
+	// 兼容：部分微信开发者工具/运行环境的 vue-devtools 注入会触发：
+	// __VUE_DEVTOOLS_ON_SOCKET_READY__ is not a function（导致启动白屏、页面未注册）
+	// 这里提前挂一个空函数兜底，避免 devtools backend 初始化直接抛错。
+	;(function () {
+		try {
+			const g =
+				(typeof globalThis !== 'undefined' && globalThis) ||
+				(typeof global !== 'undefined' && global) ||
+				(typeof wx !== 'undefined' && wx) ||
+				{}
+			if (g && typeof g.__VUE_DEVTOOLS_ON_SOCKET_READY__ !== 'function') {
+				g.__VUE_DEVTOOLS_ON_SOCKET_READY__ = function () {}
+			}
+			// 有些实现 target 可能指向 wx 对象
+			if (typeof wx !== 'undefined' && typeof wx.__VUE_DEVTOOLS_ON_SOCKET_READY__ !== 'function') {
+				wx.__VUE_DEVTOOLS_ON_SOCKET_READY__ = function () {}
+			}
+		} catch (e) {
+			// ignore
+		}
+	})()
+	// #endif
+
+	import $store from '@/store'
+
 	export default {
+		data() {
+			return {
+				__bootstrapped: false
+			}
+		},
+		methods: {
+			async bootstrapAuthRedirect() {
+				// 只在启动时跑一次，避免反复 reLaunch
+				if (this.__bootstrapped) return
+				this.__bootstrapped = true
+
+				const token = uni.getStorageSync('token')
+				if (!token) return
+
+				const userStore = $store('user')
+				if (!userStore.isLogin) userStore.setToken(token)
+
+				// 校验 token 是否有效：有效则从登录页跳到首页；无效则清理并停留在登录页
+				let ok = false
+				try {
+					const info = await userStore.getInfo()
+					ok = !!info
+				} catch (e) {
+					ok = false
+				}
+				if (!ok) {
+					try {
+						await userStore.logout(true)
+					} catch (e) {}
+					return
+				}
+
+				const pages = getCurrentPages ? getCurrentPages() : []
+				const cur = pages && pages.length ? pages[pages.length - 1] : null
+				const route = cur && cur.route ? cur.route : ''
+				// 仅在“启动落到登录页”时自动跳首页，避免干扰用户在其它页面的操作
+				if (route === 'pages/login/login') {
+					uni.reLaunch({ url: '/pages/property_list/property_list' })
+				}
+			}
+		},
 		onLaunch: function() {
 			console.log('App Launch')
 			// #ifdef MP-WEIXIN
@@ -20,9 +87,14 @@
 				// ignore
 			}
 			// #endif
+
+			// 启动时：若已登录则自动跳首页
+			this.bootstrapAuthRedirect()
 		},
 		onShow: function() {
 			console.log('App Show')
+			// 某些情况下 onLaunch 早于页面栈就绪，这里再兜底一次
+			this.bootstrapAuthRedirect()
 		},
 		onHide: function() {
 			console.log('App Hide')

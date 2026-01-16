@@ -8,18 +8,19 @@ package business
 * 如果文件夹内没有对应package的go文件请把控制器类删除
  */
 import (
+	_ "gofly/app/business/apidoc"
+	_ "gofly/app/business/area"
 	_ "gofly/app/business/common"
 	_ "gofly/app/business/createcode"
 	_ "gofly/app/business/dashboard"
 	_ "gofly/app/business/datacenter"
+	_ "gofly/app/business/dbtablemgr"
 	_ "gofly/app/business/developer"
+	_ "gofly/app/business/houses"
 	_ "gofly/app/business/system"
+	_ "gofly/app/business/uniapp"
 	_ "gofly/app/business/user"
 	"gofly/utils/gf"
-	_ "gofly/app/business/dbtablemgr"
-	_ "gofly/app/business/apidoc"
-	_ "gofly/app/business/area"
-	_ "gofly/app/business/houses"
 )
 
 // 路由中间件/路由钩子，noAuths无需路由验证接口，可以从c获取请求各种参数

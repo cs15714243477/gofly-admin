@@ -15,13 +15,13 @@
 					</button>
 					<view class="profile-main">
 						<view class="avatar-box">
-							<image class="avatar" src="/static/images/img_83575f387f.png" mode="aspectFill"></image>
+							<image class="avatar" :src="avatarUrl" mode="aspectFill" ></image>
 							<view class="online-status"></view>
 						</view>
 						<view class="user-info">
-							<text class="user-name">李明</text>
-							<text class="user-role">高级经纪人 | 阳光城店</text>
-							<text class="user-phone">138-8888-9999</text>
+							<text class="user-name">{{ displayName }}</text>
+							<text class="user-role">{{ displayRoleLine }}</text>
+							<text class="user-phone">{{ displayMobile }}</text>
 						</view>
 					</view>
 				</view>
@@ -79,11 +79,15 @@
 <script>
 	import BottomTabBar from '@/components/BottomTabBar.vue'
 	import TopHeader from '@/components/TopHeader.vue'
+	import $store from '@/store'
 
 	export default {
 		components: { BottomTabBar, TopHeader },
 		data() {
 			return {
+				loadingUser: false,
+				debugLogged: false,
+				userInfo: {},
 				businessRecords: [
 					{ key: 'follow', name: '关注记录', icon: 'favorite' },
 					{ key: 'unlock', name: '开锁记录', icon: 'lock_open', hasNotice: true },
@@ -94,7 +98,102 @@
 				]
 			}
 		},
+		computed: {
+			avatarUrl() {
+				return (this.userInfo && this.userInfo.avatar) ? this.userInfo.avatar : '/static/images/img_83575f387f.png'
+			},
+			displayName() {
+
+
+        const u = this.userInfo || {}
+				// 真实姓名优先，其次昵称/用户名
+				return (u.name || u.nickname || u.username || '未登录')
+			},
+			displayRoleLine() {
+				const u = this.userInfo || {}
+				const title = (u.title || '').trim()
+				const roleRaw = String(u.role || '').trim()
+				// 门店信息由后端返回：store_name（未绑定则为“未绑定”）
+				const storeName = (u.store_name || '').trim()
+				const store = storeName ? storeName : '未绑定'
+				// 角色/身份展示：优先头衔；否则把 role=1/user 映射为“经纪人”
+				let left = title
+				if (!left) {
+					if (roleRaw === '' || roleRaw === '1' || roleRaw.toLowerCase() === 'user') left = '经纪人'
+					else left = roleRaw
+				}
+				return `${left} | ${store}`
+			},
+			displayMobile() {
+				const u = this.userInfo || {}
+				return u.mobile || ''
+			},
+		},
+		onShow() {
+			console.log('App 1')
+			this.ensureLoginAndLoadUser()
+		},
 		methods: {
+			debugPrintUserInfo(tag = '') {
+				if (this.debugLogged) return
+				this.debugLogged = true
+				try {
+					// 关键字段 + 全量
+					console.log('[agent_workbench_home] ' + (tag || 'userInfo') + ' store_name=', this.userInfo?.store_name, 'store_id=', this.userInfo?.store_id, 'title=', this.userInfo?.title, 'role=', this.userInfo?.role)
+					console.log('[agent_workbench_home] ' + (tag || 'userInfo') + ' full=', JSON.parse(JSON.stringify(this.userInfo || {})))
+				} catch (e) {
+					console.log('[agent_workbench_home] debugPrintUserInfo error', e)
+				}
+			},
+			debugShowUserInfo() {
+				try {
+					const u = this.userInfo || {}
+					const contentLines = [
+						`name: ${u.name || ''}`,
+						`nickname: ${u.nickname || ''}`,
+						`username: ${u.username || ''}`,
+						`title: ${u.title || ''}`,
+						`role: ${u.role || ''}`,
+						`store_name: ${u.store_name || ''}`,
+						`store_id: ${u.store_id || ''}`,
+						`store_address: ${u.store_address || ''}`,
+					]
+					uni.showModal({
+						title: '调试：userInfo(点击头像)',
+						content: contentLines.join('\n'),
+						showCancel: false,
+					})
+				} catch (e) {
+					uni.showToast({ title: '调试弹窗失败', icon: 'none' })
+				}
+			},
+			async ensureLoginAndLoadUser() {
+
+				console.log('App 2')
+				const userStore = $store('user')
+				// 兼容：小程序刷新后，优先用本地 token 恢复登录态
+				const token = uni.getStorageSync('token')
+				if (token && !userStore.isLogin) {
+					userStore.setToken(token)
+				}
+				if (!token && !userStore.isLogin) {
+					uni.reLaunch({ url: '/pages/login/login' })
+					return
+				}
+				if (this.loadingUser) return
+				this.loadingUser = true
+				try {
+					const info = await userStore.getInfo()
+					this.userInfo = info || userStore.userInfo || {}
+					this.debugPrintUserInfo('after getInfo')
+				} catch (e) {
+					// 请求失败：优先保留本地态，不强制跳转（避免短暂网络抖动导致回登录）
+					this.userInfo = userStore.userInfo || {}
+					this.debugPrintUserInfo('fallback userStore.userInfo')
+				} finally {
+					this.loadingUser = false
+				}
+			},
 			goEditCard() {
 				// 跳转到“获客-编辑资料”页（tab=1）
 				uni.reLaunch({
@@ -118,8 +217,11 @@
 				uni.showModal({
 					title: '提示',
 					content: '确定要退出登录吗？',
-					success: (res) => {
+					success: async (res) => {
 						if (res.confirm) {
+							try {
+								await $store('user').logout(false)
+							} catch (e) {}
 							uni.reLaunch({
 								url: '/pages/login/login'
 							})

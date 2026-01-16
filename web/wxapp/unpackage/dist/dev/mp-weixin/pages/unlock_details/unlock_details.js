@@ -43,7 +43,7 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
   return {
     a: common_vendor.o((...args) => $options.goBack && $options.goBack(...args)),
     b: $data.headerTop + "px",
-    c: common_assets._imports_0$2,
+    c: common_assets._imports_0$1,
     d: common_vendor.o((...args) => $options.copyPassword && $options.copyPassword(...args))
   };
 }

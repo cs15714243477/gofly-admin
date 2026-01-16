@@ -62,8 +62,11 @@ const http = new common_vendor.Request({
 });
 http.interceptors.request.use(
   (config) => {
-    if (config.custom.auth && !store_index.$store("user").isLogin) {
-      common_vendor.index$1.__f__("log", "at utils/request/index.js:100", " 这里做未登录拦截", store_index.$store("user").isLogin);
+    const token = common_vendor.index$1.getStorageSync("token");
+    if (token && !store_index.$store("user").isLogin) {
+      store_index.$store("user").setToken(token);
+    }
+    if (config.custom.auth && !token && !store_index.$store("user").isLogin) {
       return Promise.reject();
     }
     if (config.custom.showLoading) {
@@ -84,7 +87,6 @@ http.interceptors.request.use(
       "Businessid": "1",
       "apiverify": base64Encode(passstr + "#" + timestamp)
     };
-    const token = common_vendor.index$1.getStorageSync("token");
     if (token) {
       baseheader = Object.assign({}, baseheader, {
         Authorization: `${token}`
@@ -189,6 +191,27 @@ http.interceptors.response.use(
   }
 );
 const request = (config) => {
+  if (config && typeof config.url === "string") {
+    const url = config.url;
+    const model = utils_config_index.apiModel;
+    const pathPrefix = utils_config_index.apiPath;
+    if (model.startsWith("/") && url.startsWith(model + "/")) {
+      config.url = url.slice(model.length);
+    }
+    if (pathPrefix.startsWith("/") && config.url.startsWith(pathPrefix + "/")) {
+      config.url = config.url.slice(pathPrefix.length);
+    }
+    if (config.url.startsWith("/business/business/")) {
+      config.url = config.url.replace("/business/business/", "/business/");
+    }
+    if (config.url.startsWith("/uniapp/uniapp/")) {
+      config.url = config.url.replace("/uniapp/uniapp/", "/uniapp/");
+    }
+  }
+  const needBusinessPrefix = !utils_config_index.apiModel.includes("/business") && !utils_config_index.apiPath.startsWith("/business");
+  if (needBusinessPrefix && typeof config.url === "string" && config.url.startsWith("/") && !config.url.startsWith("/business/")) {
+    config.url = "/business" + config.url;
+  }
   if (config.url[0] !== "/") {
     config.url = utils_config_index.apiPath + config.url;
   }

@@ -8,6 +8,9 @@ const stores = {
   user: store_user.user,
   wxInfo: store_wxInfo.wxInfo
 };
+const setupPinia = (app) => {
+  app.use(pinia);
+};
 const $store = (name) => {
   const useStore = stores[name];
   if (!useStore) {
@@ -16,4 +19,5 @@ const $store = (name) => {
   return useStore(pinia);
 };
 exports.$store = $store;
+exports.setupPinia = setupPinia;
 //# sourceMappingURL=../../.sourcemap/mp-weixin/store/index.js.map

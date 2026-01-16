@@ -47,8 +47,8 @@ const user = defineStore({
     // 登出
     async logout(force = false) {
       if (!force) {
-        const { error } = await userApi.logout();
-        if (error === 0) {
+        const res = await userApi.logout();
+        if (res && res.code === 0) {
           this.resetUserData();
         }
       }

@@ -3,7 +3,7 @@ const utils_request_index = require("../utils/request/index.js");
 const userApi = {
   // 账号登录
   login: (data) => utils_request_index.request({
-    url: "/user/login",
+    url: "/uniapp/login",
     method: "POST",
     data,
     custom: {
@@ -13,7 +13,7 @@ const userApi = {
   }),
   // 微信一键登录（手机号）
   wxLogin: (data) => utils_request_index.request({
-    url: "/user/wxLogin",
+    url: "/uniapp/wxLogin",
     method: "POST",
     data,
     custom: {
@@ -23,7 +23,7 @@ const userApi = {
   }),
   // 获取用户信息
   getuserinfo: () => utils_request_index.request({
-    url: "/user/getUserinfo",
+    url: "/uniapp/getUserinfo",
     method: "GET",
     custom: {
       showLoading: true,
@@ -32,7 +32,7 @@ const userApi = {
   }),
   // 账号登出
   logout: (data) => utils_request_index.request({
-    url: "/user/logout",
+    url: "/uniapp/logout",
     method: "POST",
     data
   })
