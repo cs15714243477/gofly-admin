@@ -23,10 +23,25 @@ export default (command, mode) => {
 		server: {
 			host: true,
 			open: false,
-			port: env.GF_DEV_PORT,
+			port: env.GF_DEV_PORT || 9000, // 默认端口 9000
 			hmr: {
 				overlay: true,
 			},
+		},
+		build: {
+			// 增加构建超时时间（单位：毫秒）
+			chunkSizeWarningLimit: 2000,
+			// 优化构建性能
+			minify: 'terser',
+			terserOptions: {
+				compress: {
+					drop_console: false, // 开发环境保留 console
+				},
+			},
+		},
+		// 优化依赖预构建
+		optimizeDeps: {
+			include: ['vue', 'pinia', 'dayjs', 'lodash'],
 		},
 	};
 };
