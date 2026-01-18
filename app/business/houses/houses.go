@@ -107,6 +107,14 @@ func (api *Houses) GetList(c *gf.GinCtx) {
 	if property_type, ok := param["property_type"]; ok && property_type != "" {
 		whereMap.Set("property_type", property_type)
 	}
+	if v, ok := param["hot_status"]; ok && gconv.String(v) != "" {
+		hs := gconv.Int(v)
+		if hs != 0 && hs != 1 {
+			gf.Failed().SetMsg("hot_status参数不合法").Regin(c)
+			return
+		}
+		whereMap.Set("hot_status", hs)
+	}
 	if status, ok := param["status"]; ok && status != "" {
 		whereMap.Set("status", status)
 	}
@@ -115,7 +123,7 @@ func (api *Houses) GetList(c *gf.GinCtx) {
 	}
 	MDB := gf.Model("business_properties").Where(whereMap)
 	totalCount, _ := MDB.Clone().Count()
-	list, err := MDB.Fields("id,business_id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,has_smart_lock,commission_rate,commission_reward,owner_phone,agent_id,sale_status,view_count,follow_count,showing_count,status,weigh,createtime,updatetime").
+	list, err := MDB.Fields("id,business_id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,has_smart_lock,commission_rate,commission_reward,owner_phone,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,status,weigh,createtime,updatetime").
 		Page(pageNo, pageSize).
 		Order("weigh desc, id desc").
 		Select()
@@ -168,6 +176,7 @@ func (api *Houses) Save(c *gf.GinCtx) {
 		"commission_rate", "commission_reward",
 		"owner_phone", "agent_id",
 		"sale_status",
+		"hot_status",
 		"status",
 		"weigh",
 	)
@@ -179,6 +188,14 @@ func (api *Houses) Save(c *gf.GinCtx) {
 	}
 	if _, ok := saveData["cover_image"]; ok {
 		saveData["cover_image"] = strings.TrimSpace(gconv.String(saveData["cover_image"]))
+	}
+	if _, ok := saveData["hot_status"]; ok {
+		hs := gconv.Int(saveData["hot_status"])
+		if hs != 0 && hs != 1 {
+			gf.Failed().SetMsg("hot_status参数不合法").Regin(c)
+			return
+		}
+		saveData["hot_status"] = hs
 	}
 	if f_id == 0 {
 		saveData["business_id"] = c.GetInt64("businessID")
@@ -212,6 +229,14 @@ func (api *Houses) UpStatus(c *gf.GinCtx) {
 	update := gf.Map{}
 	if v, ok := param["status"]; ok && v != "" {
 		update["status"] = gconv.Int(v)
+	}
+	if v, ok := param["hot_status"]; ok && gconv.String(v) != "" {
+		hs := gconv.Int(v)
+		if hs != 0 && hs != 1 {
+			gf.Failed().SetMsg("hot_status参数不合法").Regin(c)
+			return
+		}
+		update["hot_status"] = hs
 	}
 	if v, ok := param["weigh"]; ok && v != "" {
 		update["weigh"] = gconv.Int(v)

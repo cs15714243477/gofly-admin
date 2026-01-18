@@ -3,11 +3,13 @@ export default {
 	// 获取首页数据
 	Homedata: (data) =>
 		request({
-			url: '/home/getList',
-			method: 'get',
+			url: '/uniapp/home/getList',
+			method: 'GET',
 			data,
 			custom: {
-				showSuccess: true,
+				showSuccess: false,
+				showLoading: true,
+				auth: true,
 				loadingMsg: '加载中',
 			},
 		}),

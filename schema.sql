@@ -97,6 +97,7 @@ CREATE TABLE `business_properties` (
   `owner_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '业主电话',
   `agent_id` int(11) NOT NULL DEFAULT 0 COMMENT '维护经纪人ID',
   `sale_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'on_sale' COMMENT '销售状态:on_sale在售,sold已售,off_market下架',
+  `hot_status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '推荐状态:0不推荐,1推荐',
   `view_count` int(11) NOT NULL DEFAULT 0 COMMENT '浏览次数',
   `follow_count` int(11) NOT NULL DEFAULT 0 COMMENT '关注人数',
   `showing_count` int(11) NOT NULL DEFAULT 0 COMMENT '带看次数',
