@@ -64,6 +64,13 @@
 			}
 		},
 		{
+			"path": "pages/agent_public_card/agent_public_card",
+			"style": {
+				"navigationBarTitleText": "经纪人名片",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/marketing_posters/marketing_posters",
 			"style": {
 				"navigationBarTitleText": "获客海报",
@@ -119,5 +126,16 @@
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8"
 	},
+	// 微信小程序专属配置
+	  "mp-weixin": {
+	    "plugins": {
+	      // 自定义插件别名（如：myPlugin，可自行命名）
+	      "myPlugin": {
+	        "version": "3.1.6", // 插件后台获取的最新版本号
+	        "provider": "wx43d5971c94455481" // 插件后台获取的AppID
+	      }
+	    }
+	  },
+	
 	"uniIdRouter": {}
 }

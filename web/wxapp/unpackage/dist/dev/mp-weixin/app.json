@@ -9,6 +9,7 @@
     "pages/unlock_details/unlock_details",
     "pages/unlock_steps/unlock_steps",
     "pages/my_business_card/my_business_card",
+    "pages/agent_public_card/agent_public_card",
     "pages/marketing_posters/marketing_posters",
     "pages/records/record_follow",
     "pages/records/record_unlock",

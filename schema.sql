@@ -148,6 +148,90 @@ CREATE TABLE `business_favorites` (
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '用户收藏表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- 5.1 通通锁（TTLock）授权表
+-- ----------------------------
+DROP TABLE IF EXISTS `business_ttlock_accounts`;
+CREATE TABLE `business_ttlock_accounts` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `business_id` int(11) NOT NULL DEFAULT 0 COMMENT '业务主账号id',
+  `access_token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT 'TTLock access_token',
+  `refresh_token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT 'TTLock refresh_token',
+  `expire_at` bigint(20) NOT NULL DEFAULT 0 COMMENT 'access_token 过期时间(秒时间戳)',
+  `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '状态:0正常,1禁用',
+  `createtime` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建时间(秒时间戳)',
+  `updatetime` bigint(20) NOT NULL DEFAULT 0 COMMENT '更新时间(秒时间戳)',
+  `deletetime` bigint(20) NOT NULL DEFAULT 0 COMMENT '删除时间(秒时间戳)',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_business_id` (`business_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'TTLock 授权表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 5.2 智能锁表（TTLock 锁主数据）
+-- ----------------------------
+DROP TABLE IF EXISTS `business_smart_locks`;
+CREATE TABLE `business_smart_locks` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `business_id` int(11) NOT NULL DEFAULT 0 COMMENT '业务主账号id',
+  `ttlock_lock_id` bigint(20) NOT NULL DEFAULT 0 COMMENT 'TTLock LockId',
+  `lock_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '锁名称',
+  `lock_mac` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '锁MAC',
+  `battery` int(11) NOT NULL DEFAULT 0 COMMENT '电量',
+  `model_num` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '型号',
+  `raw_json` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '原始数据(JSON)',
+  `last_sync_at` bigint(20) NOT NULL DEFAULT 0 COMMENT '最近同步时间(秒时间戳)',
+  `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '状态:0正常,1禁用',
+  `createtime` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建时间(秒时间戳)',
+  `updatetime` bigint(20) NOT NULL DEFAULT 0 COMMENT '更新时间(秒时间戳)',
+  `deletetime` bigint(20) NOT NULL DEFAULT 0 COMMENT '删除时间(秒时间戳)',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_business_lock` (`business_id`, `ttlock_lock_id`) USING BTREE,
+  INDEX `idx_business_id` (`business_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '智能锁表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 5.3 房源-锁绑定表（默认一房一锁）
+-- ----------------------------
+DROP TABLE IF EXISTS `business_property_locks`;
+CREATE TABLE `business_property_locks` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `business_id` int(11) NOT NULL DEFAULT 0 COMMENT '业务主账号id',
+  `property_id` int(11) NOT NULL DEFAULT 0 COMMENT '房源ID',
+  `ttlock_lock_id` bigint(20) NOT NULL DEFAULT 0 COMMENT 'TTLock LockId',
+  `bind_status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '绑定状态:1已绑,0解绑',
+  `bind_by_user_id` int(11) NOT NULL DEFAULT 0 COMMENT '绑定人(business_user.id)',
+  `bind_time` bigint(20) NOT NULL DEFAULT 0 COMMENT '绑定时间(秒时间戳)',
+  `unbind_time` bigint(20) NULL DEFAULT NULL COMMENT '解绑时间(秒时间戳)',
+  `createtime` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建时间(秒时间戳)',
+  `updatetime` bigint(20) NOT NULL DEFAULT 0 COMMENT '更新时间(秒时间戳)',
+  `deletetime` bigint(20) NOT NULL DEFAULT 0 COMMENT '删除时间(秒时间戳)',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_business_property` (`business_id`, `property_id`) USING BTREE,
+  INDEX `idx_lock_id` (`ttlock_lock_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '房源智能锁绑定表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 5.4 智能锁事件日志表
+-- ----------------------------
+DROP TABLE IF EXISTS `business_lock_events`;
+CREATE TABLE `business_lock_events` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `business_id` int(11) NOT NULL DEFAULT 0 COMMENT '业务主账号id',
+  `user_id` int(11) NOT NULL DEFAULT 0 COMMENT '操作人(business_user.id)',
+  `property_id` int(11) NOT NULL DEFAULT 0 COMMENT '房源ID',
+  `ttlock_lock_id` bigint(20) NOT NULL DEFAULT 0 COMMENT 'TTLock LockId',
+  `event_type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '事件类型',
+  `result` tinyint(1) NOT NULL DEFAULT 0 COMMENT '结果:1成功,0失败',
+  `err_code` int(11) NOT NULL DEFAULT 0 COMMENT '错误码',
+  `err_msg` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '错误信息',
+  `meta_json` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '扩展数据(JSON)',
+  `createtime` bigint(20) NOT NULL DEFAULT 0 COMMENT '创建时间(秒时间戳)',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_business_id` (`business_id`) USING BTREE,
+  INDEX `idx_property_id` (`property_id`) USING BTREE,
+  INDEX `idx_lock_id` (`ttlock_lock_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '智能锁事件日志表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
 -- 6. 海报模板表
 -- ----------------------------
 DROP TABLE IF EXISTS `business_poster_templates`;
