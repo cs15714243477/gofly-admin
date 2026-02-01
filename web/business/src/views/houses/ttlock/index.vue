@@ -1431,7 +1431,7 @@ onMounted(() => { fetchStatus(); fetchData(); });
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -1439,6 +1439,8 @@ onMounted(() => { fetchStatus(); fetchData(); });
   background: var(--color-fill-1);
   padding: 12px;
   border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
   
   &.full-width {
     grid-column: span 2;
