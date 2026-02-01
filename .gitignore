@@ -3,3 +3,4 @@ tmp
 resource/config.yaml
 resource/website
 .idea
+.git_bak/
