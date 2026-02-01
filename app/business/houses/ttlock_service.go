@@ -424,6 +424,68 @@ func ttlockUnlock(cfg ttlockCloudConfig, accessToken string, lockID int64) (map[
 	return ttlockPostFormJSON(ttlockAPIURL(cfg.APIBase, "/v3/lock/unlock"), form)
 }
 
+// ttlockGetKeyboardPwd 获取键盘密码（云端生成密码）
+// API: /v3/keyboardPwd/get
+func ttlockGetKeyboardPwd(cfg ttlockCloudConfig, accessToken string, lockID int64, keyboardPwdVersion, keyboardPwdType int, keyboardPwdName string, startDateMs, endDateMs int64) (map[string]any, error) {
+	if cfg.ClientID == "" || accessToken == "" || lockID == 0 {
+		return nil, errors.New("缺少 client_id/access_token/lock_id")
+	}
+	if keyboardPwdVersion <= 0 {
+		// 官方文档：最新锁版本一般为 4
+		keyboardPwdVersion = 4
+	}
+	if keyboardPwdType <= 0 {
+		// 1 一次性密码（6小时内可用一次）
+		keyboardPwdType = 1
+	}
+
+	form := url.Values{}
+	form.Set("clientId", cfg.ClientID)
+	form.Set("accessToken", accessToken)
+	form.Set("lockId", strconv.FormatInt(lockID, 10))
+	form.Set("keyboardPwdVersion", strconv.Itoa(keyboardPwdVersion))
+	form.Set("keyboardPwdType", strconv.Itoa(keyboardPwdType))
+	if strings.TrimSpace(keyboardPwdName) != "" {
+		form.Set("keyboardPwdName", strings.TrimSpace(keyboardPwdName))
+	}
+	if startDateMs > 0 {
+		form.Set("startDate", strconv.FormatInt(startDateMs, 10))
+	}
+	if endDateMs > 0 {
+		form.Set("endDate", strconv.FormatInt(endDateMs, 10))
+	}
+	form.Set("date", strconv.FormatInt(ttlockNowMilli(), 10))
+	return ttlockPostFormJSON(ttlockAPIURL(cfg.APIBase, "/v3/keyboardPwd/get"), form)
+}
+
+// ttlockLockRecordList 获取锁操作记录
+// API: /v3/lockRecord/list
+func ttlockLockRecordList(cfg ttlockCloudConfig, accessToken string, lockID int64, startDateMs, endDateMs int64, pageNo, pageSize int) (map[string]any, error) {
+	if cfg.ClientID == "" || accessToken == "" || lockID == 0 {
+		return nil, errors.New("缺少 client_id/access_token/lock_id")
+	}
+	if pageNo <= 0 {
+		pageNo = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	form := url.Values{}
+	form.Set("clientId", cfg.ClientID)
+	form.Set("accessToken", accessToken)
+	form.Set("lockId", strconv.FormatInt(lockID, 10))
+	if startDateMs > 0 {
+		form.Set("startDate", strconv.FormatInt(startDateMs, 10))
+	}
+	if endDateMs > 0 {
+		form.Set("endDate", strconv.FormatInt(endDateMs, 10))
+	}
+	form.Set("pageNo", strconv.Itoa(pageNo))
+	form.Set("pageSize", strconv.Itoa(pageSize))
+	form.Set("date", strconv.FormatInt(ttlockNowMilli(), 10))
+	return ttlockPostFormJSON(ttlockAPIURL(cfg.APIBase, "/v3/lockRecord/list"), form)
+}
+
 func ttlockLockDetail(cfg ttlockCloudConfig, accessToken string, lockID int64) (map[string]any, error) {
 	if cfg.ClientID == "" || accessToken == "" || lockID == 0 {
 		return nil, errors.New("缺少 client_id/access_token/lock_id")
