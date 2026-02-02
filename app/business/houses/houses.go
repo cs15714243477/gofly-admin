@@ -127,7 +127,7 @@ func (api *Houses) GetList(c *gf.GinCtx) {
 	}
 	MDB := gf.Model("business_properties").Where(whereMap)
 	totalCount, _ := MDB.Clone().Count()
-	list, err := MDB.Fields("id,business_id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,status,weigh,createtime,updatetime").
+	list, err := MDB.Fields("id,business_id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,video_url,allow_image_download,allow_video_download,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,status,weigh,createtime,updatetime").
 		Page(pageNo, pageSize).
 		Order("weigh desc, id desc").
 		Select()
@@ -175,12 +175,12 @@ func (api *Houses) Save(c *gf.GinCtx) {
 		"floor_level", "total_floors", "orientation", "build_year",
 		"property_type", "decoration_type",
 		"community_name", "address", "latitude", "longitude",
-		"tags", "images", "cover_image",
+		"tags", "images", "cover_image", "video_url",
+		"allow_image_download", "allow_video_download",
 		"has_smart_lock",
 		"commission_rate", "commission_reward",
 		"owner_name", "owner_phone",
 		"receiver_name", "receiver_phone", "receiver_price",
-		"agent_id",
 		"sale_status",
 		"hot_status",
 		"status",
@@ -194,6 +194,25 @@ func (api *Houses) Save(c *gf.GinCtx) {
 	}
 	if _, ok := saveData["cover_image"]; ok {
 		saveData["cover_image"] = strings.TrimSpace(gconv.String(saveData["cover_image"]))
+	}
+	if _, ok := saveData["video_url"]; ok {
+		saveData["video_url"] = strings.TrimSpace(gconv.String(saveData["video_url"]))
+	}
+	if _, ok := saveData["allow_image_download"]; ok {
+		aid := gconv.Int(saveData["allow_image_download"])
+		if aid != 0 && aid != 1 {
+			gf.Failed().SetMsg("allow_image_download参数不合法").Regin(c)
+			return
+		}
+		saveData["allow_image_download"] = aid
+	}
+	if _, ok := saveData["allow_video_download"]; ok {
+		avd := gconv.Int(saveData["allow_video_download"])
+		if avd != 0 && avd != 1 {
+			gf.Failed().SetMsg("allow_video_download参数不合法").Regin(c)
+			return
+		}
+		saveData["allow_video_download"] = avd
 	}
 	if _, ok := saveData["hot_status"]; ok {
 		hs := gconv.Int(saveData["hot_status"])

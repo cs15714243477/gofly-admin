@@ -30,8 +30,8 @@
 			<!-- 业务记录 - 横向3列 -->
 			<view class="section">
 				<view class="section-title">业务记录</view>
-				<view class="records-grid">
-					<view class="record-item" v-for="(item, index) in businessRecords" :key="index" @click="openRecord(item)">
+					<view class="records-grid">
+					<view class="record-item" v-for="(item, index) in displayRecords" :key="index" @click="openRecord(item)">
 						<view class="record-card">
 							<view class="record-icon-box">
 								<text class="material-symbols-outlined record-icon">{{ item.icon }}</text>
@@ -89,6 +89,7 @@
 				debugLogged: false,
 				userInfo: {},
 				businessRecords: [
+					{ key: 'property_manage', name: '房源管理', icon: 'home_work' },
 					{ key: 'follow', name: '关注记录', icon: 'favorite' },
 					{ key: 'unlock', name: '开锁记录', icon: 'lock_open', hasNotice: true },
 					{ key: 'showing', name: '带看记录', icon: 'location_on' },
@@ -127,6 +128,16 @@
 			displayMobile() {
 				const u = this.userInfo || {}
 				return u.mobile || ''
+			},
+			displayRecords() {
+				const u = this.userInfo || {}
+				const canManage = Number(u.can_manage_properties) === 1
+				// 最小权限：仅在允许维护房源时展示入口
+				return (this.businessRecords || []).filter((it) => {
+					if (!it) return false
+					if (it.key === 'property_manage') return canManage
+					return true
+				})
 			},
 		},
 		onShow() {
@@ -202,6 +213,7 @@
 			},
 			openRecord(item) {
 				const map = {
+					property_manage: '/pages/property_manage/property_manage',
 					follow: '/pages/records/record_follow',
 					unlock: '/pages/records/record_unlock',
 					showing: '/pages/records/record_showing',

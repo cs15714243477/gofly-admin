@@ -7,6 +7,7 @@ const defaultUserInfo = {
   name: '', // 姓名
   nickname: '', // 昵称
   mobile: '', // 手机号
+  can_manage_properties: 0, // 是否可维护房源:0否,1是
 };
 const user = defineStore({
   id: 'user',

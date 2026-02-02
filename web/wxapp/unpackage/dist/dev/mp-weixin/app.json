@@ -5,6 +5,8 @@
     "pages/home/home",
     "pages/property_list/property_list",
     "pages/property_detail/property_detail",
+    "pages/property_manage/property_manage",
+    "pages/property_manage/property_edit",
     "pages/agent_workbench_home/agent_workbench_home",
     "pages/unlock_details/unlock_details",
     "pages/unlock_steps/unlock_steps",

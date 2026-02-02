@@ -5,6 +5,7 @@ window.globalConfig = {
 	Main_url_dev:`${localhost}`,//域名
 	Root_url:`${domain}/business`,//Api服务器域名
     Root_url_dev:`${localhost}/business`,//Api服务器域名-开发环境
+    TencentMapKey:"YBUBZ-EXEKL-ELNPT-EBIW6-7RADV-ODBBF",//腾讯地图 JS API Key（用于房源经纬度地图选点）
 	AppTitle_zhCN:"GoFly开发框架(企业版)",
     AppTitle_zhTW:"GoFly開發框架",
 	AppTitle_enUS:"GoFly Dev frame",

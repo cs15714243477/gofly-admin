@@ -3,7 +3,7 @@ Type: local
 # 配置传输文件最大值，如上传文件最大上限，单位为MB
 MaxBodySize: 600
 # 允许上传的文件类型
-AllowedExt: .jpg,.jpng,.jpeg,.pdf
+AllowedExt: .jpg,.jpng,.jpeg,.pdf,.mp4
 # 本地存储配置
 local: 
   LBaseUrl: http://localhost:8200

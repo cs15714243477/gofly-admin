@@ -120,7 +120,7 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		Where("id", id).
 		Where("deletetime", nil).
 		Where("status", 0).
-		Fields("id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,has_smart_lock,commission_rate,commission_reward,owner_phone,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,createtime").
+		Fields("id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,video_url,allow_image_download,allow_video_download,has_smart_lock,commission_rate,commission_reward,owner_phone,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,createtime").
 		Find()
 	if err != nil {
 		gf.Failed().SetMsg("获取房源详情失败：" + err.Error()).Regin(c)
@@ -231,6 +231,9 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		"tags":              tags,
 		"images":            images,
 		"cover_image":       wxFullImgURL(row["cover_image"].String()),
+		"video_url":         wxFullImgURL(row["video_url"].String()),
+		"allow_image_download": row["allow_image_download"].Int(),
+		"allow_video_download": row["allow_video_download"].Int(),
 		"has_smart_lock":    row["has_smart_lock"].Int(),
 		"commission_rate":   gconv.String(row["commission_rate"]),
 		"commission_reward": gconv.String(row["commission_reward"]),

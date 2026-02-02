@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "编辑房源",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "top-header": "../../components/TopHeader"
+  }
+}

@@ -36,6 +36,20 @@
 			}
 		},
 		{
+			"path": "pages/property_manage/property_manage",
+			"style": {
+				"navigationBarTitleText": "房源管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/property_manage/property_edit",
+			"style": {
+				"navigationBarTitleText": "编辑房源",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/agent_workbench_home/agent_workbench_home",
 			"style": {
 				"navigationBarTitleText": "工作台",

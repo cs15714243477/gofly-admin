@@ -155,10 +155,6 @@
                            <div class="value">{{ formatMoney(detailData.receiver_price) }}</div>
                          </div>
                          <div class="info-item">
-                           <label>维护人ID</label>
-                           <div class="value">#{{ detailData.agent_id || '-' }}</div>
-                         </div>
-                         <div class="info-item">
                            <label>浏览热度</label>
                            <div class="value highlight">{{ detailData.view_count || 0 }}</div>
                          </div>
@@ -287,6 +283,19 @@
                             height="100%"
                             fit="cover"
                          />
+                        <div class="img-actions" v-if="allowImageDownload">
+                          <a-tooltip content="下载图片" position="tr">
+                            <a-button
+                              class="download-btn"
+                              type="primary"
+                              size="mini"
+                              shape="circle"
+                              @click.stop="downloadUrl(getImageUrl(img), `${detailData.title || '房源'}-图片-${idx + 1}.jpg`)"
+                            >
+                              <template #icon><icon-download /></template>
+                            </a-button>
+                          </a-tooltip>
+                        </div>
                       </div>
                    </div>
                 </a-image-preview-group>
@@ -294,7 +303,25 @@
               </div>
            </a-tab-pane>
 
-          <a-tab-pane key="3" title="装修进度">
+          <a-tab-pane key="3" title="房源视频">
+            <div class="video-wrapper">
+              <div class="video-card" v-if="videoSrc">
+                <video class="video-player" :src="videoSrc" controls :poster="getImageUrl(detailData.cover_image)" />
+                <div class="video-actions">
+                  <a-space size="mini">
+                    <a-link :href="videoSrc" target="_blank">新窗口打开</a-link>
+                    <a-button v-if="allowVideoDownload" size="mini" @click="downloadUrl(videoSrc, `${detailData.title || '房源'}-视频.mp4`)">
+                      <template #icon><icon-download /></template>
+                      下载
+                    </a-button>
+                  </a-space>
+                </div>
+              </div>
+              <a-empty v-else description="暂无视频" />
+            </div>
+          </a-tab-pane>
+
+          <a-tab-pane key="4" title="装修进度">
              <div class="renovation-timeline" v-if="renovationData?.renovation_status">
                 <div class="timeline-header">
                    <div class="status-badge" :class="renovationData.renovation_status">
@@ -651,6 +678,18 @@ export default defineComponent({
 
     const tagList = computed(() => parseTags(detailData.value?.tags));
 
+    const allowImageDownload = computed(() => {
+      const v = detailData.value?.allow_image_download;
+      if (v === null || v === undefined || v === '') return true;
+      return Number(v) === 1;
+    });
+
+    const allowVideoDownload = computed(() => {
+      const v = detailData.value?.allow_video_download;
+      if (v === null || v === undefined || v === '') return true;
+      return Number(v) === 1;
+    });
+
     const galleryImages = computed(() => {
       const list: string[] = [];
       const cover = (detailData.value?.cover_image || '').toString().trim();
@@ -659,6 +698,32 @@ export default defineComponent({
       list.push(...imgs);
       return [...new Set(list)].filter(Boolean);
     });
+
+    const videoSrc = computed(() => {
+      const v = (detailData.value?.video_url || '').toString().trim();
+      if (!v) return '';
+      return getImageUrl(v);
+    });
+
+    const downloadUrl = async (url: string, filename: string) => {
+      const href = (url || '').toString().trim();
+      if (!href) return;
+      try {
+        const resp = await fetch(href, { credentials: 'include' });
+        if (!resp.ok) throw new Error('下载失败');
+        const blob = await resp.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename || 'download';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 800);
+      } catch (e) {
+        window.open(href, '_blank');
+      }
+    };
 
     const priceAmountText = computed(() => {
       const v = detailData.value?.price;
@@ -704,7 +769,8 @@ export default defineComponent({
 
     return {
       registerModal, loading, detailData, renovationData, modelHeight, onHeightChange,
-      windHeight, getImageUrl, parseTags, tagList, galleryImages, priceAmountText, pricePerSquareText, getSaleStatusLabel,
+      windHeight, getImageUrl, parseTags, tagList, galleryImages, allowImageDownload, allowVideoDownload, videoSrc, downloadUrl,
+      priceAmountText, pricePerSquareText, getSaleStatusLabel,
       getRenovationStatusLabel, getBatteryClass, lockLoading, lockInfo, openBindLock,
       handleUnbind, handleRemoteUnlock, openCloudDetail, reloadLockInfo, formatTime,
       registerBindLockModal, cloudVisible, cloudLoading, cloudDetail, closeModal,
@@ -728,6 +794,50 @@ export default defineComponent({
   background: var(--color-bg-1);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.gallery-wrapper {
+  .grid-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .img-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+  }
+
+  .download-btn {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.video-wrapper {
+  padding: 16px 20px 20px;
+}
+
+.video-card {
+  border: 1px solid var(--color-border-2);
+  background: var(--color-bg-2);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.video-player {
+  width: 100%;
+  height: 420px;
+  border-radius: 10px;
+  background: #000;
+  object-fit: contain;
+}
+
+.video-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 /* Header Section */
@@ -1141,14 +1251,14 @@ export default defineComponent({
 
 .detail-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   align-items: start;
 }
 
 .detail-bottom-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   align-items: start;
 }

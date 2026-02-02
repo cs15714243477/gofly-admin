@@ -4,8 +4,8 @@
     @register="registerModal"
     :isPadding="false"
     :loading="loading"
-    :width="800"
-    :height="900"
+    :width="860"
+    :height="760"
     :title="getTitle"
     :showOkBtn="false"
     :showCancelBtn="false"
@@ -88,6 +88,15 @@
               </a-switch>
             </a-form-item>
           </a-col>
+
+          <a-col :span="12">
+            <a-form-item field="can_manage_properties" label="可维护房源" tooltip="开启后，该经纪人可维护房源（默认不可维护）">
+              <a-switch v-model="formData.can_manage_properties" :checked-value="1" :unchecked-value="0" type="round">
+                <template #checked>可维护</template>
+                <template #unchecked>不可维护</template>
+              </a-switch>
+            </a-form-item>
+          </a-col>
         </a-row>
       </a-form>
 
@@ -129,6 +138,8 @@ export default defineComponent({
       mobile: '',
       // 角色固定为 1（不在界面展示）
       role: 1,
+      // 默认不可维护房源
+      can_manage_properties: 0,
       store_id: undefined as any,
       title: '',
       introduction: '',
@@ -216,6 +227,7 @@ export default defineComponent({
         // 数字字段兜底
         formData.value.store_id = Number(formData.value.store_id) || undefined;
         formData.value.status = Number(formData.value.status) || 0;
+        formData.value.can_manage_properties = Number((formData.value as any).can_manage_properties) || 0;
         await ensureStoreSelectedOption(formData.value.store_id);
         setLoading(false);
       }
@@ -250,6 +262,7 @@ export default defineComponent({
         formData.value.role = 1;
         // select 可能回传 string，统一转成 number
         formData.value.store_id = Number(formData.value.store_id) || 0;
+        formData.value.can_manage_properties = Number(formData.value.can_manage_properties) || 0;
         await save(cloneDeep(unref(formData)));
         Message.success({ content: '提交成功', id: 'broker_save', duration: 1500 });
         closeModal();
@@ -304,4 +317,3 @@ export default defineComponent({
   color: var(--color-text-3);
 }
 </style>
-

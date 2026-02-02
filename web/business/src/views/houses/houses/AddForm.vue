@@ -283,6 +283,16 @@
                       <div class="sub">非必填，可用于地图展示/附近推荐</div>
                     </div>
                     <div class="section-body">
+                      <div class="coord-actions">
+                        <a-space>
+                          <a-button size="small" @click="openMapPicker">
+                            <template #icon><icon-location /></template>
+                            地图选点
+                          </a-button>
+                          <a-button size="small" @click="clearLatLng">清空</a-button>
+                          <span class="coord-tip">选点后自动回填经纬度（保留 6 位小数）</span>
+                        </a-space>
+                      </div>
                       <a-row :gutter="24">
                         <a-col :span="12">
                           <a-form-item field="longitude" label="经度 (Lng)">
@@ -301,6 +311,14 @@
                       </a-row>
                     </div>
                  </div>
+
+                 <LatLngPickerModal
+                   v-model:visible="mapPickerVisible"
+                   :latitude="formData.latitude"
+                   :longitude="formData.longitude"
+                   @confirm="handleMapPicked"
+                   @clear="clearLatLng"
+                 />
 
                   <!-- Section: 图片与标签 -->
                   <div class="form-section" v-show="wizardStep === 2">
@@ -336,11 +354,33 @@
                            </a-form-item>
                          </a-col>
                          <a-col :span="24">
+                           <a-form-item field="video_url" label="房源视频">
+                             <FormVideoBox v-model="formData.video_url" />
+                           </a-form-item>
+                         </a-col>
+                         <a-col :span="12">
+                           <a-form-item field="allow_image_download" label="图片允许下载" class="mb-0">
+                             <a-switch v-model="formData.allow_image_download" :checked-value="1" :unchecked-value="0" type="round">
+                               <template #checked>允许</template>
+                               <template #unchecked>不允许</template>
+                             </a-switch>
+                             <div class="switch-tip">封面 + 图集统一开关</div>
+                           </a-form-item>
+                         </a-col>
+                         <a-col :span="12">
+                           <a-form-item field="allow_video_download" label="视频允许下载" class="mb-0">
+                             <a-switch v-model="formData.allow_video_download" :checked-value="1" :unchecked-value="0" type="round">
+                               <template #checked>允许</template>
+                               <template #unchecked>不允许</template>
+                             </a-switch>
+                           </a-form-item>
+                         </a-col>
+                         <a-col :span="24">
                            <a-form-item field="images" label="详细图集">
                              <FormImagesBox v-model="formData.images" />
                            </a-form-item>
-                        </a-col>
-                      </a-row>
+                         </a-col>
+                       </a-row>
                     </div>
                  </div>
 
@@ -366,14 +406,6 @@
                             </a-input-number>
                           </a-form-item>
                         </a-col>
-                        <a-col :span="6">
-                          <a-form-item field="agent_id" label="维护经纪人 ID">
-                            <a-input-number v-model="formData.agent_id" :min="0" size="large">
-                              <template #prefix><icon-user /></template>
-                            </a-input-number>
-                          </a-form-item>
-                        </a-col>
-
                         <a-col :span="6">
                           <a-form-item field="weigh" label="排序权重">
                             <a-input-number v-model="formData.weigh" :min="0" size="large" />
@@ -460,32 +492,6 @@
               </div>
             </div>
 
-            <div class="wizard-footer">
-              <a-space size="medium" class="footer-actions">
-                <a-button size="large" type="outline" @click="closeModal">关闭</a-button>
-                <a-button v-if="wizardStep > 0" size="large" type="secondary" @click="handleWizardPrev">上一步</a-button>
-                <a-button
-                  v-if="wizardStep < 3"
-                  type="primary"
-                  size="large"
-                  :loading="basicLoading"
-                  @click="handleWizardNext"
-                >
-                  <template #icon><icon-right /></template>
-                  {{ wizardStep === 0 ? (formData.id ? '下一步' : '保存草稿并继续') : '下一步' }}
-                </a-button>
-                <a-button
-                  v-else
-                  type="primary"
-                  size="large"
-                  :loading="basicLoading"
-                  @click="handleWizardFinish"
-                >
-                  <template #icon><icon-save /></template>
-                  完成保存
-                </a-button>
-              </a-space>
-            </div>
           </div>
         </a-tab-pane>
 
@@ -558,17 +564,71 @@
                          </a-row>
                       </div>
                    </div>
-                   
-                   <div class="form-actions">
-                      <a-button type="primary" size="large" :loading="renovationLoading" @click="handleSaveRenovation" long>
-                         <template #icon><icon-save /></template>
-                         更新装修记录
-                      </a-button>
-                   </div>
             </a-form>
           </div>
         </a-tab-pane>
       </a-tabs>
+
+      <!-- 底部操作栏：居中 + 圆角（每个页面都一致） -->
+      <div class="pro-sticky-footer">
+        <div class="footer-card">
+          <a-space size="medium" class="footer-actions" align="center">
+            <a-button size="large" shape="round" type="outline" @click="closeModal">关闭</a-button>
+
+            <template v-if="activeTab === 'basic'">
+              <a-button
+                v-if="formData.id"
+                size="large"
+                shape="round"
+                type="secondary"
+                :loading="basicLoading"
+                @click="handleQuickSave"
+              >
+                <template #icon><icon-save /></template>
+                保存
+              </a-button>
+              <a-button v-if="wizardStep > 0" size="large" shape="round" type="secondary" @click="handleWizardPrev">上一步</a-button>
+              <a-button
+                v-if="wizardStep < 3"
+                type="primary"
+                size="large"
+                shape="round"
+                :loading="basicLoading"
+                @click="handleWizardNext"
+              >
+                <template #icon><icon-right /></template>
+                {{ wizardStep === 0 ? (formData.id ? '下一步' : '保存草稿并继续') : '下一步' }}
+              </a-button>
+              <a-button
+                v-else
+                type="primary"
+                size="large"
+                shape="round"
+                :loading="basicLoading"
+                @click="handleWizardFinish"
+              >
+                <template #icon><icon-save /></template>
+                完成保存
+              </a-button>
+            </template>
+
+            <template v-else>
+              <a-button size="large" shape="round" type="secondary" @click="goToBasicTab">返回房源信息</a-button>
+              <a-button
+                size="large"
+                shape="round"
+                type="primary"
+                :loading="renovationLoading"
+                :disabled="!formData.id"
+                @click="handleSaveRenovation"
+              >
+                <template #icon><icon-save /></template>
+                保存装修记录
+              </a-button>
+            </template>
+          </a-space>
+        </div>
+      </div>
     </div>
   </BasicModal>
 </template>
@@ -583,10 +643,12 @@ import { save, getContent, getRenovation, saveRenovation, getAreaMoreList } from
 import { Message } from '@arco-design/web-vue';
 import FormImageBox from '@/components/autoPlugin/Form/FormImageBox.vue';
 import FormImagesBox from '@/components/autoPlugin/Form/FormImagesBox.vue';
+import FormVideoBox from '@/components/autoPlugin/Form/FormVideoBox.vue';
+import LatLngPickerModal from '@/components/Map/LatLngPickerModal.vue';
 
 export default defineComponent({
   name: 'HousesAddForm',
-  components: { BasicModal, FormImageBox, FormImagesBox },
+  components: { BasicModal, FormImageBox, FormImagesBox, FormVideoBox, LatLngPickerModal },
   emits: ['success'],
   setup(_, { emit }) {
     const isUpdate = ref(false);
@@ -628,6 +690,9 @@ export default defineComponent({
       tags: [] as string[],
       images: '',
       cover_image: '',
+      video_url: '',
+      allow_image_download: 1,
+      allow_video_download: 1,
       has_smart_lock: 0,
       commission_rate: 0,
       commission_reward: 0,
@@ -635,8 +700,7 @@ export default defineComponent({
       owner_phone: '',
       receiver_name: '',
       receiver_phone: '',
-      receiver_price: null as any,
-      agent_id: 0,
+      receiver_price: 0,
       sale_status: 'on_sale',
       hot_status: 0,
       status: 0,
@@ -661,6 +725,25 @@ export default defineComponent({
     const renovationData = ref<any>(cloneDeep(baseRenovationData));
 
     const isRenovationNone = computed(() => renovationData.value.renovation_status === 'none');
+
+    // 地图选点：回填经纬度
+    const mapPickerVisible = ref(false);
+    const openMapPicker = () => {
+      mapPickerVisible.value = true;
+    };
+    const clearLatLng = () => {
+      formData.value.latitude = '';
+      formData.value.longitude = '';
+    };
+    const handleMapPicked = (payload: any) => {
+      if (!payload) return;
+      formData.value.longitude = payload.longitude || '';
+      formData.value.latitude = payload.latitude || '';
+    };
+
+    const goToBasicTab = () => {
+      activeTab.value = 'basic';
+    };
     const isRenovationInProgress = computed(() => renovationData.value.renovation_status === 'in_progress');
     const isRenovationDone = computed(() => renovationData.value.renovation_status === 'done');
     const showRenovationProgress = computed(() => !isRenovationNone.value);
@@ -961,11 +1044,11 @@ export default defineComponent({
           formData.value.total_floors = toNumber(contentData.total_floors);
           formData.value.commission_rate = toNumber(contentData.commission_rate);
           formData.value.commission_reward = toNumber(contentData.commission_reward);
-          formData.value.agent_id = toNumber(contentData.agent_id);
           formData.value.weigh = toNumber(contentData.weigh);
           formData.value.hot_status = toNumber(contentData.hot_status);
           formData.value.status = toNumber(contentData.status);
           formData.value.has_smart_lock = toNumber(contentData.has_smart_lock);
+          formData.value.receiver_price = toNumber(contentData.receiver_price);
           formData.value.build_year = contentData.build_year ? String(contentData.build_year) : '';
           // 3. tags 兼容（列表接口可能返回逗号分隔字符串）
           formData.value.tags = normalizeTagsArray((contentData as any)?.tags);
@@ -1152,6 +1235,43 @@ export default defineComponent({
       }
     };
 
+    // 编辑模式：任意步骤都可保存（不跳转、不关闭）
+    const handleQuickSave = async () => {
+      if (basicLoading.value) return;
+      // 兜底：没有ID则先创建草稿
+      if (!formData.value.id) {
+        const ok = await handleSaveDraft();
+        if (!ok) return;
+      }
+      const inst: any = formRef.value as any;
+      const err = inst?.validateField
+        ? await inst.validateField([...basicStepFields, ...mediaStepFields] as unknown as string[])
+        : await inst?.validate?.();
+      if (err) {
+        const msg = getFirstValidateMessage(err);
+        formError.value = msg;
+        const firstField = Object.keys(err || {})[0];
+        if (firstField && typeof inst?.scrollToField === 'function') {
+          try {
+            inst.scrollToField(firstField);
+          } catch {}
+        }
+        Message.error(msg);
+        return;
+      }
+      try {
+        setBasicLoading(true);
+        const postData = buildPostData();
+        await save(postData);
+        Message.success('保存成功');
+        emit('success');
+      } catch (e: any) {
+        Message.error(e?.message || '保存失败');
+      } finally {
+        setBasicLoading(false);
+      }
+    };
+
     const handleWizardJump = async (target: number) => {
       if (basicLoading.value) return;
       if (target === wizardStep.value) return;
@@ -1233,6 +1353,12 @@ export default defineComponent({
       positiveNumberRule,
       getSaleStatusLabel,
       wizardStep,
+      mapPickerVisible,
+      openMapPicker,
+      clearLatLng,
+      handleMapPicked,
+      goToBasicTab,
+      handleQuickSave,
       handleWizardPrev,
       handleWizardNext,
       handleWizardFinish,
@@ -1251,6 +1377,23 @@ export default defineComponent({
 .add-form-container {
    background: var(--color-bg-2);
    padding: 0;
+   display: flex;
+   flex-direction: column;
+}
+
+.coord-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.coord-tip {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.pro-tabs {
+  flex: 1;
+  min-height: 0;
 }
 
 .pro-modal {
@@ -1331,20 +1474,44 @@ export default defineComponent({
     top: auto;
   }
 
-  .wizard-footer {
-    padding: 10px 20px 12px;
-  }
+}
+
+.pro-sticky-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  padding: 14px 0 18px;
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.88) 34%,
+    rgba(255, 255, 255, 0.98)
+  );
+  border-top: 1px solid rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(8px);
+}
+
+.footer-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-border-2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+}
+
+.footer-actions :deep(.arco-btn) {
+  min-width: 108px;
 }
 
 @media (max-width: 768px) {
   .form-content {
     padding: 6px 16px 14px;
-  }
-
-  .wizard-footer .footer-actions {
-    width: 100%;
-    justify-content: flex-end;
-    flex-wrap: wrap;
   }
 }
 
@@ -1457,22 +1624,6 @@ export default defineComponent({
   }
 }
 
-.wizard-footer {
-  padding: 10px 24px 12px;
-  border-top: 1px solid var(--color-border-2);
-  background: var(--color-bg-1);
-  display: flex;
-  justify-content: flex-end;
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-}
-
-.wizard-footer .footer-actions {
-  :deep(.arco-btn) {
-    min-width: 110px;
-  }
-}
 
 .inline-section-head {
   margin: 2px 0 10px;
@@ -1561,15 +1712,6 @@ export default defineComponent({
       height: 20px;
       background: var(--color-border-2);
    }
-}
-
-/* Actions */
-.form-actions {
-   margin-top: 32px;
-   border-top: 1px dashed var(--color-border-2);
-   padding-top: 24px;
-   display: flex;
-   justify-content: center;
 }
 
 .mb-0 { :deep(.arco-form-item) { margin-bottom: 0; } }

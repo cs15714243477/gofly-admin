@@ -46,6 +46,7 @@ export interface DataItem {
     mobile?: string;
     email?: string;
     role?: string;
+    can_manage_properties?: number;
     store_id?: number;
     title?: string;
     status?: number;

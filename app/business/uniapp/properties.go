@@ -123,22 +123,20 @@ func (api *Properties) GetList(c *gf.GinCtx) {
 		more = parseStringSlice(c.Query("more"))
 	}
 
-	// 小程序端按“当前经纪人（business_user.id）”维度展示房源更符合业务：
-	// business_properties.agent_id 维护经纪人ID = business_user.id
-	// 若未登录（极少数场景）则回退到 business_id 维度。
+	// 说明：
+	// 1) 小程序端默认按 business_id 维度展示房源（避免 agent_id 未分配导致列表/标签为空）
+	// 2) 当 category=mine 且已登录时，再叠加 agent_id=userID 过滤
 	MDB := gf.Model("business_properties").
 		Where("deletetime", nil).
-		Where("status", 0)
+		Where("status", 0).
+		Where("business_id", businessID)
 
 	// 分类
 	switch category {
 	case "mine":
 		if userID > 0 {
 			MDB = MDB.Where("agent_id", userID)
-		} else {
-			MDB = MDB.Where("business_id", businessID)
 		}
-		// 兼容：已按 agent_id 限定，无需额外处理
 	case "school":
 		MDB = MDB.Where("tags like ?", "%学区房%")
 	case "price_drop":
@@ -386,21 +384,17 @@ func (api *Properties) GetFilterOptions(c *gf.GinCtx) {
 		category = strings.TrimSpace(gconv.String(param["category"]))
 	}
 
-	// 小程序端筛选项也按“当前经纪人（business_user.id）”维度统计
+	// 小程序端筛选项默认按 business_id 维度统计；category=mine 时叠加 agent_id 过滤
 	MDB := gf.Model("business_properties").
 		Where("deletetime", nil).
-		Where("status", 0)
-	if userID > 0 {
-		MDB = MDB.Where("agent_id", userID)
-	} else {
-		MDB = MDB.Where("business_id", businessID)
-	}
+		Where("status", 0).
+		Where("business_id", businessID)
 
 	// 分类（与列表一致，便于筛选项联动）
 	switch category {
 	case "mine":
 		if userID > 0 {
-			// 兼容：已按 agent_id 限定，无需额外处理
+			MDB = MDB.Where("agent_id", userID)
 		}
 	case "school":
 		MDB = MDB.Where("tags like ?", "%学区房%")

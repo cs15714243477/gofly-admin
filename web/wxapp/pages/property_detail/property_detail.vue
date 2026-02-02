@@ -31,12 +31,34 @@
           :indicator-dots="false"
           @change="swiperChange"
         >
-          <swiper-item v-for="(item, index) in images" :key="index">
-            <image :src="item" mode="aspectFill" class="banner-image"></image>
+          <swiper-item v-for="(item, index) in bannerItems" :key="index">
+            <video
+              v-if="item.type === 'video'"
+              :src="item.src"
+              :poster="videoPoster"
+              class="banner-video"
+              controls
+              show-center-play-btn
+              object-fit="cover"
+              playsinline
+              enable-progress-gesture
+            ></video>
+            <image
+              v-else
+              :src="item.src"
+              mode="aspectFill"
+              class="banner-image"
+            ></image>
           </swiper-item>
         </swiper>
+        <view class="banner-actions" v-if="showDownloadBtn" @click.stop="downloadCurrent">
+          <view class="dl-pill">
+            <text class="material-symbols-outlined dl-icon">download</text>
+            <text class="dl-text">{{ downloadLabel }}</text>
+          </view>
+        </view>
         <view class="banner-indicator"
-          >{{ images.length ? currentSwiper + 1 : 0 }}/{{ images.length }}</view
+          >{{ bannerItems.length ? currentSwiper + 1 : 0 }}/{{ bannerItems.length }}</view
         >
       </view>
 
@@ -317,8 +339,24 @@
               >
             </view>
           </view>
-          <view class="map-box" @click="openMap">
+      <view class="map-box" @click="openMap">
+            <map
+              v-if="hasLocation"
+              class="map-native"
+              :latitude="mapLat"
+              :longitude="mapLng"
+              :scale="16"
+              :markers="mapMarkers"
+              :enable-zoom="false"
+              :enable-scroll="false"
+              :enable-rotate="false"
+              :enable-overlooking="false"
+              :enable-satellite="false"
+              :show-location="false"
+              @tap="openMap"
+            ></map>
             <image
+              v-else
               src="/static/images/img_fdb9c430df.png"
               mode="aspectFill"
               class="map-image"
@@ -329,6 +367,9 @@
                   >location_on</text
                 >
                 <text>{{ mapPinText() }}</text>
+              </view>
+              <view class="map-coords" v-if="hasLocation">
+                <text class="coord-text">{{ mapLng.toFixed(6) }}, {{ mapLat.toFixed(6) }}</text>
               </view>
             </view>
           </view>
@@ -426,6 +467,17 @@ export default {
         "/static/images/img_cdc09ae543.png",
         "/static/images/img_cdc09ae543.png",
       ],
+      bannerItems: [
+        { type: "image", src: "/static/images/img_cdc09ae543.png" },
+        { type: "image", src: "/static/images/img_cdc09ae543.png" },
+      ],
+      videoUrl: "",
+      videoPoster: "/static/images/img_cdc09ae543.png",
+      allowImageDownload: true,
+      allowVideoDownload: true,
+      mapLat: 0,
+      mapLng: 0,
+      mapMarkers: [],
 
       attributes: [
         { label: "单价", value: "9,086元/m²" },
@@ -525,6 +577,25 @@ export default {
       return;
     }
     this.loadDetail();
+  },
+  computed: {
+    showDownloadBtn() {
+      const item = this.getCurrentBannerItem();
+      if (!item) return false;
+      if (item.type === "video") return !!this.allowVideoDownload;
+      if (item.type === "image") return !!this.allowImageDownload;
+      return false;
+    },
+    downloadLabel() {
+      const item = this.getCurrentBannerItem();
+      if (!item) return "下载";
+      return item.type === "video" ? "下载视频" : "下载图片";
+    },
+    hasLocation() {
+      const lat = Number(this.mapLat);
+      const lng = Number(this.mapLng);
+      return !!lat && !!lng && isFinite(lat) && isFinite(lng);
+    },
   },
   methods: {
     tagClass(tag) {
@@ -638,6 +709,14 @@ export default {
       this.hasSmartLock = Number(p.has_smart_lock) === 1;
       this.ownerPhone = String(p.owner_phone || "").trim();
 
+      // 下载权限（后端默认：1 允许）
+      this.allowImageDownload = Number(p.allow_image_download) !== 0;
+      this.allowVideoDownload = Number(p.allow_video_download) !== 0;
+
+      // 视频（单个）
+      this.videoUrl = String(p.video_url || "").trim();
+      this.videoPoster = String(p.cover_image || "").trim();
+
       const imgs = Array.isArray(data.images)
         ? data.images
         : Array.isArray(p.images)
@@ -645,6 +724,30 @@ export default {
         : [];
       if (imgs.length > 0) this.images = imgs;
       this.currentSwiper = 0;
+
+      // Banner：优先展示视频（若存在）
+      const items = [];
+      if (this.videoUrl) items.push({ type: "video", src: this.videoUrl });
+      (this.images || []).forEach((u) => items.push({ type: "image", src: u }));
+      this.bannerItems = items;
+
+      // 地图坐标（小程序 map 组件）
+      const lat = Number(p.latitude);
+      const lng = Number(p.longitude);
+      this.mapLat = isFinite(lat) ? lat : 0;
+      this.mapLng = isFinite(lng) ? lng : 0;
+      this.mapMarkers =
+        this.mapLat && this.mapLng
+          ? [
+              {
+                id: 1,
+                latitude: this.mapLat,
+                longitude: this.mapLng,
+                width: 26,
+                height: 26,
+              },
+            ]
+          : [];
 
       this.attributes = this.buildAttributes(p);
 
@@ -708,6 +811,95 @@ export default {
     },
     swiperChange(e) {
       this.currentSwiper = e.detail.current;
+    },
+    getCurrentBannerItem() {
+      const list = Array.isArray(this.bannerItems) ? this.bannerItems : [];
+      const idx = Number(this.currentSwiper) || 0;
+      return list[idx] || null;
+    },
+
+    // 申请相册权限（用于保存图片/视频）
+    ensureAlbumPermission() {
+      return new Promise((resolve, reject) => {
+        uni.getSetting({
+          success: (st) => {
+            const ok =
+              st && st.authSetting && st.authSetting["scope.writePhotosAlbum"];
+            if (ok) return resolve(true);
+            uni.authorize({
+              scope: "scope.writePhotosAlbum",
+              success: () => resolve(true),
+              fail: () => {
+                uni.showModal({
+                  title: "需要相册权限",
+                  content: "保存到相册需要授权，请在设置中开启相册权限。",
+                  confirmText: "去设置",
+                  success: (r) => {
+                    if (r.confirm) {
+                      uni.openSetting({
+                        success: () => resolve(true),
+                        fail: () => reject(false),
+                      });
+                    } else {
+                      reject(false);
+                    }
+                  },
+                });
+              },
+            });
+          },
+          fail: () => reject(false),
+        });
+      });
+    },
+
+    async downloadCurrent() {
+      const item = this.getCurrentBannerItem();
+      if (!item) return;
+      if (item.type === "video" && !this.allowVideoDownload) return;
+      if (item.type === "image" && !this.allowImageDownload) return;
+
+      try {
+        await this.ensureAlbumPermission();
+      } catch (e) {
+        return;
+      }
+
+      const url = String(item.src || "").trim();
+      if (!url) return;
+      uni.showLoading({ title: "下载中..." });
+      uni.downloadFile({
+        url,
+        success: (d) => {
+          const fp = d && d.tempFilePath;
+          if (!fp) {
+            uni.hideLoading();
+            uni.showToast({ title: "下载失败", icon: "none" });
+            return;
+          }
+          if (item.type === "video") {
+            uni.saveVideoToPhotosAlbum({
+              filePath: fp,
+              success: () =>
+                uni.showToast({ title: "已保存视频", icon: "success" }),
+              fail: () => uni.showToast({ title: "保存失败", icon: "none" }),
+              complete: () => uni.hideLoading(),
+            });
+          } else {
+            uni.saveImageToPhotosAlbum({
+              filePath: fp,
+              success: () =>
+                uni.showToast({ title: "已保存图片", icon: "success" }),
+              fail: () => uni.showToast({ title: "保存失败", icon: "none" }),
+              complete: () => uni.hideLoading(),
+            });
+          }
+        },
+        fail: () => {
+          uni.hideLoading();
+          uni.showToast({ title: "下载失败", icon: "none" });
+        },
+      });
     },
     handleShare() {
       const title =
@@ -934,6 +1126,41 @@ export default {
   .banner-image {
     width: 100%;
     height: 100%;
+  }
+
+  .banner-video {
+    width: 100%;
+    height: 100%;
+  }
+
+  .banner-actions {
+    position: absolute;
+    bottom: 64rpx;
+    left: 32rpx;
+    z-index: 3;
+  }
+
+  .dl-pill {
+    display: flex;
+    align-items: center;
+    gap: 10rpx;
+    padding: 12rpx 18rpx;
+    border-radius: 999rpx;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(10rpx);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.18);
+  }
+
+  .dl-icon {
+    font-size: 34rpx;
+    color: #0f766e;
+  }
+
+  .dl-text {
+    font-size: 24rpx;
+    font-weight: 700;
+    color: #0f172a;
   }
 
   .banner-indicator {
@@ -1519,6 +1746,11 @@ export default {
   overflow: hidden;
   position: relative;
 
+  .map-native {
+    width: 100%;
+    height: 100%;
+  }
+
   .map-image {
     width: 100%;
     height: 100%;
@@ -1549,6 +1781,23 @@ export default {
       .pin-icon {
         color: #2d9cf0;
         font-size: 28rpx;
+      }
+    }
+
+    .map-coords {
+      position: absolute;
+      bottom: 16rpx;
+      right: 16rpx;
+      padding: 8rpx 14rpx;
+      border-radius: 999rpx;
+      background-color: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.14);
+      .coord-text {
+        font-size: 20rpx;
+        color: #0f172a;
+        font-weight: 600;
       }
     }
   }

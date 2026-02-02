@@ -204,7 +204,7 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 // 《获取用户信息》
 func (api *Index) GetUserinfo(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
-	userdata, err := gf.Model("business_user").Fields("id,business_id,username,name,nickname,mobile,email,avatar,sex,role,store_id,title,status,createtime,updatetime").Where("id", userID).Where("deletetime", nil).Find()
+	userdata, err := gf.Model("business_user").Fields("id,business_id,username,name,nickname,mobile,email,avatar,sex,role,store_id,title,can_manage_properties,status,createtime,updatetime").Where("id", userID).Where("deletetime", nil).Find()
 	if err != nil {
 		gf.Failed().SetMsg("查找用户数据错误：" + err.Error()).Regin(c)
 		return
