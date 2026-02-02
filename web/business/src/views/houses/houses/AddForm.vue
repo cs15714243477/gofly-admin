@@ -4,7 +4,7 @@
     @register="registerModal"
     :isPadding="false"
     :loading="loading"
-    width="1200px"
+    width="min(1380px, 98vw)"
     @height-change="onHeightChange"
     :minHeight="modelHeight"
     :height="modelHeight"
@@ -21,22 +21,47 @@
              <span class="tab-label"><icon-home /> 房源信息</span>
           </template>
           <div class="wizard-layout">
-            <div class="wizard-steps">
-              <a-steps type="arrow" :current="wizardStep" class="wizard-steps-bar">
-                <a-step class="step-required" description="必填信息 + 生成草稿ID">必填基础</a-step>
-                <a-step description="户型/楼层/物业等可选信息">位置&配套</a-step>
-                <a-step description="房源图集与特色标签">图片&标签</a-step>
-                <a-step description="佣金/推荐/启用等发布信息">销售&发布</a-step>
-              </a-steps>
-              <div class="wizard-steps-extra">
-                <a-tag v-if="formData.id" color="blue">草稿ID：#{{ formData.id }}</a-tag>
-                <a-tag v-else color="gray">未生成ID</a-tag>
-              </div>
-            </div>
-
             <div class="form-shell">
+              <!-- Left: 快速导航（顶部与右侧重复，统一放左侧） -->
+              <div class="form-nav">
+                <div class="side-stack">
+                  <div class="side-card nav-card">
+                    <div class="nav-head">
+                      <div class="side-title">快速导航</div>
+                      <a-tag v-if="formData.id" color="blue">#{{ formData.id }}</a-tag>
+                      <a-tag v-else color="gray">未生成ID</a-tag>
+                    </div>
+                    <a-progress
+                      :percent="(wizardStep + 1) / 4"
+                      size="mini"
+                      :show-text="false"
+                      class="nav-progress"
+                    />
+                    <a-steps direction="vertical" size="small" :current="wizardStep + 1" class="side-steps">
+                      <a-step @click="handleWizardJump(0)" title="必填基础" description="必填信息 + 生成草稿ID" />
+                      <a-step @click="handleWizardJump(1)" title="位置&配套" description="户型/楼层/物业等可选信息" />
+                      <a-step @click="handleWizardJump(2)" title="图片&标签" description="房源图集与特色标签" />
+                      <a-step @click="handleWizardJump(3)" title="销售&发布" description="佣金/推荐/启用等发布信息" />
+                    </a-steps>
+                    <div class="nav-tip">提示：点击第 2-4 步会先创建草稿。</div>
+                  </div>
+                </div>
+              </div>
+
               <div class="form-main">
                 <div class="form-content">
+                  <a-alert
+                    v-if="formError"
+                    type="error"
+                    show-icon
+                    closable
+                    role="alert"
+                    class="form-error-alert"
+                    @close="formError = ''"
+                  >
+                    <template #title>请完善必填项</template>
+                    {{ formError }}
+                  </a-alert>
                   <a-form ref="formRef" :model="formData" auto-label-width layout="vertical" class="pro-form">
                  
                 <!-- Section: 核心属性 -->
@@ -251,37 +276,10 @@
                       </a-row>
                    </div>
                  </div>
-                 
-                 <!-- Section: 发布信息（必填） -->
-                 <div class="form-section" v-show="wizardStep === 0">
-                    <div class="section-header">
-                       <div class="title">发布信息</div>
-                       <div class="sub">第一步会创建草稿ID（用于装修/门锁等绑定）</div>
-                    </div>
-                    <div class="section-body">
-                      <a-row :gutter="24">
-                        <a-col :span="8">
-                          <a-form-item field="sale_status" label="销售状态" :rules="[requiredRule('请选择销售状态')]">
-                            <a-select v-model="formData.sale_status" size="large">
-                              <a-option value="on_sale"><a-badge status="success" text="在售" /></a-option>
-                              <a-option value="sold"><a-badge status="normal" text="已售" /></a-option>
-                              <a-option value="off_market"><a-badge status="warning" text="下架" /></a-option>
-                            </a-select>
-                          </a-form-item>
-                        </a-col>
-                        <a-col :span="16">
-                          <a-form-item field="cover_image" label="封面主图" :rules="[requiredRule('请上传封面主图')]">
-                            <FormImageBox v-model="formData.cover_image" />
-                          </a-form-item>
-                        </a-col>
-                      </a-row>
-                    </div>
-                 </div>
-
-                 <!-- Section: 地图坐标（可选） -->
-                 <div class="form-section" v-show="wizardStep === 1">
-                    <div class="section-header">
-                      <div class="title">地图坐标</div>
+                  <!-- Section: 地图坐标（可选） -->
+                  <div class="form-section" v-show="wizardStep === 1">
+                     <div class="section-header">
+                       <div class="title">地图坐标</div>
                       <div class="sub">非必填，可用于地图展示/附近推荐</div>
                     </div>
                     <div class="section-body">
@@ -304,23 +302,43 @@
                     </div>
                  </div>
 
-                 <!-- Section: 图片与标签 -->
-                 <div class="form-section" v-show="wizardStep === 2">
-                    <div class="section-header">
-                      <div class="title">图片与标签</div>
-                      <div class="sub">用于列表展示与客户筛选</div>
-                    </div>
-                    <div class="section-body">
-                      <a-row :gutter="24">
-                        <a-col :span="24">
-                          <a-form-item label="房源特色标签">
-                            <a-input-tag v-model="formData.tags" placeholder="输入后回车，如：随时看房、满五唯一" size="large" allow-clear />
-                          </a-form-item>
-                        </a-col>
-                        <a-col :span="24">
-                          <a-form-item field="images" label="详细图集">
-                            <FormImagesBox v-model="formData.images" />
-                          </a-form-item>
+                  <!-- Section: 图片与标签 -->
+                  <div class="form-section" v-show="wizardStep === 2">
+                     <div class="section-header">
+                       <div class="title">图片与标签</div>
+                       <div class="sub">用于列表展示与客户筛选</div>
+                     </div>
+                     <div class="section-body">
+                       <a-row :gutter="24">
+                         <a-col :span="24">
+                           <a-form-item label="房源特色标签">
+                             <a-input-tag v-model="formData.tags" placeholder="输入后回车，如：随时看房、满五唯一" size="large" allow-clear />
+                           </a-form-item>
+                         </a-col>
+                         <a-col :span="24">
+                           <div class="inline-section-head">
+                             <div class="inline-title">发布信息</div>
+                             <div class="inline-sub">第一步会创建草稿ID（用于装修/门锁等绑定）</div>
+                           </div>
+                         </a-col>
+                         <a-col :span="8">
+                           <a-form-item field="sale_status" label="销售状态" :rules="[requiredRule('请选择销售状态')]">
+                             <a-select v-model="formData.sale_status" size="large">
+                               <a-option value="on_sale"><a-badge status="success" text="在售" /></a-option>
+                               <a-option value="sold"><a-badge status="normal" text="已售" /></a-option>
+                               <a-option value="off_market"><a-badge status="warning" text="下架" /></a-option>
+                             </a-select>
+                           </a-form-item>
+                         </a-col>
+                         <a-col :span="16">
+                           <a-form-item field="cover_image" label="封面主图" :rules="[requiredRule('请上传封面主图')]">
+                             <FormImageBox v-model="formData.cover_image" />
+                           </a-form-item>
+                         </a-col>
+                         <a-col :span="24">
+                           <a-form-item field="images" label="详细图集">
+                             <FormImagesBox v-model="formData.images" />
+                           </a-form-item>
                         </a-col>
                       </a-row>
                     </div>
@@ -392,62 +410,25 @@
                             <a-alert type="info" show-icon>
                               <template #title>提交前确认</template>
                               <template #default>
-                                <span style="margin-right: 6px;">标题：</span><span class="strong">{{ formData.title || '-' }}</span>
-                                <span class="summary-sep">|</span>
-                                <span style="margin-right: 6px;">小区：</span><span class="strong">{{ formData.community_name || '-' }}</span>
-                                <span class="summary-sep">|</span>
-                                <span style="margin-right: 6px;">状态：</span><span class="strong">{{ formData.sale_status }}</span>
-                              </template>
-                            </a-alert>
-                          </div>
-                        </a-col>
-                      </a-row>
+                                 <span style="margin-right: 6px;">标题：</span><span class="strong">{{ formData.title || '-' }}</span>
+                                 <span class="summary-sep">|</span>
+                                 <span style="margin-right: 6px;">小区：</span><span class="strong">{{ formData.community_name || '-' }}</span>
+                                 <span class="summary-sep">|</span>
+                                 <span style="margin-right: 6px;">状态：</span><span class="strong">{{ getSaleStatusLabel(formData.sale_status) }}</span>
+                               </template>
+                             </a-alert>
+                           </div>
+                         </a-col>
+                       </a-row>
                     </div>
                  </div>
 
-                  </a-form>
-                </div>
-
-                <div class="wizard-footer">
-                  <a-space size="medium">
-                    <a-button type="secondary" class="gf_hover_btn-border" @click="closeModal">关闭</a-button>
-                    <a-button v-if="wizardStep > 0" @click="handleWizardPrev">上一步</a-button>
-                    <a-button
-                      v-if="wizardStep < 3"
-                      type="primary"
-                      size="large"
-                      :loading="basicLoading"
-                      @click="handleWizardNext"
-                    >
-                      <template #icon><icon-right /></template>
-                      {{ wizardStep === 0 ? (formData.id ? '下一步' : '保存草稿并继续') : '下一步' }}
-                    </a-button>
-                    <a-button
-                      v-else
-                      type="primary"
-                      size="large"
-                      :loading="basicLoading"
-                      @click="handleWizardFinish"
-                    >
-                      <template #icon><icon-save /></template>
-                      完成保存
-                    </a-button>
-                  </a-space>
-                </div>
+                   </a-form>
+                 </div>
               </div>
 
               <div class="form-side">
                 <div class="side-stack">
-                  <div class="side-card">
-                    <div class="side-title">快速导航</div>
-                    <a-steps direction="vertical" size="small" :current="wizardStep" class="side-steps">
-                      <a-step @click="wizardStep = 0" title="必填基础" />
-                      <a-step @click="wizardStep = 1" title="位置&配套" />
-                      <a-step @click="wizardStep = 2" title="图片&标签" />
-                      <a-step @click="wizardStep = 3" title="销售&发布" />
-                    </a-steps>
-                  </div>
-
                   <div class="side-card">
                     <div class="side-title">摘要</div>
                     <div class="kv">
@@ -477,6 +458,33 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="wizard-footer">
+              <a-space size="medium" class="footer-actions">
+                <a-button size="large" type="outline" @click="closeModal">关闭</a-button>
+                <a-button v-if="wizardStep > 0" size="large" type="secondary" @click="handleWizardPrev">上一步</a-button>
+                <a-button
+                  v-if="wizardStep < 3"
+                  type="primary"
+                  size="large"
+                  :loading="basicLoading"
+                  @click="handleWizardNext"
+                >
+                  <template #icon><icon-right /></template>
+                  {{ wizardStep === 0 ? (formData.id ? '下一步' : '保存草稿并继续') : '下一步' }}
+                </a-button>
+                <a-button
+                  v-else
+                  type="primary"
+                  size="large"
+                  :loading="basicLoading"
+                  @click="handleWizardFinish"
+                >
+                  <template #icon><icon-save /></template>
+                  完成保存
+                </a-button>
+              </a-space>
             </div>
           </div>
         </a-tab-pane>
@@ -587,6 +595,7 @@ export default defineComponent({
     const windHeight = ref(900);
     const formRef = ref<FormInstance>();
     const renovationFormRef = ref<FormInstance>();
+    const formError = ref('');
     const activeTab = ref('basic');
     // 录入向导步骤：0必填基础 -> 1位置&配套 -> 2图片&标签 -> 3销售&发布
     const wizardStep = ref(0);
@@ -723,6 +732,23 @@ export default defineComponent({
       if (fieldErrors?.message) return fieldErrors.message;
       return '请先完善必填项';
     };
+
+    const getSaleStatusLabel = (s: string) => {
+      const map: any = { on_sale: '在售', sold: '已售', off_market: '下架' };
+      return map[s] || s || '-';
+    };
+
+    const basicStepFields = [
+      'title',
+      'price',
+      'area',
+      'build_year',
+      'community_name',
+      'area_ids',
+      'address_detail',
+    ] as const;
+
+    const mediaStepFields = ['sale_status', 'cover_image'] as const;
 
     const areaOptions = ref<any[]>([]);
 
@@ -981,7 +1007,9 @@ export default defineComponent({
     const getTitle = computed(() => (unref(isUpdate) ? '编辑房源' : '新增房源'));
 
     const onHeightChange = (val: any) => {
+      // 跟随弹窗可用高度，尽量做到“一个窗口内完整展示”
       windHeight.value = val;
+      if (typeof val === 'number' && val > 0) modelHeight.value = val;
     };
 
     // 保存基本信息
@@ -999,9 +1027,39 @@ export default defineComponent({
     };
 
     const validateBasicStep = async () => {
-      const err = await formRef.value?.validate();
+      formError.value = '';
+      // 只校验“必填基础”字段，避免后续扩展时其它步骤必填项提前阻塞
+      const inst: any = formRef.value as any;
+      const err = inst?.validateField ? await inst.validateField(basicStepFields as unknown as string[]) : await inst?.validate?.();
       if (err) {
-        Message.error(getFirstValidateMessage(err));
+        const msg = getFirstValidateMessage(err);
+        formError.value = msg;
+        const firstField = Object.keys(err || {})[0];
+        if (firstField && typeof inst?.scrollToField === 'function') {
+          try {
+            inst.scrollToField(firstField);
+          } catch {}
+        }
+        Message.error(msg);
+        return false;
+      }
+      return true;
+    };
+
+    const validateMediaStep = async () => {
+      formError.value = '';
+      const inst: any = formRef.value as any;
+      const err = inst?.validateField ? await inst.validateField(mediaStepFields as unknown as string[]) : await inst?.validate?.();
+      if (err) {
+        const msg = getFirstValidateMessage(err);
+        formError.value = msg;
+        const firstField = Object.keys(err || {})[0];
+        if (firstField && typeof inst?.scrollToField === 'function') {
+          try {
+            inst.scrollToField(firstField);
+          } catch {}
+        }
+        Message.error(msg);
         return false;
       }
       return true;
@@ -1036,6 +1094,7 @@ export default defineComponent({
 
     const handleWizardPrev = () => {
       if (wizardStep.value <= 0) return;
+      formError.value = '';
       wizardStep.value -= 1;
     };
 
@@ -1044,6 +1103,11 @@ export default defineComponent({
         const ok = await handleSaveDraft();
         if (!ok) return;
       }
+      if (wizardStep.value === 2) {
+        const ok = await validateMediaStep();
+        if (!ok) return;
+      }
+      formError.value = '';
       if (wizardStep.value < 3) wizardStep.value += 1;
     };
 
@@ -1053,8 +1117,28 @@ export default defineComponent({
         const ok = await handleSaveDraft();
         if (!ok) return;
       }
+      // 完成前兜底校验：基础必填 + 发布信息
+      {
+        const inst: any = formRef.value as any;
+        const err = inst?.validateField
+          ? await inst.validateField([...basicStepFields, ...mediaStepFields] as unknown as string[])
+          : await inst?.validate?.();
+        if (err) {
+          const msg = getFirstValidateMessage(err);
+          formError.value = msg;
+          const firstField = Object.keys(err || {})[0];
+          if (firstField && typeof inst?.scrollToField === 'function') {
+            try {
+              inst.scrollToField(firstField);
+            } catch {}
+          }
+          Message.error(msg);
+          return;
+        }
+      }
       try {
         setBasicLoading(true);
+        formError.value = '';
         const postData = buildPostData();
         const ret: any = await save(postData);
         if (!formData.value.id && ret) formData.value.id = Number(ret);
@@ -1067,6 +1151,28 @@ export default defineComponent({
         setBasicLoading(false);
       }
     };
+
+    const handleWizardJump = async (target: number) => {
+      if (basicLoading.value) return;
+      if (target === wizardStep.value) return;
+      // 进入非第 0 步前，确保已创建草稿（用于图片/装修/门锁等绑定）
+      if (target > 0 && !formData.value.id) {
+        const ok = await handleSaveDraft();
+        if (!ok) {
+          wizardStep.value = 0;
+          return;
+        }
+      }
+      formError.value = '';
+      wizardStep.value = target;
+    };
+
+    watch(
+      () => wizardStep.value,
+      () => {
+        formError.value = '';
+      }
+    );
 
     // 保存装修信息
     const handleSaveRenovation = async () => {
@@ -1125,11 +1231,14 @@ export default defineComponent({
       requiredRule,
       cascaderRule,
       positiveNumberRule,
+      getSaleStatusLabel,
       wizardStep,
       handleWizardPrev,
       handleWizardNext,
       handleWizardFinish,
+      handleWizardJump,
       handleSaveRenovation,
+      formError,
       // computed
       showRenovationProgress,
     };
@@ -1166,11 +1275,15 @@ export default defineComponent({
 }
 
 .form-content {
-   padding: 8px 32px 32px;
+   padding: 6px 24px 14px;
+}
+
+.form-error-alert {
+  margin: 0 0 14px;
 }
 
 .form-shell .form-content {
-  padding: 0 0 18px;
+  padding: 0 0 12px;
 }
 
 .wizard-layout {
@@ -1180,10 +1293,16 @@ export default defineComponent({
 
 .form-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: 260px minmax(0, 1fr) 340px;
   gap: 20px;
-  padding: 8px 32px 0;
+  padding: 6px 24px 0;
   align-items: start;
+}
+
+.form-nav {
+  position: sticky;
+  top: 12px;
+  align-self: start;
 }
 
 .form-main {
@@ -1194,6 +1313,46 @@ export default defineComponent({
   position: sticky;
   top: 12px;
   align-self: start;
+}
+
+@media (max-width: 1200px) {
+  .form-shell {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px 20px 0;
+  }
+
+  .form-nav {
+    position: relative;
+    top: auto;
+  }
+
+  .form-side {
+    position: relative;
+    top: auto;
+  }
+
+  .wizard-footer {
+    padding: 10px 20px 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-content {
+    padding: 6px 16px 14px;
+  }
+
+  .wizard-footer .footer-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 .side-stack {
@@ -1214,8 +1373,39 @@ export default defineComponent({
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-1);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   letter-spacing: 0.02em;
+}
+
+.nav-card {
+  .nav-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .nav-progress {
+    margin: 4px 0 10px;
+  }
+
+  .nav-tip {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--color-text-3);
+    line-height: 1.5;
+  }
+
+  :deep(.arco-steps-item) {
+    cursor: pointer;
+  }
+  :deep(.arco-steps-item-title) {
+    font-weight: 600;
+  }
+  :deep(.arco-steps-item-description) {
+    font-size: 12px;
+  }
 }
 
 .kv {
@@ -1267,25 +1457,8 @@ export default defineComponent({
   }
 }
 
-.wizard-steps {
-  padding: 14px 32px 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-
-  .wizard-steps-bar {
-    flex: 1;
-  }
-
-  .wizard-steps-extra {
-    flex-shrink: 0;
-    padding-top: 2px;
-  }
-}
-
 .wizard-footer {
-  padding: 12px 32px 16px;
+  padding: 10px 24px 12px;
   border-top: 1px solid var(--color-border-2);
   background: var(--color-bg-1);
   display: flex;
@@ -1295,37 +1468,42 @@ export default defineComponent({
   z-index: 2;
 }
 
-.wizard-steps {
-  // “必填基础”始终用 warning 色提示（包含 process/finish 状态，避免被默认蓝色覆盖）
-  :deep(.arco-steps-mode-arrow .step-required) {
-    background-color: rgba(var(--warning-6), 0.12) !important;
+.wizard-footer .footer-actions {
+  :deep(.arco-btn) {
+    min-width: 110px;
   }
-  :deep(.arco-steps-mode-arrow .step-required.arco-steps-item-process) {
-    background-color: rgba(var(--warning-6), 0.18) !important;
-  }
-  :deep(.arco-steps-mode-arrow .step-required:not(:last-child)::after) {
-    border-left-color: rgba(var(--warning-6), 0.12) !important;
-  }
-  :deep(.arco-steps-mode-arrow .step-required.arco-steps-item-process:not(:last-child)::after) {
-    border-left-color: rgba(var(--warning-6), 0.18) !important;
+}
+
+.inline-section-head {
+  margin: 2px 0 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border-2);
+  border-radius: 10px;
+  background: var(--color-fill-1);
+
+  .inline-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-1);
+    line-height: 1.2;
+    margin-bottom: 2px;
+    letter-spacing: 0.02em;
   }
 
-  :deep(.arco-steps-mode-arrow .step-required .arco-steps-item-title) {
-    color: rgb(var(--warning-6)) !important;
-    font-weight: 700;
-  }
-  :deep(.arco-steps-mode-arrow .step-required .arco-steps-item-description) {
-    color: var(--color-text-2) !important;
+  .inline-sub {
+    font-size: 12px;
+    color: var(--color-text-3);
+    line-height: 1.4;
   }
 }
 
 .form-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   background: var(--color-bg-1);
   border-radius: 8px;
   
   .section-header {
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     padding-left: 8px;
     border-left: 4px solid rgb(var(--primary-6));
     
@@ -1345,6 +1523,16 @@ export default defineComponent({
   .section-body {
      // padding: 12px;
      // opacity: background/border if wanted
+  }
+}
+
+.pro-form {
+  :deep(.arco-form-item) {
+    margin-bottom: 12px;
+  }
+
+  :deep(.arco-form-item-label-col) {
+    padding-bottom: 4px;
   }
 }
 

@@ -3,11 +3,11 @@
     v-bind="$attrs"
     @register="registerModal"
     :isPadding="false"
-    :defaultFullscreen="true"
     :loading="loading"
-    width="1120px"
+    width="min(1380px, 98vw)"
     @height-change="onHeightChange"
     :minHeight="modelHeight"
+    :height="modelHeight"
     :title="''"
     :showOkBtn="false"
     :footer="null"
@@ -22,8 +22,9 @@
               <div class="cover-preview">
                 <a-image
                   :src="getImageUrl(detailData.cover_image)"
-                  width="120"
-                  height="90"
+                  alt="房源封面"
+                  width="96"
+                  height="72"
                   fit="cover"
                   class="preview-img"
                 />
@@ -59,16 +60,16 @@
                 </div>
 
                 <div class="price-display">
-                  <span class="price-amount">{{ detailData.price || 0 }}</span>
+                  <span class="price-amount">{{ priceAmountText }}</span>
                   <span class="price-unit">{{ detailData.price_unit || '万' }}</span>
-                  <span class="price-per" v-if="detailData.area">
-                    (≈{{ Math.round((Number(detailData.price) * 10000) / Number(detailData.area)) }}元/㎡)
+                  <span class="price-per" v-if="pricePerSquareText">
+                    ({{ pricePerSquareText }})
                   </span>
                 </div>
               </div>
             </div>
 
-            <a-button type="text" shape="circle" class="close-btn" @click="closeModal">
+            <a-button type="text" shape="circle" class="close-btn" aria-label="关闭" @click="closeModal">
               <icon-close />
             </a-button>
           </div>
@@ -77,214 +78,221 @@
 
       <!-- Detail Body Content -->
       <div class="detail-body">
-        <a-tabs type="line" size="large" animation>
-          <a-tab-pane key="1" title="房源档案">
+        <a-tabs type="line" size="medium">
+           <a-tab-pane key="1" title="房源档案">
             <div class="tab-content">
                <div class="detail-shell">
-                 <div class="shell-main">
+                 <!-- Top: 基础信息 + 销售维护（左右并排） -->
+                 <div class="detail-top-grid">
                    <!-- Basic Info Card -->
                    <div class="detail-card">
-                      <div class="card-header">
-                         <icon-file class="card-icon" />
-                         <span class="card-title">基础信息</span>
-                      </div>
-                      <div class="card-body">
-                         <div class="info-grid">
-                            <div class="info-item">
-                               <label>小区名称</label>
-                               <div class="value">{{ detailData.community_name }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>所在区域</label>
-                               <div class="value">{{ detailData.district }}</div>
-                            </div>
-                            <div class="info-item full-width">
-                               <label>详细地址</label>
-                               <div class="value">{{ detailData.address }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>物业类型</label>
-                               <div class="value">{{ detailData.property_type }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>建筑年代</label>
-                               <div class="value">{{ detailData.build_year }}年</div>
-                            </div>
-                            <div class="info-item">
-                               <label>装修情况</label>
-                               <div class="value">{{ detailData.decoration_type }}</div>
-                            </div>
+                     <div class="card-header">
+                       <icon-file class="card-icon" />
+                       <span class="card-title">基础信息</span>
+                     </div>
+                     <div class="card-body">
+                       <div class="info-grid">
+                         <div class="info-item">
+                           <label>小区名称</label>
+                           <div class="value">{{ detailData.community_name || '-' }}</div>
                          </div>
-                      </div>
+                         <div class="info-item">
+                           <label>所在区域</label>
+                           <div class="value">{{ detailData.district || '-' }}</div>
+                         </div>
+                         <div class="info-item full-width">
+                           <label>详细地址</label>
+                           <div class="value">{{ detailData.address || '-' }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>物业类型</label>
+                           <div class="value">{{ detailData.property_type || '-' }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>建筑年代</label>
+                           <div class="value">{{ detailData.build_year ? `${detailData.build_year}年` : '-' }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>装修情况</label>
+                           <div class="value">{{ detailData.decoration_type || '-' }}</div>
+                         </div>
+                       </div>
+                     </div>
                    </div>
 
-                   <!-- Stats Card -->
+                   <!-- Sales Info Card -->
                    <div class="detail-card">
-                      <div class="card-header">
-                         <icon-bar-chart class="card-icon" />
-                         <span class="card-title">房源参数</span>
-                      </div>
-                      <div class="card-body">
-                         <div class="stats-grid">
-                            <div class="stat-item">
-                               <div class="stat-value">{{ detailData.rooms }}室{{ detailData.halls }}厅</div>
-                               <div class="stat-label">户型</div>
-                            </div>
-                            <div class="stat-item">
-                               <div class="stat-value">{{ detailData.area }}㎡</div>
-                               <div class="stat-label">面积</div>
-                            </div>
-                            <div class="stat-item">
-                               <div class="stat-value">{{ detailData.floor_level }}</div>
-                               <div class="stat-label">楼层</div>
-                            </div>
-                            <div class="stat-item">
-                               <div class="stat-value">{{ detailData.orientation || '暂无' }}</div>
-                               <div class="stat-label">朝向</div>
-                            </div>
+                     <div class="card-header">
+                       <icon-user-group class="card-icon" />
+                       <span class="card-title">销售维护</span>
+                       <div class="card-actions">
+                         <a-button size="mini" type="text" @click="openStatusLogs">
+                           <template #icon><icon-history /></template>
+                           状态记录
+                         </a-button>
+                       </div>
+                     </div>
+                     <div class="card-body">
+                       <div class="info-grid">
+                         <div class="info-item">
+                           <label>房主姓名</label>
+                           <div class="value">{{ detailData.owner_name || '-' }}</div>
                          </div>
-                      </div>
+                         <div class="info-item">
+                           <label>房主电话</label>
+                           <div class="value phone-value">{{ detailData.owner_phone || '-' }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>收房人姓名</label>
+                           <div class="value">{{ detailData.receiver_name || '-' }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>收房人电话</label>
+                           <div class="value phone-value">{{ detailData.receiver_phone || '-' }}</div>
+                         </div>
+                         <div class="info-item full-width">
+                           <label>收房价格(支付业主)</label>
+                           <div class="value">{{ formatMoney(detailData.receiver_price) }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>维护人ID</label>
+                           <div class="value">#{{ detailData.agent_id || '-' }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>浏览热度</label>
+                           <div class="value highlight">{{ detailData.view_count || 0 }}</div>
+                         </div>
+                         <div class="info-item">
+                           <label>带看次数</label>
+                           <div class="value highlight">{{ detailData.showing_count || 0 }}</div>
+                         </div>
+                       </div>
+                     </div>
                    </div>
                  </div>
 
-                 <div class="shell-side">
-                   <!-- Sales Info Card -->
-                   <div class="detail-card">
-                      <div class="card-header">
-                         <icon-user-group class="card-icon" />
-                         <span class="card-title">销售维护</span>
-                         <div class="card-actions">
-                           <a-button size="mini" type="text" @click="openStatusLogs">
-                             <template #icon><icon-history /></template>
-                             状态记录
-                           </a-button>
-                         </div>
-                      </div>
-                      <div class="card-body">
-                         <div class="info-grid">
-                            <div class="info-item">
-                               <label>房主姓名</label>
-                               <div class="value">{{ detailData.owner_name || '-' }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>房主电话</label>
-                               <div class="value phone-value">{{ detailData.owner_phone || '-' }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>收房人姓名</label>
-                               <div class="value">{{ detailData.receiver_name || '-' }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>收房人电话</label>
-                               <div class="value phone-value">{{ detailData.receiver_phone || '-' }}</div>
-                            </div>
-                            <div class="info-item full-width">
-                               <label>收房价格(支付业主)</label>
-                               <div class="value">{{ formatMoney(detailData.receiver_price) }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>维护人ID</label>
-                               <div class="value">#{{ detailData.agent_id || '-' }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>浏览热度</label>
-                               <div class="value highlight">{{ detailData.view_count || 0 }}</div>
-                            </div>
-                            <div class="info-item">
-                               <label>带看次数</label>
-                               <div class="value highlight">{{ detailData.showing_count || 0 }}</div>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-
-                   <!-- Tags -->
-                   <div class="detail-card">
-                     <div class="card-header">
-                       <icon-tag class="card-icon" />
-                       <span class="card-title">标签</span>
-                     </div>
-                     <div class="card-body">
-                       <div class="tags-wrap" v-if="parseTags(detailData.tags).length">
-                         <a-tag v-for="(t, i) in parseTags(detailData.tags).slice(0, 12)" :key="i" size="small" bordered class="pill-tag">
-                           {{ t }}
-                         </a-tag>
+                 <!-- Bottom: 参数/标签/门锁 -->
+                 <div class="detail-bottom-grid">
+                   <div class="bottom-main">
+                     <!-- Stats Card -->
+                     <div class="detail-card">
+                       <div class="card-header">
+                         <icon-bar-chart class="card-icon" />
+                         <span class="card-title">房源参数</span>
                        </div>
-                       <a-empty v-else description="暂无标签" />
+                       <div class="card-body">
+                         <div class="stats-grid">
+                           <div class="stat-item">
+                             <div class="stat-value">{{ detailData.rooms }}室{{ detailData.halls }}厅</div>
+                             <div class="stat-label">户型</div>
+                           </div>
+                           <div class="stat-item">
+                             <div class="stat-value">{{ detailData.area }}㎡</div>
+                             <div class="stat-label">面积</div>
+                           </div>
+                           <div class="stat-item">
+                             <div class="stat-value">{{ detailData.floor_level }}</div>
+                             <div class="stat-label">楼层</div>
+                           </div>
+                           <div class="stat-item">
+                             <div class="stat-value">{{ detailData.orientation || '暂无' }}</div>
+                             <div class="stat-label">朝向</div>
+                           </div>
+                         </div>
+                       </div>
                      </div>
                    </div>
 
-                   <!-- Smart Lock Widget -->
-                   <div class="pro-card lock-widget" :class="{ 'active': lockInfo?.lock }">
-                      <div class="widget-header">
+                   <div class="bottom-side">
+                     <!-- Tags -->
+                     <div class="detail-card">
+                       <div class="card-header">
+                         <icon-tag class="card-icon" />
+                         <span class="card-title">标签</span>
+                       </div>
+                       <div class="card-body">
+                         <div class="tags-wrap" v-if="tagList.length">
+                           <a-tag v-for="(t, i) in tagList.slice(0, 12)" :key="i" size="small" bordered class="pill-tag">
+                             {{ t }}
+                           </a-tag>
+                         </div>
+                         <a-empty v-else description="暂无标签" />
+                       </div>
+                     </div>
+
+                     <!-- Smart Lock Widget -->
+                     <div class="pro-card lock-widget" :class="{ 'active': lockInfo?.lock }">
+                       <div class="widget-header">
                          <div class="title"><icon-lock /> 智能门锁</div>
                          <div class="status" v-if="lockInfo?.lock">
-                            <div class="battery-indicator" :class="getBatteryClass(lockInfo.lock.battery)">
-                               <icon-thunderbolt /> {{ lockInfo.lock.battery }}%
-                            </div>
+                           <div class="battery-indicator" :class="getBatteryClass(lockInfo.lock.battery)">
+                             <icon-thunderbolt /> {{ lockInfo.lock.battery }}%
+                           </div>
                          </div>
                          <a-button v-else type="outline" size="mini" class="btn-bind" @click="openBindLock">
-                            <icon-plus /> 绑定设备
+                           <icon-plus /> 绑定设备
                          </a-button>
-                      </div>
-                      
-                      <div class="widget-body" v-if="lockInfo?.lock">
+                       </div>
+
+                       <div class="widget-body" v-if="lockInfo?.lock">
                          <div class="device-info">
-                            <div class="device-icon">
-                               <icon-robot />
-                            </div>
-                            <div class="device-text">
-                               <div class="d-name">{{ lockInfo.lock.lock_name }}</div>
-                               <div class="d-mac">{{ lockInfo.lock.lock_mac }}</div>
-                            </div>
+                           <div class="device-icon">
+                             <icon-robot />
+                           </div>
+                           <div class="device-text">
+                             <div class="d-name">{{ lockInfo.lock.lock_name }}</div>
+                             <div class="d-mac">{{ lockInfo.lock.lock_mac }}</div>
+                           </div>
                          </div>
                          <div class="control-grid">
-                            <div class="control-btn primary" @click="handleRemoteUnlock">
-                               <icon-unlock />
-                               <span>获取密码</span>
-                            </div>
-                            <div class="control-btn" @click="openCloudDetail">
-                               <icon-settings />
-                               <span>详情</span>
-                            </div>
-                            <a-popconfirm content="解绑后无法远程控制，确认?" @ok="handleUnbind">
-                               <div class="control-btn danger">
-                                  <icon-unlink />
-                                  <span>解绑</span>
-                               </div>
-                            </a-popconfirm>
+                           <a-button class="control-btn primary" @click="handleRemoteUnlock">
+                             <template #icon><icon-unlock /></template>
+                             获取密码
+                           </a-button>
+                           <a-button class="control-btn" @click="openCloudDetail">
+                             <template #icon><icon-settings /></template>
+                             详情
+                           </a-button>
+                           <a-popconfirm content="解绑后无法远程控制，确认?" @ok="handleUnbind">
+                             <a-button class="control-btn danger">
+                               <template #icon><icon-unlink /></template>
+                               解绑
+                             </a-button>
+                           </a-popconfirm>
                          </div>
                          <div class="sync-time">
-                            上次同步: {{ formatTime(lockInfo.lock.last_sync_at) }}
+                           上次同步: {{ formatTime(lockInfo.lock.last_sync_at) }}
                          </div>
-                      </div>
-                      <div class="widget-empty" v-else>
+                       </div>
+                       <div class="widget-empty" v-else>
                          <div class="empty-icon"><icon-lock /></div>
                          <p>未绑定智能门锁设备</p>
-                      </div>
+                       </div>
+                     </div>
                    </div>
                  </div>
                </div>
             </div>
           </a-tab-pane>
 
-          <a-tab-pane key="2" title="图片相册">
-             <div class="gallery-wrapper">
-               <a-image-preview-group infinite>
-                  <div class="masonry-grid">
-                     <div class="grid-item" v-for="(img, idx) in getGalleryImages()" :key="idx">
-                        <a-image
-                           :src="getImageUrl(img)"
-                           width="100%"
-                           height="100%"
-                           fit="cover"
-                        />
-                     </div>
-                  </div>
-               </a-image-preview-group>
-               <a-empty v-if="getGalleryImages().length === 0" description="暂无图片" />
-             </div>
-          </a-tab-pane>
+           <a-tab-pane key="2" title="图片相册">
+              <div class="gallery-wrapper">
+                <a-image-preview-group infinite>
+                   <div class="masonry-grid">
+                      <div class="grid-item" v-for="(img, idx) in galleryImages" :key="idx">
+                         <a-image
+                            :src="getImageUrl(img)"
+                            :alt="`房源图片 ${idx + 1}`"
+                            width="100%"
+                            height="100%"
+                            fit="cover"
+                         />
+                      </div>
+                   </div>
+                </a-image-preview-group>
+                <a-empty v-if="galleryImages.length === 0" description="暂无图片" />
+              </div>
+           </a-tab-pane>
 
           <a-tab-pane key="3" title="装修进度">
              <div class="renovation-timeline" v-if="renovationData?.renovation_status">
@@ -391,7 +399,7 @@
  </template>
 
 <script lang="ts">
-import { defineComponent, h, ref } from 'vue';
+import { defineComponent, h, ref, computed } from 'vue';
 import { BasicModal, useModal, useModalInner } from '/@/components/Modal';
 import useLoading from '@/hooks/loading';
 import { Message, Modal } from '@arco-design/web-vue';
@@ -406,8 +414,8 @@ export default defineComponent({
   name: 'HousesDetailView',
   components: { BasicModal, BindLockModal },
   setup() {
-    const modelHeight = ref(760);
-    const windHeight = ref(760);
+    const modelHeight = ref(900);
+    const windHeight = ref(900);
     const detailData = ref<any>({});
     const renovationData = ref<any>({});
     const lockLoading = ref(false);
@@ -511,7 +519,7 @@ export default defineComponent({
           hideCancel: false,
           okText: '再次复制',
           cancelText: '关闭',
-          content: h('div', { style: { paddingTop: '4px' } }, [
+          content: () => h('div', { style: { paddingTop: '4px' } }, [
             h(
               'div',
               {
@@ -641,14 +649,36 @@ export default defineComponent({
       return [];
     };
 
-    const getGalleryImages = () => {
+    const tagList = computed(() => parseTags(detailData.value?.tags));
+
+    const galleryImages = computed(() => {
       const list: string[] = [];
       const cover = (detailData.value?.cover_image || '').toString().trim();
-      const imgs = parseTags(detailData.value?.images); 
+      const imgs = parseTags(detailData.value?.images);
       if (cover) list.push(cover);
       list.push(...imgs);
       return [...new Set(list)].filter(Boolean);
-    };
+    });
+
+    const priceAmountText = computed(() => {
+      const v = detailData.value?.price;
+      if (v === null || v === undefined || v === '') return '-';
+      const n = Number(v);
+      if (!Number.isFinite(n)) return '-';
+      return n.toFixed(2).replace(/\\.00$/, '');
+    });
+
+    const pricePerSquareText = computed(() => {
+      const area = Number(detailData.value?.area);
+      if (!Number.isFinite(area) || area <= 0) return '';
+      const price = Number(detailData.value?.price);
+      if (!Number.isFinite(price) || price <= 0) return '';
+      const unit = (detailData.value?.price_unit || '万').toString();
+      const yuan = price * (unit === '元' ? 1 : 10000);
+      const per = Math.round(yuan / area);
+      if (!Number.isFinite(per) || per <= 0) return '';
+      return `≈${per}元/㎡`;
+    });
 
     const getSaleStatusLabel = (s: string) => {
        const map:any = { on_sale: '在售', sold: '已售', off_market: '下架' };
@@ -667,11 +697,14 @@ export default defineComponent({
        return 'color-success';
     };
 
-    const onHeightChange = (val: any) => { windHeight.value = val; };
+    const onHeightChange = (val: any) => {
+      windHeight.value = val;
+      if (typeof val === 'number' && val > 0) modelHeight.value = val;
+    };
 
     return {
       registerModal, loading, detailData, renovationData, modelHeight, onHeightChange,
-      windHeight, getImageUrl, parseTags, getGalleryImages, getSaleStatusLabel,
+      windHeight, getImageUrl, parseTags, tagList, galleryImages, priceAmountText, pricePerSquareText, getSaleStatusLabel,
       getRenovationStatusLabel, getBatteryClass, lockLoading, lockInfo, openBindLock,
       handleUnbind, handleRemoteUnlock, openCloudDetail, reloadLockInfo, formatTime,
       registerBindLockModal, cloudVisible, cloudLoading, cloudDetail, closeModal,
@@ -699,7 +732,7 @@ export default defineComponent({
 
 /* Header Section */
 .detail-header {
-  padding: 20px 32px 0;
+  padding: 12px 20px 0;
   background: var(--color-bg-1);
 
   .header-card {
@@ -708,7 +741,7 @@ export default defineComponent({
     background: var(--color-bg-2);
 
     :deep(.arco-card-body) {
-      padding: 16px 18px;
+      padding: 12px 14px;
     }
   }
 
@@ -744,11 +777,11 @@ export default defineComponent({
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .detail-title {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--color-text-1);
       line-height: 1.35;
@@ -763,10 +796,10 @@ export default defineComponent({
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px 16px;
+      gap: 6px 12px;
       font-size: 13px;
       color: var(--color-text-2);
-      margin-bottom: 10px;
+      margin-bottom: 6px;
 
       .meta-item {
         display: inline-flex;
@@ -788,13 +821,13 @@ export default defineComponent({
       gap: 4px;
 
       .price-amount {
-        font-size: 28px;
+        font-size: 22px;
         font-weight: 800;
         color: rgb(var(--primary-6));
       }
 
       .price-unit {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: var(--color-text-2);
         margin-right: 10px;
@@ -825,14 +858,14 @@ export default defineComponent({
 }
 
 .detail-body {
-  padding: 24px 32px;
+  padding: 14px 20px 16px;
   
   :deep(.arco-tabs-nav) {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
   }
   
   .tab-content {
-    min-height: 400px;
+    min-height: 0;
   }
 }
 
@@ -959,7 +992,7 @@ export default defineComponent({
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       
       .title {
         display: flex;
@@ -992,7 +1025,7 @@ export default defineComponent({
     .widget-body {
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 14px;
       
       .device-info {
         flex: 1;
@@ -1001,22 +1034,22 @@ export default defineComponent({
         gap: 16px;
         
         .device-icon {
-          width: 48px;
-          height: 48px;
+          width: 40px;
+          height: 40px;
           background: var(--color-bg-1);
           border: 1px solid var(--color-border-2);
-          border-radius: 12px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 24px;
+          font-size: 20px;
           color: rgb(var(--primary-6));
         }
         
         .device-text {
           .d-name {
             font-weight: 600;
-            font-size: 16px;
+            font-size: 14px;
             color: var(--color-text-1);
             margin-bottom: 2px;
           }
@@ -1031,26 +1064,23 @@ export default defineComponent({
       
       .control-grid {
         display: flex;
-        gap: 12px;
+        gap: 10px;
         
         .control-btn {
-          display: flex;
-          flex-direction: column;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 80px;
-          height: 64px;
-          border-radius: 8px;
+          min-width: 88px;
+          height: 36px;
+          border-radius: 10px;
           background: var(--color-bg-1);
           border: 1px solid var(--color-border-2);
           cursor: pointer;
           transition: all 0.2s ease;
-          gap: 6px;
           font-size: 12px;
           color: var(--color-text-2);
           
           &:hover {
-            transform: translateY(-2px);
             border-color: var(--color-border-3);
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
           }
@@ -1079,17 +1109,17 @@ export default defineComponent({
       .sync-time {
         font-size: 12px;
         color: var(--color-text-3);
-        margin-top: 12px;
+        margin-top: 8px;
       }
     }
     
     .widget-empty {
       text-align: center;
-      padding: 40px 20px;
+      padding: 18px 14px;
       color: var(--color-text-3);
       
       .empty-icon {
-        font-size: 32px;
+        font-size: 28px;
         margin-bottom: 8px;
         opacity: 0.5;
       }
@@ -1104,33 +1134,45 @@ export default defineComponent({
 
 /* Detail Shell Layout (主内容 + 右侧信息栏) */
 .detail-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.detail-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
   align-items: start;
 }
 
-.shell-main {
+.detail-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
+  align-items: start;
+}
+
+.bottom-main,
+.bottom-side {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
-.shell-side {
-  position: sticky;
-  top: 12px;
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+@media (max-width: 1200px) {
+  .detail-top-grid,
+  .detail-bottom-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .detail-shell .detail-card {
   background: var(--color-bg-2);
   border: 1px solid var(--color-border-2);
   border-radius: 12px;
-  padding: 20px;
+  padding: 14px;
   transition: all 0.2s ease;
 
   &:hover {
@@ -1143,7 +1185,7 @@ export default defineComponent({
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .detail-shell .detail-card .card-header .card-icon {
@@ -1172,7 +1214,7 @@ export default defineComponent({
 .detail-shell .detail-card .card-body .info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px 20px;
+  gap: 10px 14px;
 }
 
 .detail-shell .detail-card .card-body .info-grid .info-item.full-width {
@@ -1204,18 +1246,18 @@ export default defineComponent({
 .detail-shell .detail-card .card-body .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 10px;
 }
 
 .detail-shell .detail-card .card-body .stats-grid .stat-item {
   text-align: center;
-  padding: 12px;
+  padding: 10px;
   background: var(--color-fill-1);
   border-radius: 8px;
 }
 
 .detail-shell .detail-card .card-body .stats-grid .stat-item .stat-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--color-text-1);
   margin-bottom: 4px;
@@ -1229,7 +1271,7 @@ export default defineComponent({
 .tags-wrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .pill-tag {
@@ -1258,7 +1300,7 @@ export default defineComponent({
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 
     .title {
       display: flex;
@@ -1297,7 +1339,7 @@ export default defineComponent({
   .widget-body {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 14px;
 
     .device-info {
       flex: 1;
@@ -1306,15 +1348,15 @@ export default defineComponent({
       gap: 16px;
 
       .device-icon {
-        width: 48px;
-        height: 48px;
+        width: 40px;
+        height: 40px;
         background: var(--color-bg-1);
         border: 1px solid var(--color-border-2);
-        border-radius: 12px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
+        font-size: 20px;
         color: rgb(var(--primary-6));
       }
 
@@ -1323,7 +1365,7 @@ export default defineComponent({
 
         .d-name {
           font-weight: 600;
-          font-size: 16px;
+          font-size: 14px;
           color: var(--color-text-1);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1344,26 +1386,26 @@ export default defineComponent({
 
     .control-grid {
       display: flex;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
 
       .control-btn {
-        display: flex;
-        flex-direction: column;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 80px;
-        height: 64px;
-        border-radius: 8px;
+        min-width: 88px;
+        height: 36px;
+        border-radius: 10px;
         background: var(--color-bg-1);
         border: 1px solid var(--color-border-2);
         cursor: pointer;
         transition: all 0.2s ease;
-        gap: 6px;
         font-size: 12px;
         color: var(--color-text-2);
+        padding: 0 10px;
+        white-space: nowrap;
 
         &:hover {
-          transform: translateY(-2px);
           border-color: var(--color-border-3);
           box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
         }
@@ -1392,17 +1434,17 @@ export default defineComponent({
     .sync-time {
       font-size: 12px;
       color: var(--color-text-3);
-      margin-top: 12px;
+      margin-top: 8px;
     }
   }
 
   .widget-empty {
     text-align: center;
-    padding: 40px 20px;
+    padding: 18px 14px;
     color: var(--color-text-3);
 
     .empty-icon {
-      font-size: 32px;
+      font-size: 28px;
       margin-bottom: 8px;
       opacity: 0.5;
     }
@@ -1431,11 +1473,31 @@ export default defineComponent({
       border: 1px solid var(--color-border-2);
       
       &:hover {
-        transform: scale(1.02);
+        transform: translateY(-2px);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
         z-index: 10;
       }
     }
+  }
+}
+
+@media (max-width: 768px) {
+  .detail-header {
+    padding: 16px 16px 0;
+  }
+
+  .detail-body {
+    padding: 12px 16px 20px;
+  }
+
+  .gallery-wrapper {
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-wrapper .masonry-grid .grid-item {
+    transition: none !important;
   }
 }
 
