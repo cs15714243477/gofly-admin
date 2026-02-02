@@ -34,9 +34,11 @@
               </div>
             </div>
 
-            <div class="form-content">
-              <a-form ref="formRef" :model="formData" auto-label-width layout="vertical" class="pro-form">
-                
+            <div class="form-shell">
+              <div class="form-main">
+                <div class="form-content">
+                  <a-form ref="formRef" :model="formData" auto-label-width layout="vertical" class="pro-form">
+                 
                 <!-- Section: 核心属性 -->
                 <div class="form-section" v-show="wizardStep === 0">
                    <div class="section-header">
@@ -83,8 +85,63 @@
                             <a-date-picker v-model="formData.build_year" mode="year" value-format="YYYY" placeholder="请选择" style="width: 100%" size="large"/>
                           </a-form-item>
                         </a-col>
-                      </a-row>
+                       </a-row>
                    </div>
+                </div>
+
+                <!-- Section: 房主与收房（更直观，放在第一步） -->
+                <div class="form-section" v-show="wizardStep === 0">
+                  <div class="section-header">
+                    <div class="title">房主与收房</div>
+                    <div class="sub">业务关键信息（可选）</div>
+                  </div>
+                  <div class="section-body">
+                    <a-row :gutter="24">
+                      <a-col :span="6">
+                        <a-form-item field="owner_name" label="房主姓名">
+                          <a-input v-model="formData.owner_name" placeholder="可选" size="large" allow-clear>
+                            <template #prefix><icon-user /></template>
+                          </a-input>
+                        </a-form-item>
+                      </a-col>
+                      <a-col :span="6">
+                        <a-form-item field="owner_phone" label="房主电话">
+                          <a-input v-model="formData.owner_phone" placeholder="可选" size="large" allow-clear>
+                            <template #prefix><icon-phone /></template>
+                          </a-input>
+                        </a-form-item>
+                      </a-col>
+                      <a-col :span="6">
+                        <a-form-item field="receiver_name" label="收房人姓名">
+                          <a-input v-model="formData.receiver_name" placeholder="可选" size="large" allow-clear>
+                            <template #prefix><icon-user-group /></template>
+                          </a-input>
+                        </a-form-item>
+                      </a-col>
+                      <a-col :span="6">
+                        <a-form-item field="receiver_phone" label="收房人电话">
+                          <a-input v-model="formData.receiver_phone" placeholder="可选" size="large" allow-clear>
+                            <template #prefix><icon-phone /></template>
+                          </a-input>
+                        </a-form-item>
+                      </a-col>
+                      <a-col :span="8">
+                        <a-form-item field="receiver_price" label="收房价格(支付业主)">
+                          <a-input-number
+                            v-model="formData.receiver_price"
+                            :min="0"
+                            :precision="2"
+                            size="large"
+                            allow-clear
+                            hide-button
+                            placeholder="未填写"
+                          >
+                            <template #prefix>¥</template>
+                          </a-input-number>
+                        </a-form-item>
+                      </a-col>
+                    </a-row>
+                  </div>
                 </div>
 
                 <!-- Section: 户型与规格 -->
@@ -292,13 +349,6 @@
                           </a-form-item>
                         </a-col>
                         <a-col :span="6">
-                          <a-form-item field="owner_phone" label="业主电话">
-                            <a-input v-model="formData.owner_phone" placeholder="可选" size="large" allow-clear>
-                              <template #prefix><icon-phone /></template>
-                            </a-input>
-                          </a-form-item>
-                        </a-col>
-                        <a-col :span="6">
                           <a-form-item field="agent_id" label="维护经纪人 ID">
                             <a-input-number v-model="formData.agent_id" :min="0" size="large">
                               <template #prefix><icon-user /></template>
@@ -355,34 +405,78 @@
                     </div>
                  </div>
 
-              </a-form>
-            </div>
+                  </a-form>
+                </div>
 
-            <div class="wizard-footer">
-              <a-space size="medium">
-                <a-button type="secondary" class="gf_hover_btn-border" @click="closeModal">关闭</a-button>
-                <a-button v-if="wizardStep > 0" @click="handleWizardPrev">上一步</a-button>
-                <a-button
-                  v-if="wizardStep < 3"
-                  type="primary"
-                  size="large"
-                  :loading="basicLoading"
-                  @click="handleWizardNext"
-                >
-                  <template #icon><icon-right /></template>
-                  {{ wizardStep === 0 ? (formData.id ? '下一步' : '保存草稿并继续') : '下一步' }}
-                </a-button>
-                <a-button
-                  v-else
-                  type="primary"
-                  size="large"
-                  :loading="basicLoading"
-                  @click="handleWizardFinish"
-                >
-                  <template #icon><icon-save /></template>
-                  完成保存
-                </a-button>
-              </a-space>
+                <div class="wizard-footer">
+                  <a-space size="medium">
+                    <a-button type="secondary" class="gf_hover_btn-border" @click="closeModal">关闭</a-button>
+                    <a-button v-if="wizardStep > 0" @click="handleWizardPrev">上一步</a-button>
+                    <a-button
+                      v-if="wizardStep < 3"
+                      type="primary"
+                      size="large"
+                      :loading="basicLoading"
+                      @click="handleWizardNext"
+                    >
+                      <template #icon><icon-right /></template>
+                      {{ wizardStep === 0 ? (formData.id ? '下一步' : '保存草稿并继续') : '下一步' }}
+                    </a-button>
+                    <a-button
+                      v-else
+                      type="primary"
+                      size="large"
+                      :loading="basicLoading"
+                      @click="handleWizardFinish"
+                    >
+                      <template #icon><icon-save /></template>
+                      完成保存
+                    </a-button>
+                  </a-space>
+                </div>
+              </div>
+
+              <div class="form-side">
+                <div class="side-stack">
+                  <div class="side-card">
+                    <div class="side-title">快速导航</div>
+                    <a-steps direction="vertical" size="small" :current="wizardStep" class="side-steps">
+                      <a-step @click="wizardStep = 0" title="必填基础" />
+                      <a-step @click="wizardStep = 1" title="位置&配套" />
+                      <a-step @click="wizardStep = 2" title="图片&标签" />
+                      <a-step @click="wizardStep = 3" title="销售&发布" />
+                    </a-steps>
+                  </div>
+
+                  <div class="side-card">
+                    <div class="side-title">摘要</div>
+                    <div class="kv">
+                      <div class="kv-row">
+                        <span class="k">标题</span>
+                        <span class="v">{{ formData.title || '-' }}</span>
+                      </div>
+                      <div class="kv-row">
+                        <span class="k">小区</span>
+                        <span class="v">{{ formData.community_name || '-' }}</span>
+                      </div>
+                      <div class="kv-row">
+                        <span class="k">售价</span>
+                        <span class="v">¥{{ Number(formData.price || 0).toFixed(2) }} {{ formData.price_unit || '万' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="side-card">
+                    <div class="side-title">标签预览</div>
+                    <div class="tag-wrap" v-if="(formData.tags || []).length">
+                      <a-tag v-for="(t, i) in (formData.tags || []).slice(0, 8)" :key="i" size="small" bordered class="pill-tag">
+                        {{ t }}
+                      </a-tag>
+                    </div>
+                    <a-empty v-else description="暂无标签" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </a-tab-pane>
@@ -528,7 +622,11 @@ export default defineComponent({
       has_smart_lock: 0,
       commission_rate: 0,
       commission_reward: 0,
+      owner_name: '',
       owner_phone: '',
+      receiver_name: '',
+      receiver_phone: '',
+      receiver_price: null as any,
       agent_id: 0,
       sale_status: 'on_sale',
       hot_status: 0,
@@ -893,6 +991,10 @@ export default defineComponent({
       postData.build_year = postData.build_year ? parseInt(postData.build_year) : 0;
       // 合成地址：省 市 区 详细地址
       postData.address = buildFullAddress();
+      // 可选金额：undefined/空字符串时按 null 处理，避免默认为 0
+      if (postData.receiver_price === undefined || postData.receiver_price === '') {
+        postData.receiver_price = null;
+      }
       return postData;
     };
 
@@ -1067,9 +1169,102 @@ export default defineComponent({
    padding: 8px 32px 32px;
 }
 
+.form-shell .form-content {
+  padding: 0 0 18px;
+}
+
 .wizard-layout {
   display: flex;
   flex-direction: column;
+}
+
+.form-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  padding: 8px 32px 0;
+  align-items: start;
+}
+
+.form-main {
+  min-width: 0;
+}
+
+.form-side {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+
+.side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.side-card {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border-2);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.side-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-1);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+
+.kv {
+  display: grid;
+  gap: 8px;
+
+  .kv-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+
+    .k {
+      color: var(--color-text-3);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .v {
+      color: var(--color-text-1);
+      font-size: 12px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: right;
+    }
+  }
+}
+
+.tag-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-tag {
+  border-radius: 999px;
+  padding: 0 10px;
+  border-color: var(--color-border-2);
+  background: rgba(var(--primary-6), 0.08);
+  color: rgb(var(--primary-6));
+
+  :deep(.arco-tag-content) {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .wizard-steps {

@@ -80,148 +80,190 @@
         <a-tabs type="line" size="large" animation>
           <a-tab-pane key="1" title="房源档案">
             <div class="tab-content">
-               <div class="detail-grid">
-                  <!-- Basic Info Card -->
-                  <div class="detail-card">
+               <div class="detail-shell">
+                 <div class="shell-main">
+                   <!-- Basic Info Card -->
+                   <div class="detail-card">
+                      <div class="card-header">
+                         <icon-file class="card-icon" />
+                         <span class="card-title">基础信息</span>
+                      </div>
+                      <div class="card-body">
+                         <div class="info-grid">
+                            <div class="info-item">
+                               <label>小区名称</label>
+                               <div class="value">{{ detailData.community_name }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>所在区域</label>
+                               <div class="value">{{ detailData.district }}</div>
+                            </div>
+                            <div class="info-item full-width">
+                               <label>详细地址</label>
+                               <div class="value">{{ detailData.address }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>物业类型</label>
+                               <div class="value">{{ detailData.property_type }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>建筑年代</label>
+                               <div class="value">{{ detailData.build_year }}年</div>
+                            </div>
+                            <div class="info-item">
+                               <label>装修情况</label>
+                               <div class="value">{{ detailData.decoration_type }}</div>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <!-- Stats Card -->
+                   <div class="detail-card">
+                      <div class="card-header">
+                         <icon-bar-chart class="card-icon" />
+                         <span class="card-title">房源参数</span>
+                      </div>
+                      <div class="card-body">
+                         <div class="stats-grid">
+                            <div class="stat-item">
+                               <div class="stat-value">{{ detailData.rooms }}室{{ detailData.halls }}厅</div>
+                               <div class="stat-label">户型</div>
+                            </div>
+                            <div class="stat-item">
+                               <div class="stat-value">{{ detailData.area }}㎡</div>
+                               <div class="stat-label">面积</div>
+                            </div>
+                            <div class="stat-item">
+                               <div class="stat-value">{{ detailData.floor_level }}</div>
+                               <div class="stat-label">楼层</div>
+                            </div>
+                            <div class="stat-item">
+                               <div class="stat-value">{{ detailData.orientation || '暂无' }}</div>
+                               <div class="stat-label">朝向</div>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                 </div>
+
+                 <div class="shell-side">
+                   <!-- Sales Info Card -->
+                   <div class="detail-card">
+                      <div class="card-header">
+                         <icon-user-group class="card-icon" />
+                         <span class="card-title">销售维护</span>
+                         <div class="card-actions">
+                           <a-button size="mini" type="text" @click="openStatusLogs">
+                             <template #icon><icon-history /></template>
+                             状态记录
+                           </a-button>
+                         </div>
+                      </div>
+                      <div class="card-body">
+                         <div class="info-grid">
+                            <div class="info-item">
+                               <label>房主姓名</label>
+                               <div class="value">{{ detailData.owner_name || '-' }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>房主电话</label>
+                               <div class="value phone-value">{{ detailData.owner_phone || '-' }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>收房人姓名</label>
+                               <div class="value">{{ detailData.receiver_name || '-' }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>收房人电话</label>
+                               <div class="value phone-value">{{ detailData.receiver_phone || '-' }}</div>
+                            </div>
+                            <div class="info-item full-width">
+                               <label>收房价格(支付业主)</label>
+                               <div class="value">{{ formatMoney(detailData.receiver_price) }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>维护人ID</label>
+                               <div class="value">#{{ detailData.agent_id || '-' }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>浏览热度</label>
+                               <div class="value highlight">{{ detailData.view_count || 0 }}</div>
+                            </div>
+                            <div class="info-item">
+                               <label>带看次数</label>
+                               <div class="value highlight">{{ detailData.showing_count || 0 }}</div>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <!-- Tags -->
+                   <div class="detail-card">
                      <div class="card-header">
-                        <icon-file class="card-icon" />
-                        <span class="card-title">基础信息</span>
+                       <icon-tag class="card-icon" />
+                       <span class="card-title">标签</span>
                      </div>
                      <div class="card-body">
-                        <div class="info-grid">
-                           <div class="info-item">
-                              <label>小区名称</label>
-                              <div class="value">{{ detailData.community_name }}</div>
-                           </div>
-                           <div class="info-item">
-                              <label>所在区域</label>
-                              <div class="value">{{ detailData.district }}</div>
-                           </div>
-                           <div class="info-item full-width">
-                              <label>详细地址</label>
-                              <div class="value">{{ detailData.address }}</div>
-                           </div>
-                           <div class="info-item">
-                              <label>物业类型</label>
-                              <div class="value">{{ detailData.property_type }}</div>
-                           </div>
-                           <div class="info-item">
-                              <label>建筑年代</label>
-                              <div class="value">{{ detailData.build_year }}年</div>
-                           </div>
-                           <div class="info-item">
-                              <label>装修情况</label>
-                              <div class="value">{{ detailData.decoration_type }}</div>
-                           </div>
-                        </div>
+                       <div class="tags-wrap" v-if="parseTags(detailData.tags).length">
+                         <a-tag v-for="(t, i) in parseTags(detailData.tags).slice(0, 12)" :key="i" size="small" bordered class="pill-tag">
+                           {{ t }}
+                         </a-tag>
+                       </div>
+                       <a-empty v-else description="暂无标签" />
                      </div>
-                  </div>
+                   </div>
 
-                  <!-- Stats Card -->
-                  <div class="detail-card">
-                     <div class="card-header">
-                        <icon-bar-chart class="card-icon" />
-                        <span class="card-title">房源参数</span>
-                     </div>
-                     <div class="card-body">
-                        <div class="stats-grid">
-                           <div class="stat-item">
-                              <div class="stat-value">{{ detailData.rooms }}室{{ detailData.halls }}厅</div>
-                              <div class="stat-label">户型</div>
-                           </div>
-                           <div class="stat-item">
-                              <div class="stat-value">{{ detailData.area }}㎡</div>
-                              <div class="stat-label">面积</div>
-                           </div>
-                           <div class="stat-item">
-                              <div class="stat-value">{{ detailData.floor_level }}</div>
-                              <div class="stat-label">楼层</div>
-                           </div>
-                           <div class="stat-item">
-                              <div class="stat-value">{{ detailData.orientation || '暂无' }}</div>
-                              <div class="stat-label">朝向</div>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-
-                  <!-- Sales Info Card -->
-                  <div class="detail-card">
-                     <div class="card-header">
-                        <icon-user-group class="card-icon" />
-                        <span class="card-title">销售维护</span>
-                     </div>
-                     <div class="card-body">
-                        <div class="info-grid">
-                           <div class="info-item">
-                              <label>业主电话</label>
-                              <div class="value phone-value">{{ detailData.owner_phone || '-' }}</div>
-                           </div>
-                           <div class="info-item">
-                              <label>维护人ID</label>
-                              <div class="value">#{{ detailData.agent_id || '-' }}</div>
-                           </div>
-                           <div class="info-item">
-                              <label>浏览热度</label>
-                              <div class="value highlight">{{ detailData.view_count || 0 }}</div>
-                           </div>
-                           <div class="info-item">
-                              <label>带看次数</label>
-                              <div class="value highlight">{{ detailData.showing_count || 0 }}</div>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-
-                  <!-- Smart Lock Widget -->
-                  <div class="pro-card lock-widget" :class="{ 'active': lockInfo?.lock }">
-                     <div class="widget-header">
-                        <div class="title"><icon-lock /> 智能门锁</div>
-                        <div class="status" v-if="lockInfo?.lock">
-                           <div class="battery-indicator" :class="getBatteryClass(lockInfo.lock.battery)">
-                              <icon-thunderbolt /> {{ lockInfo.lock.battery }}%
-                           </div>
-                        </div>
-                        <a-button v-else type="outline" size="mini" class="btn-bind" @click="openBindLock">
-                           <icon-plus /> 绑定设备
-                        </a-button>
-                     </div>
-                     
-                     <div class="widget-body" v-if="lockInfo?.lock">
-                        <div class="device-info">
-                           <div class="device-icon">
-                              <icon-robot />
-                           </div>
-                           <div class="device-text">
-                              <div class="d-name">{{ lockInfo.lock.lock_name }}</div>
-                              <div class="d-mac">{{ lockInfo.lock.lock_mac }}</div>
-                           </div>
-                        </div>
-                        <div class="control-grid">
-                           <div class="control-btn primary" @click="handleRemoteUnlock">
-                              <icon-unlock />
-                              <span>获取密码</span>
-                           </div>
-                           <div class="control-btn" @click="openCloudDetail">
-                              <icon-settings />
-                              <span>详情</span>
-                           </div>
-                           <a-popconfirm content="解绑后无法远程控制，确认?" @ok="handleUnbind">
-                              <div class="control-btn danger">
-                                 <icon-unlink />
-                                 <span>解绑</span>
-                              </div>
-                           </a-popconfirm>
-                        </div>
-                        <div class="sync-time">
-                           上次同步: {{ formatTime(lockInfo.lock.last_sync_at) }}
-                        </div>
-                     </div>
-                     <div class="widget-empty" v-else>
-                        <div class="empty-icon"><icon-lock /></div>
-                        <p>未绑定智能门锁设备</p>
-                     </div>
-                  </div>
+                   <!-- Smart Lock Widget -->
+                   <div class="pro-card lock-widget" :class="{ 'active': lockInfo?.lock }">
+                      <div class="widget-header">
+                         <div class="title"><icon-lock /> 智能门锁</div>
+                         <div class="status" v-if="lockInfo?.lock">
+                            <div class="battery-indicator" :class="getBatteryClass(lockInfo.lock.battery)">
+                               <icon-thunderbolt /> {{ lockInfo.lock.battery }}%
+                            </div>
+                         </div>
+                         <a-button v-else type="outline" size="mini" class="btn-bind" @click="openBindLock">
+                            <icon-plus /> 绑定设备
+                         </a-button>
+                      </div>
+                      
+                      <div class="widget-body" v-if="lockInfo?.lock">
+                         <div class="device-info">
+                            <div class="device-icon">
+                               <icon-robot />
+                            </div>
+                            <div class="device-text">
+                               <div class="d-name">{{ lockInfo.lock.lock_name }}</div>
+                               <div class="d-mac">{{ lockInfo.lock.lock_mac }}</div>
+                            </div>
+                         </div>
+                         <div class="control-grid">
+                            <div class="control-btn primary" @click="handleRemoteUnlock">
+                               <icon-unlock />
+                               <span>获取密码</span>
+                            </div>
+                            <div class="control-btn" @click="openCloudDetail">
+                               <icon-settings />
+                               <span>详情</span>
+                            </div>
+                            <a-popconfirm content="解绑后无法远程控制，确认?" @ok="handleUnbind">
+                               <div class="control-btn danger">
+                                  <icon-unlink />
+                                  <span>解绑</span>
+                               </div>
+                            </a-popconfirm>
+                         </div>
+                         <div class="sync-time">
+                            上次同步: {{ formatTime(lockInfo.lock.last_sync_at) }}
+                         </div>
+                      </div>
+                      <div class="widget-empty" v-else>
+                         <div class="empty-icon"><icon-lock /></div>
+                         <p>未绑定智能门锁设备</p>
+                      </div>
+                   </div>
+                 </div>
                </div>
             </div>
           </a-tab-pane>
@@ -287,10 +329,10 @@
 
   <BindLockModal @register="registerBindLockModal" @success="reloadLockInfo" />
 
-  <a-drawer v-model:visible="cloudVisible" width="400px" :footer="false" class="cloud-drawer">
-     <template #title>云端设备详情</template>
-    <a-spin :loading="cloudLoading" style="width: 100%">
-      <div v-if="cloudDetail" class="cloud-detail-box">
+   <a-drawer v-model:visible="cloudVisible" width="400px" :footer="false" class="cloud-drawer">
+      <template #title>云端设备详情</template>
+     <a-spin :loading="cloudLoading" style="width: 100%">
+       <div v-if="cloudDetail" class="cloud-detail-box">
          <div class="cd-hero">
             <div class="icon-circle"><icon-cloud /></div>
             <div class="cd-title">{{ cloudDetail.lockName }}</div>
@@ -310,17 +352,50 @@
                <span class="cd-val">{{ cloudDetail.modelNum || '标准版' }}</span>
             </div>
          </div>
-      </div>
-    </a-spin>
-  </a-drawer>
-</template>
+       </div>
+     </a-spin>
+   </a-drawer>
+
+   <a-drawer v-model:visible="statusLogVisible" width="560px" :footer="false" class="statuslog-drawer">
+     <template #title>状态变更记录</template>
+     <a-spin :loading="statusLogLoading" style="width: 100%">
+       <a-table
+         row-key="id"
+         :data="statusLogList"
+         :pagination="statusLogPagination"
+         :bordered="false"
+         size="mini"
+         @page-change="handleStatusLogPageChange"
+         @page-size-change="handleStatusLogPageSizeChange"
+       >
+         <a-table-column title="时间" data-index="createtime" :width="160" />
+         <a-table-column title="字段" :width="110">
+           <template #cell="{ record }">{{ getStatusFieldLabel(record.field) }}</template>
+         </a-table-column>
+         <a-table-column title="变更" :width="180">
+           <template #cell="{ record }">
+             <span class="log-before">{{ record.before_value || '-' }}</span>
+             <span class="log-arrow">→</span>
+             <span class="log-after">{{ record.after_value || '-' }}</span>
+           </template>
+         </a-table-column>
+         <a-table-column title="操作人" :width="120">
+           <template #cell="{ record }">{{ record.user_name || record.user_username || '-' }}</template>
+         </a-table-column>
+         <a-table-column title="备注">
+           <template #cell="{ record }">{{ record.remark || '-' }}</template>
+         </a-table-column>
+       </a-table>
+     </a-spin>
+   </a-drawer>
+ </template>
 
 <script lang="ts">
 import { defineComponent, h, ref } from 'vue';
 import { BasicModal, useModal, useModalInner } from '/@/components/Modal';
 import useLoading from '@/hooks/loading';
 import { Message, Modal } from '@arco-design/web-vue';
-import { getContent, getRenovation } from './api';
+import { getContent, getRenovation, getStatusLogs } from './api';
 import { GetFullPath } from '@/utils/tool';
 import BindLockModal from '../ttlock/modal/BindLockModal.vue';
 import { getLockDetail, getPropertyLock, remoteUnlock, unbindProperty } from '../ttlock/api';
@@ -340,6 +415,17 @@ export default defineComponent({
     const cloudVisible = ref(false);
     const cloudLoading = ref(false);
     const cloudDetail = ref<any>(null);
+
+    const statusLogVisible = ref(false);
+    const statusLogLoading = ref(false);
+    const statusLogList = ref<any[]>([]);
+    const statusLogPagination = ref<any>({
+      current: 1,
+      pageSize: 10,
+      total: 0,
+      showTotal: true,
+      showPageSize: true,
+    });
     const { loading, setLoading } = useLoading();
     const { copy } = useClipboard();
     
@@ -485,7 +571,63 @@ export default defineComponent({
     const formatTime = (sec: any) => {
        if(!sec) return '-';
        return dayjs(Number(sec) * 1000).format('MM-DD HH:mm');
-    }
+     }
+
+    const formatMoney = (v: any) => {
+      if (v === null || v === undefined || v === '') return '-';
+      const n = Number(v);
+      if (Number.isNaN(n)) return '-';
+      return `¥${n.toFixed(2)}`;
+    };
+
+    const getStatusFieldLabel = (f: string) => {
+      const map: any = {
+        status: '上架状态',
+        sale_status: '销售状态',
+        hot_status: '推荐状态',
+        weigh: '排序权重',
+      };
+      return map[f] || f || '-';
+    };
+
+    const fetchStatusLogs = async () => {
+      if (!detailData.value?.id) return;
+      statusLogLoading.value = true;
+      try {
+        const resp: any = await getStatusLogs({
+          property_id: Number(detailData.value.id),
+          page: statusLogPagination.value.current,
+          pageSize: statusLogPagination.value.pageSize,
+        });
+        const data = resp?.items ? resp : (resp?.data?.items ? resp.data : resp?.data ?? resp);
+        statusLogList.value = (data?.items || []) as any[];
+        statusLogPagination.value.current = Number(data?.page || statusLogPagination.value.current);
+        statusLogPagination.value.total = Number(data?.total || 0);
+      } catch (e: any) {
+        statusLogList.value = [];
+        statusLogPagination.value.total = 0;
+        Message.error(e?.message || '加载状态记录失败');
+      } finally {
+        statusLogLoading.value = false;
+      }
+    };
+
+    const openStatusLogs = async () => {
+      statusLogVisible.value = true;
+      statusLogPagination.value.current = 1;
+      await fetchStatusLogs();
+    };
+
+    const handleStatusLogPageChange = (p: number) => {
+      statusLogPagination.value.current = p;
+      fetchStatusLogs();
+    };
+
+    const handleStatusLogPageSizeChange = (ps: number) => {
+      statusLogPagination.value.pageSize = ps;
+      statusLogPagination.value.current = 1;
+      fetchStatusLogs();
+    };
 
     const getImageUrl = (url: string) => {
       if (!url) return 'https://p1-arco.byteimg.com/tos-cn-i-uwbnlip3yd/a8c8cdb109cb051163646151a4a5083b.png~tplv-uwbnlip3yd-webp.webp';
@@ -532,7 +674,10 @@ export default defineComponent({
       windHeight, getImageUrl, parseTags, getGalleryImages, getSaleStatusLabel,
       getRenovationStatusLabel, getBatteryClass, lockLoading, lockInfo, openBindLock,
       handleUnbind, handleRemoteUnlock, openCloudDetail, reloadLockInfo, formatTime,
-      registerBindLockModal, cloudVisible, cloudLoading, cloudDetail, closeModal
+      registerBindLockModal, cloudVisible, cloudLoading, cloudDetail, closeModal,
+      formatMoney,
+      statusLogVisible, statusLogLoading, statusLogList, statusLogPagination,
+      openStatusLogs, handleStatusLogPageChange, handleStatusLogPageSizeChange, getStatusFieldLabel,
     };
   },
 });
@@ -724,6 +869,18 @@ export default defineComponent({
         font-size: 15px;
         font-weight: 600;
         color: var(--color-text-1);
+      }
+
+      .card-actions {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+
+        :deep(.arco-btn) {
+          padding-left: 8px;
+          padding-right: 8px;
+        }
       }
     }
     
@@ -945,6 +1102,318 @@ export default defineComponent({
   }
 }
 
+/* Detail Shell Layout (主内容 + 右侧信息栏) */
+.detail-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+.shell-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.shell-side {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-shell .detail-card {
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-border-3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+}
+
+.detail-shell .detail-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.detail-shell .detail-card .card-header .card-icon {
+  color: rgb(var(--primary-6));
+  font-size: 16px;
+}
+
+.detail-shell .detail-card .card-header .card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.detail-shell .detail-card .card-header .card-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  :deep(.arco-btn) {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+.detail-shell .detail-card .card-body .info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 20px;
+}
+
+.detail-shell .detail-card .card-body .info-grid .info-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-shell .detail-card .card-body .info-grid .info-item label {
+  font-size: 12px;
+  color: var(--color-text-3);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.detail-shell .detail-card .card-body .info-grid .info-item .value {
+  font-size: 14px;
+  color: var(--color-text-1);
+  font-weight: 500;
+}
+
+.detail-shell .detail-card .card-body .info-grid .info-item .value.phone-value {
+  font-family: monospace;
+}
+
+.detail-shell .detail-card .card-body .info-grid .info-item .value.highlight {
+  color: rgb(var(--primary-6));
+  font-weight: 600;
+}
+
+.detail-shell .detail-card .card-body .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.detail-shell .detail-card .card-body .stats-grid .stat-item {
+  text-align: center;
+  padding: 12px;
+  background: var(--color-fill-1);
+  border-radius: 8px;
+}
+
+.detail-shell .detail-card .card-body .stats-grid .stat-item .stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-1);
+  margin-bottom: 4px;
+}
+
+.detail-shell .detail-card .card-body .stats-grid .stat-item .stat-label {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-tag {
+  border-radius: 999px;
+  padding: 0 10px;
+  border-color: var(--color-border-2);
+  background: rgba(var(--primary-6), 0.08);
+  color: rgb(var(--primary-6));
+
+  :deep(.arco-tag-content) {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Smart Lock Widget (脱离 detail-grid，兼容右侧栏展示) */
+.lock-widget {
+  &.active {
+    background: linear-gradient(135deg, var(--color-bg-2) 0%, var(--color-fill-1) 100%);
+    border-color: rgba(var(--primary-6), 0.3);
+  }
+
+  .widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-1);
+    }
+
+    .status {
+      .battery-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 500;
+
+        &.color-success {
+          color: rgb(var(--success-6));
+        }
+        &.color-warning {
+          color: rgb(var(--warning-6));
+        }
+        &.color-danger {
+          color: rgb(var(--danger-6));
+        }
+      }
+    }
+
+    .btn-bind {
+      border-radius: 6px;
+    }
+  }
+
+  .widget-body {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+
+    .device-info {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .device-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--color-bg-1);
+        border: 1px solid var(--color-border-2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: rgb(var(--primary-6));
+      }
+
+      .device-text {
+        min-width: 0;
+
+        .d-name {
+          font-weight: 600;
+          font-size: 16px;
+          color: var(--color-text-1);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .d-mac {
+          font-size: 12px;
+          color: var(--color-text-3);
+          font-family: monospace;
+          margin-top: 4px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .control-grid {
+      display: flex;
+      gap: 12px;
+
+      .control-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 80px;
+        height: 64px;
+        border-radius: 8px;
+        background: var(--color-bg-1);
+        border: 1px solid var(--color-border-2);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--color-text-2);
+
+        &:hover {
+          transform: translateY(-2px);
+          border-color: var(--color-border-3);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        &.primary {
+          background: rgb(var(--primary-6));
+          color: #fff;
+          border: none;
+
+          &:hover {
+            background: rgb(var(--primary-5));
+            box-shadow: 0 4px 12px rgba(var(--primary-6), 0.3);
+          }
+        }
+
+        &.danger {
+          color: rgb(var(--danger-6));
+
+          &:hover {
+            background: rgba(var(--danger-6), 0.05);
+          }
+        }
+      }
+    }
+
+    .sync-time {
+      font-size: 12px;
+      color: var(--color-text-3);
+      margin-top: 12px;
+    }
+  }
+
+  .widget-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--color-text-3);
+
+    .empty-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+}
+
 /* Gallery Section */
 .gallery-wrapper {
   padding: 16px;
@@ -1066,6 +1535,24 @@ export default defineComponent({
 .cloud-drawer {
   :deep(.arco-drawer-body) {
     padding: 20px;
+  }
+}
+
+.statuslog-drawer {
+  :deep(.arco-drawer-body) {
+    padding: 16px 16px 20px;
+  }
+
+  .log-before {
+    color: var(--color-text-3);
+  }
+  .log-arrow {
+    margin: 0 8px;
+    color: var(--color-text-4);
+  }
+  .log-after {
+    color: var(--color-text-1);
+    font-weight: 600;
   }
 }
 

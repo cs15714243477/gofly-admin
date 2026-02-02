@@ -1,10 +1,14 @@
 package houses
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"gofly/utils/gf"
+	"gofly/utils/gform"
 	"gofly/utils/tools/gconv"
 	"gofly/utils/tools/gmap"
+	"gofly/utils/tools/gtime"
 	"strings"
 )
 
@@ -123,7 +127,7 @@ func (api *Houses) GetList(c *gf.GinCtx) {
 	}
 	MDB := gf.Model("business_properties").Where(whereMap)
 	totalCount, _ := MDB.Clone().Count()
-	list, err := MDB.Fields("id,business_id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,has_smart_lock,commission_rate,commission_reward,owner_phone,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,status,weigh,createtime,updatetime").
+	list, err := MDB.Fields("id,business_id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,status,weigh,createtime,updatetime").
 		Page(pageNo, pageSize).
 		Order("weigh desc, id desc").
 		Select()
@@ -174,7 +178,9 @@ func (api *Houses) Save(c *gf.GinCtx) {
 		"tags", "images", "cover_image",
 		"has_smart_lock",
 		"commission_rate", "commission_reward",
-		"owner_phone", "agent_id",
+		"owner_name", "owner_phone",
+		"receiver_name", "receiver_phone", "receiver_price",
+		"agent_id",
 		"sale_status",
 		"hot_status",
 		"status",
@@ -221,7 +227,8 @@ func (api *Houses) Save(c *gf.GinCtx) {
 // 更新状态
 func (api *Houses) UpStatus(c *gf.GinCtx) {
 	param, _ := gf.RequestParam(c)
-	if param["id"] == nil || gconv.Int64(param["id"]) == 0 {
+	propertyID := gconv.Int64(param["id"])
+	if propertyID == 0 {
 		gf.Failed().SetMsg("请传参数id").Regin(c)
 		return
 	}
@@ -253,12 +260,112 @@ func (api *Houses) UpStatus(c *gf.GinCtx) {
 		gf.Failed().SetMsg("暂无可更新字段").Regin(c)
 		return
 	}
-	_, err := gf.Model("business_properties").Where("business_id", c.GetInt64("businessID")).Where("id", param["id"]).Update(update)
+	businessID := c.GetInt64("businessID")
+	userID := c.GetInt64("userID")
+	remark := gconv.String(param["remark"])
+
+	reqCtx := context.Background()
+	if c != nil && c.Request != nil {
+		reqCtx = c.Request.Context()
+	}
+
+	err := gf.Model("business_properties").Ctx(reqCtx).Transaction(reqCtx, func(ctx context.Context, tx gform.TX) error {
+		old, err := gf.Model("business_properties").TX(tx).Ctx(ctx).
+			Fields("status,hot_status,weigh,sale_status").
+			Where("business_id", businessID).
+			Where("id", propertyID).
+			Find()
+		if err != nil {
+			return err
+		}
+		if old == nil || len(old) == 0 {
+			return errors.New("房源不存在或无权限")
+		}
+
+		if _, err := gf.Model("business_properties").TX(tx).Ctx(ctx).
+			Where("business_id", businessID).
+			Where("id", propertyID).
+			Update(update); err != nil {
+			return err
+		}
+
+		now := gtime.Now().Format("Y-m-d H:i:s")
+		for field, after := range update {
+			beforeVar, ok := old[field]
+			var before string
+			if ok && beforeVar != nil {
+				before = beforeVar.String()
+			}
+			afterStr := gconv.String(after)
+			if before == afterStr {
+				continue
+			}
+			logRow := gf.Map{
+				"business_id":  businessID,
+				"property_id":  propertyID,
+				"user_id":      userID,
+				"field":        gconv.String(field),
+				"before_value": before,
+				"after_value":  afterStr,
+				"remark":       remark,
+				"createtime":   now,
+			}
+			if _, err := gf.Model("business_property_status_logs").TX(tx).Ctx(ctx).Data(logRow).Insert(); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
 		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
-	} else {
-		gf.Success().SetMsg("更新成功").Regin(c)
+		return
 	}
+	gf.Success().SetMsg("更新成功").Regin(c)
+}
+
+// 获取房源状态变更记录
+func (api *Houses) GetStatusLogs(c *gf.GinCtx) {
+	pageNo := gconv.Int(c.DefaultQuery("page", "1"))
+	pageSize := gconv.Int(c.DefaultQuery("pageSize", "12"))
+	propertyID := gconv.Int64(c.DefaultQuery("property_id", "0"))
+	if propertyID == 0 {
+		gf.Failed().SetMsg("请传参数property_id").Regin(c)
+		return
+	}
+	businessID := c.GetInt64("businessID")
+
+	// 校验房源归属
+	existProperty, _ := gf.Model("business_properties").
+		Where("business_id", businessID).
+		Where("id", propertyID).
+		Where("deletetime", nil).
+		Exist()
+	if !existProperty {
+		gf.Failed().SetMsg("房源不存在或无权限").Regin(c)
+		return
+	}
+
+	MDB := gf.Model("business_property_status_logs l").
+		LeftJoin("business_user u", "u.id = l.user_id").
+		Where("l.business_id", businessID).
+		Where("l.property_id", propertyID)
+	totalCount, _ := MDB.Clone().Count()
+	list, err := MDB.
+		Fields("l.id,l.property_id,l.user_id,l.field,l.before_value,l.after_value,l.remark,l.createtime,u.name as user_name,u.username as user_username").
+		Page(pageNo, pageSize).
+		Order("l.id desc").
+		Select()
+	if err != nil {
+		gf.Failed().SetMsg(err.Error()).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("获取状态变更记录").SetData(gf.Map{
+		"page":     pageNo,
+		"pageSize": pageSize,
+		"total":    totalCount,
+		"items":    list,
+	}).Regin(c)
 }
 
 // 删除房源

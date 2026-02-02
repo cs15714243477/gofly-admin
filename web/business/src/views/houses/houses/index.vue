@@ -172,20 +172,22 @@
             </template>
             
             <template #tags="{ record }">
-               <div class="tags-cell">
-                  <a-space size="mini" wrap>
-                    <span 
-                      v-for="(tag, idx) in parseTags(record.tags).slice(0, 2)" 
-                      :key="idx" 
-                      class="tag-item"
-                    >
-                      {{ tag }}
-                    </span>
-                    <span v-if="parseTags(record.tags).length > 2" class="tag-more">
-                        +{{ parseTags(record.tags).length - 2 }}
-                    </span>
-                  </a-space>
-               </div>
+                <div class="tags-cell">
+                   <a-space size="mini" wrap>
+                     <a-tag
+                       v-for="(tag, idx) in parseTags(record.tags).slice(0, 2)"
+                       :key="idx"
+                       size="small"
+                       bordered
+                       class="pill-tag"
+                     >
+                       {{ tag }}
+                     </a-tag>
+                     <a-tag v-if="parseTags(record.tags).length > 2" size="small" bordered class="pill-tag pill-tag-more">
+                       +{{ parseTags(record.tags).length - 2 }}
+                     </a-tag>
+                   </a-space>
+                </div>
             </template>
 
             <template #sale_status="{ record }">
@@ -615,20 +617,24 @@ onMounted(() => {
 }
 
 .tags-cell {
-  .tag-item {
-    background: var(--color-fill-2);
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--color-text-2);
-    display: inline-block;
-  }
-  .tag-more {
-    background: var(--color-fill-2);
-    color: var(--color-text-3);
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+  .pill-tag {
+    border-radius: 999px;
+    padding: 0 10px;
+    border-color: var(--color-border-2);
+    background: rgba(var(--primary-6), 0.08);
+    color: rgb(var(--primary-6));
+
+    :deep(.arco-tag-content) {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &.pill-tag-more {
+      background: var(--color-fill-2);
+      color: var(--color-text-2);
+    }
   }
 }
 

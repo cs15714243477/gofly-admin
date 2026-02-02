@@ -94,7 +94,11 @@ CREATE TABLE `business_properties` (
   `has_smart_lock` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否有智能锁:0无,1有',
   `commission_rate` decimal(5, 2) NULL DEFAULT 0.00 COMMENT '佣金比例',
   `commission_reward` decimal(12, 2) NULL DEFAULT 0.00 COMMENT '成交奖励金',
+  `owner_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '业主姓名',
   `owner_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '业主电话',
+  `receiver_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '收房人姓名',
+  `receiver_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '收房人电话',
+  `receiver_price` decimal(12, 2) NULL DEFAULT NULL COMMENT '收房价格(支付给业主)',
   `agent_id` int(11) NOT NULL DEFAULT 0 COMMENT '维护经纪人ID',
   `sale_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'on_sale' COMMENT '销售状态:on_sale在售,sold已售,off_market下架',
   `hot_status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '推荐状态:0不推荐,1推荐',
@@ -266,7 +270,26 @@ CREATE TABLE `business_user_activity_logs` (
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '用户活动日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- 8. 开锁记录表
+-- 8. 房源状态变更记录表
+-- ----------------------------
+DROP TABLE IF EXISTS `business_property_status_logs`;
+CREATE TABLE `business_property_status_logs` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `business_id` int(11) NOT NULL DEFAULT 0 COMMENT '业务主账号id',
+  `property_id` int(11) NOT NULL DEFAULT 0 COMMENT '房源ID',
+  `user_id` int(11) NOT NULL DEFAULT 0 COMMENT '操作人(business_user.id)',
+  `field` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '变更字段:status/hot_status/sale_status/weigh等',
+  `before_value` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '变更前',
+  `after_value` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '变更后',
+  `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '备注/原因',
+  `createtime` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_biz_property` (`business_id`, `property_id`) USING BTREE,
+  INDEX `idx_property_time` (`property_id`, `createtime`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '房源状态变更记录表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- 9. 开锁记录表
 -- ----------------------------
 DROP TABLE IF EXISTS `business_unlock_requests`;
 CREATE TABLE `business_unlock_requests` (

@@ -9,6 +9,7 @@ enum Api {
   save = '/houses/houses/save',
   upStatus = '/houses/houses/upStatus',
   del = '/houses/houses/del',
+  getStatusLogs = '/houses/houses/getStatusLogs',
   // 装修信息
   getRenovation = '/houses/houses/getRenovation',
   saveRenovation = '/houses/houses/saveRenovation',
@@ -39,6 +40,11 @@ export function save(params: Record<string, any>) {
 // 更新状态/销售状态/排序
 export function upStatus(params: Record<string, any>) {
   return defHttp.post({ url: Api.upStatus, params }, { errorMessageMode: 'message' });
+}
+
+// 获取状态变更记录
+export function getStatusLogs(params: Record<string, any>) {
+  return defHttp.get({ url: Api.getStatusLogs, params }, { errorMessageMode: 'none' });
 }
 
 // 删除数据
