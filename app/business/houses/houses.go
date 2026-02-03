@@ -154,6 +154,27 @@ func (api *Houses) GetContent(c *gf.GinCtx) {
 	if err != nil {
 		gf.Failed().SetMsg("获取内容失败").SetData(err).Regin(c)
 	} else {
+		// 行政区域兼容：address 按 “省 市 区 详细地址...” 拼接存储，这里拆出 district + address_detail 供详情页展示
+		if data != nil && data["address"] != nil {
+			addr := strings.TrimSpace(data["address"].String())
+			if addr != "" {
+				parts := strings.Fields(addr)
+				if len(parts) >= 3 {
+					data["district"] = gf.VarNew(strings.Join(parts[:3], " / "))
+					if len(parts) >= 4 {
+						data["address_detail"] = gf.VarNew(strings.Join(parts[3:], " "))
+					} else {
+						data["address_detail"] = gf.VarNew("")
+					}
+				} else {
+					data["district"] = gf.VarNew("")
+					data["address_detail"] = gf.VarNew(addr)
+				}
+			} else {
+				data["district"] = gf.VarNew("")
+				data["address_detail"] = gf.VarNew("")
+			}
+		}
 		// tags 兼容：后端落库为逗号分隔字符串，前端表单用数组
 		if data != nil && data["tags"] != nil && data["tags"].String() != "" {
 			data["tags"] = gf.VarNew(gf.SplitAndStr(data["tags"].String(), ","))
@@ -425,6 +446,12 @@ func (api *Houses) GetRenovation(c *gf.GinCtx) {
 		data["materials"] = gf.VarNew(gf.SplitAndStr(data["materials"].String(), ","))
 	} else if data != nil {
 		data["materials"] = gf.VarNew(make([]string, 0))
+	}
+	// 处理 images 字段：保持字符串（兼容业务端表单组件），但做一次去重/去空格清洗
+	if data != nil && data["images"] != nil && strings.TrimSpace(data["images"].String()) != "" {
+		data["images"] = gf.VarNew(normalizeCommaText(data["images"].String()))
+	} else if data != nil {
+		data["images"] = gf.VarNew("")
 	}
 	gf.Success().SetMsg("获取装修信息成功").SetData(data).Regin(c)
 }

@@ -86,6 +86,33 @@ export default {
       },
     }),
 
+  // 获取可维护房源装修信息（编辑页）
+  getManageRenovation: (data) =>
+    request({
+      url: "/houses/wxproperty/getManageRenovation",
+      method: "GET",
+      data,
+      custom: {
+        showSuccess: false,
+        showLoading: false,
+        auth: true,
+      },
+    }),
+
+  // 保存可维护房源装修信息（编辑页）
+  saveManageRenovation: (data) =>
+    request({
+      url: "/houses/wxproperty/saveManageRenovation",
+      method: "POST",
+      data,
+      custom: {
+        showSuccess: false,
+        showLoading: true,
+        auth: true,
+        loadingMsg: "保存中",
+      },
+    }),
+
   // 保存可维护房源（新增/编辑）
   saveManage: (data) =>
     request({
@@ -97,6 +124,19 @@ export default {
         showLoading: true,
         auth: true,
         loadingMsg: "保存中",
+      },
+    }),
+
+  // 房源表单下拉选项（后台字典配置，前端缓存）
+  getFormOptions: (data) =>
+    request({
+      url: "/houses/wxproperty/getFormOptions",
+      method: "GET",
+      data,
+      custom: {
+        showSuccess: false,
+        showLoading: false,
+        auth: true,
       },
     }),
 

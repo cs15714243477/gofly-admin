@@ -1,0 +1,14 @@
+conftype: configuration
+title: "房源表单选项配置"
+# 注意：pluginident 用于“同一功能不同插件”的互斥启用；请勿与 wxapp 基础配置等共用同名，否则启用时会互相关闭
+pluginident: "wxapp_property_form_options" #插件标识
+status: true
+data:
+  # 格式：每行一条，value=label（也支持 value:label / value,label）
+  sale_status_txt: "on_sale=在售\nsold=已售\noff_market=下架" #销售状态
+  price_unit_txt: "万=万\n元=元" #价格单位
+  floor_level_txt: "低层=低层 (1-6)\n中层=中层 (7-15)\n高层=高层 (16+)\n地下=地下" #楼层位置
+  orientation_txt: "东=东\n南=南\n西=西\n北=北\n东南=东南\n东北=东北\n西南=西南\n西北=西北\n南北=南北\n东西=东西" #朝向
+  property_type_txt: "住宅=住宅\n公寓=公寓\n别墅=别墅\n商铺=商铺\n写字楼=写字楼" #物业类型
+  decoration_type_txt: "毛坯=毛坯\n简装=简装\n精装=精装\n豪装=豪装" #装修标准
+  renovation_stage_txt: "设计=设计\n拆改=拆改\n水电=水电\n泥瓦=泥瓦\n木工=木工\n油漆=油漆\n安装=安装\n软装=软装\n验收=验收" #装修工序（当前阶段）

@@ -29,6 +29,7 @@ CREATE TABLE `business_user` (
   `loginfailure` tinyint(3) UNSIGNED NOT NULL DEFAULT 0 COMMENT '失败次数',
   `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'user' COMMENT '经纪人',
   `can_manage_properties` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否可维护房源:0否,1是',
+  `can_manage_locks` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否可管理智能锁:0否,1是',
   `store_id` int(11) NOT NULL DEFAULT 0 COMMENT '所属门店ID',
   `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '头衔',
   `introduction` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '自我介绍',

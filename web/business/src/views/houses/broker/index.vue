@@ -8,7 +8,7 @@
             <div class="hero-icon"><icon-user-group /></div>
             <div class="hero-text">
               <div class="hero-title">经纪人</div>
-              <div class="hero-sub">账号信息、门店归属、可维护房源权限</div>
+              <div class="hero-sub">账号信息、门店归属、可维护房源/智能锁权限</div>
             </div>
           </div>
           <div class="hero-actions">
@@ -36,6 +36,10 @@
             <a-select style="width: 160px" v-model="formModel.can_manage_properties" placeholder="可维护房源" allow-clear>
               <a-option :value="1">可维护</a-option>
               <a-option :value="0">不可维护</a-option>
+            </a-select>
+            <a-select style="width: 160px" v-model="formModel.can_manage_locks" placeholder="可管理智能锁" allow-clear>
+              <a-option :value="1">可管理</a-option>
+              <a-option :value="0">不可管理</a-option>
             </a-select>
             <a-select style="width: 140px" v-model="formModel.status" placeholder="状态" allow-clear>
               <a-option :value="0">启用</a-option>
@@ -68,6 +72,10 @@
             <template #canManage="{ record }">
               <a-tag v-if="Number(record.can_manage_properties) === 1" color="green">可维护</a-tag>
               <a-tag v-else color="gray">不可维护</a-tag>
+            </template>
+            <template #canLock="{ record }">
+              <a-tag v-if="Number(record.can_manage_locks) === 1" color="arcoblue">可管理</a-tag>
+              <a-tag v-else color="gray">不可管理</a-tag>
             </template>
             <template #action="{ record }">
               <a-space>
@@ -141,6 +149,7 @@ const formModel = ref({
   username: '',
   status: '',
   can_manage_properties: '',
+  can_manage_locks: '',
 });
 
 const { loading, setLoading } = useLoading(true);
@@ -158,6 +167,7 @@ const columns = [
   { title: '店长', dataIndex: 'store_manager_name', width: 120, ellipsis: true },
   { title: '头衔', dataIndex: 'title', minWidth: 140, ellipsis: true },
   { title: '可维护房源', dataIndex: 'can_manage_properties', width: 120, align: 'center', slotName: 'canManage' },
+  { title: '可管智能锁', dataIndex: 'can_manage_locks', width: 120, align: 'center', slotName: 'canLock' },
   { title: '状态', dataIndex: 'status', width: 110, align: 'center', slotName: 'status' },
   { title: '操作', dataIndex: 'action', width: 240, fixed: 'right', align: 'center', slotName: 'action' },
 ] as any[];
@@ -202,7 +212,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   pagination.current = 1;
-  formModel.value = { name: '', mobile: '', username: '', status: '', can_manage_properties: '' };
+  formModel.value = { name: '', mobile: '', username: '', status: '', can_manage_properties: '', can_manage_locks: '' };
   fetchData();
 };
 

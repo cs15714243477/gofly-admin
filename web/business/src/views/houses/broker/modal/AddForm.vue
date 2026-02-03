@@ -97,6 +97,15 @@
               </a-switch>
             </a-form-item>
           </a-col>
+
+          <a-col :span="12">
+            <a-form-item field="can_manage_locks" label="可管理智能锁" tooltip="开启后，该经纪人可管理智能锁（默认不可管理）">
+              <a-switch v-model="formData.can_manage_locks" :checked-value="1" :unchecked-value="0" type="round">
+                <template #checked>可管理</template>
+                <template #unchecked>不可管理</template>
+              </a-switch>
+            </a-form-item>
+          </a-col>
         </a-row>
       </a-form>
 
@@ -140,6 +149,8 @@ export default defineComponent({
       role: 1,
       // 默认不可维护房源
       can_manage_properties: 0,
+      // 默认不可管理智能锁
+      can_manage_locks: 0,
       store_id: undefined as any,
       title: '',
       introduction: '',
@@ -228,6 +239,7 @@ export default defineComponent({
         formData.value.store_id = Number(formData.value.store_id) || undefined;
         formData.value.status = Number(formData.value.status) || 0;
         formData.value.can_manage_properties = Number((formData.value as any).can_manage_properties) || 0;
+        formData.value.can_manage_locks = Number((formData.value as any).can_manage_locks) || 0;
         await ensureStoreSelectedOption(formData.value.store_id);
         setLoading(false);
       }
@@ -263,6 +275,7 @@ export default defineComponent({
         // select 可能回传 string，统一转成 number
         formData.value.store_id = Number(formData.value.store_id) || 0;
         formData.value.can_manage_properties = Number(formData.value.can_manage_properties) || 0;
+        formData.value.can_manage_locks = Number(formData.value.can_manage_locks) || 0;
         await save(cloneDeep(unref(formData)));
         Message.success({ content: '提交成功', id: 'broker_save', duration: 1500 });
         closeModal();

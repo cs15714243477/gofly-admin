@@ -34,7 +34,11 @@
 					<view class="record-item" v-for="(item, index) in displayRecords" :key="index" @click="openRecord(item)">
 						<view class="record-card">
 							<view class="record-icon-box">
-								<text class="material-symbols-outlined record-icon">{{ item.icon }}</text>
+								<text
+									class="material-symbols-outlined record-icon"
+									:class="{ 'is-smart-lock': item.key === 'lock_manage' }"
+									>{{ item.icon }}</text
+								>
 								<view class="record-dot" v-if="item.hasNotice"></view>
 							</view>
 							<text class="record-text">{{ item.name }}</text>
@@ -90,6 +94,7 @@
 				userInfo: {},
 				businessRecords: [
 					{ key: 'property_manage', name: '房源管理', icon: 'home_work' },
+					{ key: 'lock_manage', name: '智能门锁', icon: 'smart_lock' },
 					{ key: 'follow', name: '关注记录', icon: 'favorite' },
 					{ key: 'unlock', name: '开锁记录', icon: 'lock_open', hasNotice: true },
 					{ key: 'showing', name: '带看记录', icon: 'location_on' },
@@ -132,16 +137,17 @@
 			displayRecords() {
 				const u = this.userInfo || {}
 				const canManage = Number(u.can_manage_properties) === 1
+				const canManageLocks = Number(u.can_manage_locks) === 1
 				// 最小权限：仅在允许维护房源时展示入口
 				return (this.businessRecords || []).filter((it) => {
 					if (!it) return false
 					if (it.key === 'property_manage') return canManage
+					if (it.key === 'lock_manage') return canManageLocks
 					return true
 				})
-			},
+		},
 		},
 		onShow() {
-			console.log('App 1')
 			this.ensureLoginAndLoadUser()
 		},
 		methods: {
@@ -179,8 +185,6 @@
 				}
 			},
 			async ensureLoginAndLoadUser() {
-
-				console.log('App 2')
 				const userStore = $store('user')
 				// 兼容：小程序刷新后，优先用本地 token 恢复登录态
 				const token = uni.getStorageSync('token')
@@ -214,6 +218,7 @@
 			openRecord(item) {
 				const map = {
 					property_manage: '/pages/property_manage/property_manage',
+					lock_manage: '/pages/lock_manage/lock_manage',
 					follow: '/pages/records/record_follow',
 					unlock: '/pages/records/record_unlock',
 					showing: '/pages/records/record_showing',
@@ -417,6 +422,13 @@
 
 	.record-icon {
 		font-size: 40rpx !important;
+		line-height: 1;
+		display: block;
+	}
+
+	/* Material Symbols 某些图标字形左右/上下偏移，做一点定向微调 */
+	.record-icon.is-smart-lock {
+		transform: translateY(2rpx);
 	}
 
 	.record-dot {

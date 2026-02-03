@@ -71,6 +71,13 @@
 			}
 		},
 		{
+			"path": "pages/lock_manage/lock_manage",
+			"style": {
+				"navigationBarTitleText": "智能门锁",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/my_business_card/my_business_card",
 			"style": {
 				"navigationBarTitleText": "我的名片",

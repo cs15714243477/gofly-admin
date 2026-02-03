@@ -1,7 +1,14 @@
 <template>
   <view class="detail-container">
     <!-- 顶部悬浮操作 -->
-    <view class="float-header" :style="{ paddingTop: headerTop + 'px' }">
+    <view
+      class="float-header"
+      :style="{
+        paddingTop: headerTop + 'px',
+        paddingLeft: headerPadLeftPx ? headerPadLeftPx + 'px' : undefined,
+        paddingRight: headerPadRightPx ? headerPadRightPx + 'px' : undefined,
+      }"
+    >
       <!-- 安全遮罩：顶部时用暗色渐变保证可读性；下滑后过渡到磨砂白底 -->
       <view
         class="fh-mask fh-mask--dark"
@@ -67,9 +74,15 @@
         <view class="title-section">
           <view class="title-row">
             <text class="title">{{ (property && property.title) || "-" }}</text>
-            <view class="share-btn" @click="handleShare">
+            <view class="action-col">
+            <view class="share-btn" @click="handleShare" @longpress="debugEditState">
               <text class="material-symbols-outlined share-icon">share</text>
               <text>分享</text>
+            </view>
+              <view class="edit-btn" v-if="canEditThisProperty" @click="goEdit">
+                <text class="material-symbols-outlined edit-icon">edit</text>
+                <text>编辑</text>
+              </view>
             </view>
           </view>
           <view class="tags-row">
@@ -84,6 +97,16 @@
             >
               {{ t }}
             </text>
+          </view>
+          <view class="status-row" v-if="canEditThisProperty">
+            <view class="status-chip" :class="(property && property.sale_status) || ''">
+              <text class="material-symbols-outlined status-ic">sell</text>
+              <text>{{ (property && property.sale_status_label) || "状态" }}</text>
+            </view>
+            <view v-if="Number(property && property.hot_status) === 1" class="status-chip hot">
+              <text class="material-symbols-outlined status-ic">local_fire_department</text>
+              <text>推荐</text>
+            </view>
           </view>
         </view>
 
@@ -162,6 +185,45 @@
             >
               <text class="attr-label">{{ attr.label }}</text>
               <text class="attr-val">{{ attr.value }}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 房主与收房（与后台表单字段一致） -->
+        <view class="section" v-if="canEditThisProperty">
+          <view class="section-title">房主与收房</view>
+          <view class="contact-card">
+            <view class="contact-grid">
+              <view class="contact-item">
+                <text class="contact-label">业主姓名</text>
+                <text class="contact-value">{{
+                  (property && property.owner_name) || "-"
+                }}</text>
+              </view>
+              <view class="contact-item">
+                <text class="contact-label">业主电话</text>
+                <text class="contact-value">{{
+                  (property && property.owner_phone) || "-"
+                }}</text>
+              </view>
+              <view class="contact-item">
+                <text class="contact-label">收房人姓名</text>
+                <text class="contact-value">{{
+                  (property && property.receiver_name) || "-"
+                }}</text>
+              </view>
+              <view class="contact-item">
+                <text class="contact-label">收房人电话</text>
+                <text class="contact-value">{{
+                  (property && property.receiver_phone) || "-"
+                }}</text>
+              </view>
+              <view class="contact-item wide">
+                <text class="contact-label">收房价格（支付业主）</text>
+                <text class="contact-value price">{{
+                  (property && property.receiver_price) ? ("¥" + property.receiver_price) : "-"
+                }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -448,6 +510,7 @@
 
 <script>
 import propertyApi from "@/api/property";
+import $store from "@/store";
 
 export default {
   data() {
@@ -455,8 +518,12 @@ export default {
       propertyId: 0,
       loading: false,
       property: {},
+      currentUserId: 0,
+      canManageProperties: false,
       statusBarHeight: 0,
       headerTop: 0,
+      headerPadLeftPx: 0,
+      headerPadRightPx: 0,
       // 0：顶部（暗色渐变遮罩） -> 1：下滑后（磨砂白底）
       headerOpacity: 0,
       currentSwiper: 0,
@@ -547,9 +614,14 @@ export default {
     try {
       if (typeof wx !== "undefined" && wx.getMenuButtonBoundingClientRect) {
         const rect = wx.getMenuButtonBoundingClientRect();
-        // 与胶囊按钮垂直居中对齐：用胶囊中心线对齐返回圆按钮中心线
+        // 让右上角按钮避开胶囊按钮区域
         const w = Number(info.windowWidth || 375);
         const rpx2px = w / 750;
+        const padLeftPx = Math.round(32 * rpx2px); // .float-header 左右 32rpx
+        const rightSafePx = Math.max(0, w - Number(rect.left || 0));
+        this.headerPadLeftPx = padLeftPx;
+        this.headerPadRightPx = padLeftPx + rightSafePx;
+        // 与胶囊按钮垂直居中对齐：用胶囊中心线对齐返回圆按钮中心线
         const circleBtnSizePx = 80 * rpx2px; // .circle-btn: 80rpx
         const capsuleCenterY =
           Number(rect.top || 0) + Number(rect.height || 0) / 2;
@@ -576,9 +648,20 @@ export default {
       uni.showToast({ title: "房源ID缺失", icon: "none" });
       return;
     }
+    this.ensureCanManageProperties();
     this.loadDetail();
   },
   computed: {
+    canEditThisProperty() {
+      if (!this.canManageProperties) return false;
+      const pid = Number(this.propertyId || 0) || 0;
+      if (!pid) return false;
+      const agentId = Number(this.property && this.property.agent_id) || 0;
+      const uid = Number(this.currentUserId || 0) || 0;
+      // 最小权限：仅允许编辑自己维护(agent_id=自己)的房源
+      if (!uid || !agentId) return false;
+      return agentId === uid;
+    },
     showDownloadBtn() {
       const item = this.getCurrentBannerItem();
       if (!item) return false;
@@ -598,6 +681,59 @@ export default {
     },
   },
   methods: {
+    async ensureCanManageProperties() {
+      // 仅用于 UI 控制；最终权限以后端校验为准
+      const userStore = $store("user");
+      const token = uni.getStorageSync("token");
+      if (!token && !userStore.isLogin) {
+        this.canManageProperties = false;
+        this.currentUserId = 0;
+        return;
+      }
+      try {
+        const ui = userStore.userInfo || {};
+        // 兼容：老版本缓存的 userInfo 可能没有 can_manage_properties，需要强制刷新一次
+        if (!ui.id || typeof ui.can_manage_properties === "undefined") {
+          await userStore.getInfo();
+        }
+      } catch (e) {}
+      const u = userStore.userInfo || {};
+      this.currentUserId = Number(u.id || 0) || 0;
+      this.canManageProperties = Number(u.can_manage_properties) === 1;
+      try {
+        console.log("[property_detail] perm", {
+          id: this.currentUserId,
+          can_manage_properties: u.can_manage_properties,
+        });
+      } catch (e) {}
+    },
+    goEdit() {
+      if (!this.propertyId) return;
+      uni.navigateTo({
+        url: `/pages/property_manage/property_edit?id=${this.propertyId}`,
+      });
+    },
+    debugEditState() {
+      try {
+        const uid = Number(this.currentUserId || 0) || 0;
+        const can = !!this.canManageProperties;
+        const agentId = Number(this.property && this.property.agent_id) || 0;
+        const show = !!this.canEditThisProperty;
+        uni.showModal({
+          title: "编辑按钮诊断",
+          content: [
+            `can_manage_properties: ${can ? 1 : 0}`,
+            `currentUserId: ${uid}`,
+            `property.agent_id: ${agentId}`,
+            `canEditThisProperty: ${show ? 1 : 0}`,
+            show ? "✅ 满足条件应显示" : "❌ 条件不满足所以不显示",
+          ].join("\n"),
+          showCancel: false,
+        });
+      } catch (e) {
+        // ignore
+      }
+    },
     tagClass(tag) {
       const t = String(tag || "").trim();
       if (!t) return "";
@@ -698,6 +834,8 @@ export default {
 
       const data = res.data || {};
       const p = data.property || {};
+      // 兼容：后端也会回传 current_user（已登录用户ID）
+      if (!this.currentUserId) this.currentUserId = Number(data.current_user || 0) || 0;
       if (!p || !p.id) {
         setTimeout(() => {
           uni.navigateBack();
@@ -1034,7 +1172,7 @@ export default {
   right: 0;
   z-index: 100;
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   padding: 0 32rpx;
   pointer-events: none;
   padding-bottom: 8rpx;
@@ -1210,6 +1348,14 @@ export default {
       flex: 1;
     }
 
+    .action-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 12rpx;
+      flex-shrink: 0;
+    }
+
     .share-btn {
       display: flex;
       align-items: center;
@@ -1230,6 +1376,29 @@ export default {
       &:active {
         transform: scale(0.98);
         background: rgba(37, 99, 235, 0.12);
+      }
+    }
+
+    .edit-btn {
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+      padding: 12rpx 16rpx;
+      background: rgba(15, 23, 42, 0.06);
+      border: 1rpx solid rgba(15, 23, 42, 0.1);
+      border-radius: 18rpx;
+      font-size: 24rpx;
+      color: #0f172a;
+      font-weight: 700;
+      flex-shrink: 0;
+
+      .edit-icon {
+        font-size: 28rpx;
+      }
+
+      &:active {
+        transform: scale(0.98);
+        background: rgba(15, 23, 42, 0.1);
       }
     }
   }
@@ -1253,6 +1422,99 @@ export default {
       }
     }
   }
+
+  .status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+    align-items: center;
+  }
+
+  .status-chip {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    padding: 8rpx 14rpx;
+    border-radius: 999rpx;
+    font-size: 22rpx;
+    font-weight: 700;
+    background: rgba(15, 23, 42, 0.06);
+    border: 1rpx solid rgba(15, 23, 42, 0.1);
+    color: #0f172a;
+
+    .status-ic {
+      font-size: 26rpx;
+    }
+
+    &.on_sale {
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.18);
+      color: #16a34a;
+    }
+    &.sold {
+      background: rgba(234, 88, 12, 0.12);
+      border-color: rgba(234, 88, 12, 0.18);
+      color: #ea580c;
+    }
+    &.off_market {
+      background: rgba(148, 163, 184, 0.18);
+      border-color: rgba(148, 163, 184, 0.22);
+      color: #64748b;
+    }
+
+    &.hot {
+      background: rgba(37, 99, 235, 0.10);
+      border-color: rgba(37, 99, 235, 0.16);
+      color: #2563eb;
+    }
+  }
+}
+
+.contact-card {
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.02), rgba(37, 99, 235, 0.03));
+  border: 1rpx solid rgba(226, 232, 240, 0.9);
+  padding: 18rpx 18rpx 8rpx;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14rpx;
+}
+
+.contact-item {
+  background-color: #ffffff;
+  border-radius: 18rpx;
+  border: 1rpx solid rgba(226, 232, 240, 0.9);
+  padding: 14rpx 14rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  min-width: 0;
+}
+
+.contact-item.wide {
+  grid-column: span 2;
+}
+
+.contact-label {
+  font-size: 22rpx;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.contact-value {
+  font-size: 26rpx;
+  color: #0f172a;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-value.price {
+  color: #ea580c;
 }
 
 .stats-grid {

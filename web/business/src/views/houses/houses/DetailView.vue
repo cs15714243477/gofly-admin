@@ -98,11 +98,11 @@
                          </div>
                          <div class="info-item">
                            <label>所在区域</label>
-                           <div class="value">{{ detailData.district || '-' }}</div>
+                           <div class="value">{{ districtText || '-' }}</div>
                          </div>
                          <div class="info-item full-width">
                            <label>详细地址</label>
-                           <div class="value">{{ detailData.address || '-' }}</div>
+                           <div class="value">{{ addressDetailText || '-' }}</div>
                          </div>
                          <div class="info-item">
                            <label>物业类型</label>
@@ -353,6 +353,33 @@
                       <div class="label">施工备注</div>
                       <div class="val text-area">{{ renovationData.notes }}</div>
                    </div>
+                </div>
+
+                <div class="renovation-media" v-if="renovationImages.length">
+                   <div class="media-header">
+                      <span class="media-title">装修图片</span>
+                      <a-tag size="small" bordered>{{ renovationImages.length }}张</a-tag>
+                   </div>
+                   <a-image-preview-group infinite>
+                      <div class="renovation-grid">
+                         <div class="renovation-item" v-for="(img, idx) in renovationImages" :key="idx">
+                            <a-image :src="img" :alt="`装修图片 ${idx + 1}`" width="100%" height="100%" fit="cover" />
+                            <div class="img-actions" v-if="allowImageDownload">
+                              <a-tooltip content="下载图片" position="tr">
+                                <a-button
+                                  class="download-btn"
+                                  type="primary"
+                                  size="mini"
+                                  shape="circle"
+                                  @click.stop="downloadUrl(img, `${detailData.title || '房源'}-装修-${idx + 1}.jpg`)"
+                                >
+                                  <template #icon><icon-download /></template>
+                                </a-button>
+                              </a-tooltip>
+                            </div>
+                         </div>
+                      </div>
+                   </a-image-preview-group>
                 </div>
              </div>
              <a-empty v-else description="暂无装修信息" />
@@ -671,12 +698,31 @@ export default defineComponent({
 
     const parseTags = (v: any) => {
       if (!v) return [];
-      if (Array.isArray(v)) return v;
-      if (typeof v === 'string') return v.split(',').filter((i) => i);
+      if (Array.isArray(v)) return v.map((it) => String(it).trim()).filter(Boolean);
+      if (typeof v === 'string') return v.split(',').map((it) => it.trim()).filter(Boolean);
       return [];
     };
 
     const tagList = computed(() => parseTags(detailData.value?.tags));
+
+    const districtText = computed(() => {
+      const d = (detailData.value?.district || '').toString().trim();
+      if (d) return d;
+      const raw = (detailData.value?.address || '').toString().trim();
+      const parts = raw.split(/\\s+/).filter(Boolean);
+      if (parts.length >= 3) return parts.slice(0, 3).join(' / ');
+      return '';
+    });
+
+    const addressDetailText = computed(() => {
+      const d = (detailData.value?.address_detail || '').toString().trim();
+      if (d) return d;
+      const raw = (detailData.value?.address || '').toString().trim();
+      if (!raw) return '';
+      const parts = raw.split(/\\s+/).filter(Boolean);
+      if (parts.length >= 4) return parts.slice(3).join(' ');
+      return raw;
+    });
 
     const allowImageDownload = computed(() => {
       const v = detailData.value?.allow_image_download;
@@ -703,6 +749,11 @@ export default defineComponent({
       const v = (detailData.value?.video_url || '').toString().trim();
       if (!v) return '';
       return getImageUrl(v);
+    });
+
+    const renovationImages = computed(() => {
+      const list = parseTags(renovationData.value?.images);
+      return [...new Set(list.map((it) => getImageUrl(String(it))))].filter(Boolean);
     });
 
     const downloadUrl = async (url: string, filename: string) => {
@@ -777,6 +828,7 @@ export default defineComponent({
       formatMoney,
       statusLogVisible, statusLogLoading, statusLogList, statusLogPagination,
       openStatusLogs, handleStatusLogPageChange, handleStatusLogPageSizeChange, getStatusFieldLabel,
+      districtText, addressDetailText, renovationImages,
     };
   },
 });
@@ -812,6 +864,62 @@ export default defineComponent({
 
   .download-btn {
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.renovation-media {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border-2);
+  .media-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    .media-title {
+      font-weight: 600;
+      color: var(--color-text-1);
+    }
+  }
+  .renovation-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    @media (max-width: 1400px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .renovation-item {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-fill-2);
+    border: 1px solid var(--color-border-2);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    &:hover {
+      transform: translateY(-1px);
+      border-color: rgb(var(--primary-6));
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+    :deep(.arco-image) {
+      width: 100%;
+      height: 100%;
+    }
+
+    .img-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+    }
+    .download-btn {
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+    }
   }
 }
 

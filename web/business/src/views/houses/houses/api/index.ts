@@ -10,6 +10,8 @@ enum Api {
   upStatus = '/houses/houses/upStatus',
   del = '/houses/houses/del',
   getStatusLogs = '/houses/houses/getStatusLogs',
+  // 表单下拉选项（统一配置/字典兜底）
+  getFormOptions = '/houses/wxproperty/getFormOptions',
   // 装修信息
   getRenovation = '/houses/houses/getRenovation',
   saveRenovation = '/houses/houses/saveRenovation',
@@ -60,6 +62,11 @@ export function getRenovation(params: Record<string, any>) {
 // 保存装修信息
 export function saveRenovation(params: Record<string, any>) {
   return defHttp.post({ url: Api.saveRenovation, params }, { errorMessageMode: 'message' });
+}
+
+// 获取房源表单下拉选项（后台配置/字典）
+export function getFormOptions(params: Record<string, any>) {
+  return defHttp.get({ url: Api.getFormOptions, params }, { errorMessageMode: 'none' });
 }
 
 // 获取地区子级（pid=0 为省）

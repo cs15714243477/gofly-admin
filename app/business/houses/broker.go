@@ -46,10 +46,13 @@ func (api *Broker) GetList(c *gf.GinCtx) {
 	if v, ok := param["can_manage_properties"]; ok && v != "" {
 		whereMap.Set("can_manage_properties", v)
 	}
+	if v, ok := param["can_manage_locks"]; ok && v != "" {
+		whereMap.Set("can_manage_locks", v)
+	}
 
 	MDB := gf.Model("business_user").Where(whereMap)
 	totalCount, _ := MDB.Clone().Count()
-	list, err := MDB.Fields("id,business_id,username,name,nickname,remark,email,mobile,avatar,sex,role,can_manage_properties,store_id,title,introduction,status,createtime,updatetime").
+	list, err := MDB.Fields("id,business_id,username,name,nickname,remark,email,mobile,avatar,sex,role,can_manage_properties,can_manage_locks,store_id,title,introduction,status,createtime,updatetime").
 		Page(pageNo, pageSize).
 		Order("id desc").
 		Select()
@@ -131,6 +134,7 @@ func (api *Broker) Save(c *gf.GinCtx) {
 		"email", "mobile", "avatar",
 		"sex", "role", "store_id",
 		"can_manage_properties",
+		"can_manage_locks",
 		"title", "introduction",
 		"status",
 	} {
@@ -145,6 +149,14 @@ func (api *Broker) Save(c *gf.GinCtx) {
 			return
 		}
 		saveData["can_manage_properties"] = v
+	}
+	if _, ok := saveData["can_manage_locks"]; ok {
+		v := gconv.Int(saveData["can_manage_locks"])
+		if v != 0 && v != 1 {
+			gf.Failed().SetMsg("can_manage_locks参数不合法").Regin(c)
+			return
+		}
+		saveData["can_manage_locks"] = v
 	}
 
 	// 固定 business_id，避免越权

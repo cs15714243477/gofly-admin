@@ -91,8 +91,7 @@
                               <a-col :span="8">
                                 <a-form-item field="price_unit" label="单位">
                                   <a-select v-model="formData.price_unit" size="large">
-                                    <a-option value="万">万</a-option>
-                                    <a-option value="元">元</a-option>
+                                    <a-option v-for="opt in priceUnitOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-option>
                                   </a-select>
                                 </a-form-item>
                               </a-col>
@@ -197,10 +196,7 @@
                          <a-col :span="7">
                             <a-form-item field="floor_level" label="楼层位置">
                                <a-select v-model="formData.floor_level" placeholder="请选择" allow-clear size="large">
-                                  <a-option value="低层">低层 (1-6)</a-option>
-                                  <a-option value="中层">中层 (7-15)</a-option>
-                                  <a-option value="高层">高层 (16+)</a-option>
-                                  <a-option value="地下">地下</a-option>
+                                   <a-option v-for="opt in floorLevelOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-option>
                                </a-select>
                             </a-form-item>
                          </a-col>
@@ -215,21 +211,21 @@
                          <a-col :span="8">
                             <a-form-item field="orientation" label="朝向">
                                <a-select v-model="formData.orientation" placeholder="请选择" allow-clear size="large">
-                                  <a-option v-for="d in ['东','南','西','北','东南','东北','西南','西北','南北','东西']" :key="d" :value="d">{{d}}</a-option>
+                                   <a-option v-for="opt in orientationOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-option>
                                </a-select>
                             </a-form-item>
                          </a-col>
                          <a-col :span="8">
                             <a-form-item field="property_type" label="物业类型">
                                <a-select v-model="formData.property_type" placeholder="请选择" allow-clear size="large">
-                                  <a-option v-for="t in ['住宅','公寓','别墅','商铺','写字楼']" :key="t" :value="t">{{t}}</a-option>
+                                   <a-option v-for="opt in propertyTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-option>
                                </a-select>
                             </a-form-item>
                          </a-col>
                          <a-col :span="8">
                             <a-form-item field="decoration_type" label="装修标准">
                                <a-select v-model="formData.decoration_type" placeholder="请选择" allow-clear size="large">
-                                  <a-option v-for="t in ['毛坯','简装','精装','豪装']" :key="t" :value="t">{{t}}</a-option>
+                                   <a-option v-for="opt in decorationTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</a-option>
                                </a-select>
                             </a-form-item>
                          </a-col>
@@ -340,14 +336,14 @@
                            </div>
                          </a-col>
                          <a-col :span="8">
-                           <a-form-item field="sale_status" label="销售状态" :rules="[requiredRule('请选择销售状态')]">
-                             <a-select v-model="formData.sale_status" size="large">
-                               <a-option value="on_sale"><a-badge status="success" text="在售" /></a-option>
-                               <a-option value="sold"><a-badge status="normal" text="已售" /></a-option>
-                               <a-option value="off_market"><a-badge status="warning" text="下架" /></a-option>
-                             </a-select>
-                           </a-form-item>
-                         </a-col>
+                            <a-form-item field="sale_status" label="销售状态" :rules="[requiredRule('请选择销售状态')]">
+                              <a-select v-model="formData.sale_status" size="large">
+                                <a-option v-for="opt in saleStatusOptions" :key="opt.value" :value="opt.value">
+                                  <a-badge :status="getSaleStatusBadge(opt.value)" :text="opt.label" />
+                                </a-option>
+                              </a-select>
+                            </a-form-item>
+                          </a-col>
                          <a-col :span="16">
                            <a-form-item field="cover_image" label="封面主图" :rules="[requiredRule('请上传封面主图')]">
                              <FormImageBox v-model="formData.cover_image" />
@@ -537,7 +533,7 @@
                             <a-col :span="8">
                                <a-form-item field="current_stage" label="当前工序">
                                   <a-select v-model="renovationData.current_stage" placeholder="如：水电改造" allow-clear size="large">
-                                     <a-option v-for="s in ['设计','拆改','水电','泥瓦','木工','油漆','安装','软装','验收']" :key="s" :value="s">{{s}}</a-option>
+                                     <a-option v-for="o in renovationStageOptions" :key="o.value" :value="o.value">{{ o.label }}</a-option>
                                   </a-select>
                                </a-form-item>
                             </a-col>
@@ -639,7 +635,7 @@ import { BasicModal, useModalInner } from '/@/components/Modal';
 import type { FormInstance } from '@arco-design/web-vue';
 import useLoading from '@/hooks/loading';
 import { cloneDeep } from 'lodash-es';
-import { save, getContent, getRenovation, saveRenovation, getAreaMoreList } from './api';
+import { save, getContent, getRenovation, saveRenovation, getAreaMoreList, getFormOptions } from './api';
 import { Message } from '@arco-design/web-vue';
 import FormImageBox from '@/components/autoPlugin/Form/FormImageBox.vue';
 import FormImagesBox from '@/components/autoPlugin/Form/FormImagesBox.vue';
@@ -723,6 +719,109 @@ export default defineComponent({
 
     const formData = ref<any>(cloneDeep(baseData));
     const renovationData = ref<any>(cloneDeep(baseRenovationData));
+
+    type SelectOption = { label: string; value: string };
+    const saleStatusOptions = ref<SelectOption[]>([
+      { label: '在售', value: 'on_sale' },
+      { label: '已售', value: 'sold' },
+      { label: '下架', value: 'off_market' },
+    ]);
+    const priceUnitOptions = ref<SelectOption[]>([
+      { label: '万', value: '万' },
+      { label: '元', value: '元' },
+    ]);
+    const floorLevelOptions = ref<SelectOption[]>([
+      { label: '低层 (1-6)', value: '低层' },
+      { label: '中层 (7-15)', value: '中层' },
+      { label: '高层 (16+)', value: '高层' },
+      { label: '地下', value: '地下' },
+    ]);
+    const orientationOptions = ref<SelectOption[]>(
+      ['东', '南', '西', '北', '东南', '东北', '西南', '西北', '南北', '东西'].map((it) => ({
+        label: it,
+        value: it,
+      }))
+    );
+    const propertyTypeOptions = ref<SelectOption[]>(['住宅', '公寓', '别墅', '商铺', '写字楼'].map((it) => ({ label: it, value: it })));
+    const decorationTypeOptions = ref<SelectOption[]>(['毛坯', '简装', '精装', '豪装'].map((it) => ({ label: it, value: it })));
+    const renovationStageOptions = ref<SelectOption[]>(
+      ['设计', '拆改', '水电', '泥瓦', '木工', '油漆', '安装', '软装', '验收'].map((it) => ({ label: it, value: it }))
+    );
+
+    const formOptionsLoaded = ref(false);
+    const normalizeOptions = (arr: any): SelectOption[] =>
+      (Array.isArray(arr) ? arr : [])
+        .map((it: any) => ({
+          label: String(it?.label ?? '').trim(),
+          value: String(it?.value ?? '').trim(),
+        }))
+        .filter((it) => it.label && it.value);
+
+    const applyFormOptions = (data: any) => {
+      const d = data || {};
+
+      const sale = normalizeOptions(d.sale_status);
+      if (sale.length) saleStatusOptions.value = sale;
+
+      const unit = normalizeOptions(d.price_unit);
+      if (unit.length) priceUnitOptions.value = unit;
+
+      const floor = normalizeOptions(d.floor_level);
+      if (floor.length) floorLevelOptions.value = floor;
+
+      const ori = normalizeOptions(d.orientation);
+      if (ori.length) orientationOptions.value = ori;
+
+      const pt = normalizeOptions(d.property_type);
+      if (pt.length) propertyTypeOptions.value = pt;
+
+      const deco = normalizeOptions(d.decoration_type);
+      if (deco.length) decorationTypeOptions.value = deco;
+
+      const stages = normalizeOptions(d.renovation_stage);
+      if (stages.length) renovationStageOptions.value = stages;
+    };
+
+    const ensureFormOptionsLoaded = async () => {
+      if (formOptionsLoaded.value) return;
+      try {
+        const data = await getFormOptions({});
+        applyFormOptions(data);
+        formOptionsLoaded.value = true;
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    const ensureFormSelectValue = (key: string, optionsRef: any, required = false, fallback = '') => {
+      const v = String(formData.value?.[key] ?? '').trim();
+      const options: SelectOption[] = (optionsRef?.value || []) as SelectOption[];
+      if (v) {
+        if (!options.some((o) => o.value === v)) {
+          optionsRef.value = [...options, { label: v, value: v }];
+        }
+        return;
+      }
+      if (required) {
+        formData.value[key] = (options[0]?.value || fallback || '').toString();
+      }
+    };
+
+    const sanitizeFormSelectValues = () => {
+      ensureFormSelectValue('sale_status', saleStatusOptions, true, 'on_sale');
+      ensureFormSelectValue('price_unit', priceUnitOptions, true, '万');
+      ensureFormSelectValue('floor_level', floorLevelOptions);
+      ensureFormSelectValue('orientation', orientationOptions);
+      ensureFormSelectValue('property_type', propertyTypeOptions);
+      ensureFormSelectValue('decoration_type', decorationTypeOptions);
+
+      // 装修工序：允许历史数据不在选项内时追加显示
+      const rv = String(renovationData.value?.current_stage ?? '').trim();
+      const ro: SelectOption[] = renovationStageOptions.value || [];
+      if (rv && !ro.some((o) => o.value === rv)) {
+        renovationStageOptions.value = [...ro, { label: rv, value: rv }];
+      }
+    };
 
     const isRenovationNone = computed(() => renovationData.value.renovation_status === 'none');
 
@@ -817,8 +916,15 @@ export default defineComponent({
     };
 
     const getSaleStatusLabel = (s: string) => {
-      const map: any = { on_sale: '在售', sold: '已售', off_market: '下架' };
-      return map[s] || s || '-';
+      const hit = saleStatusOptions.value.find((it) => it.value === s);
+      return hit?.label || s || '-';
+    };
+
+    const getSaleStatusBadge = (s: string) => {
+      if (s === 'on_sale') return 'success';
+      if (s === 'sold') return 'normal';
+      if (s === 'off_market') return 'warning';
+      return 'processing';
     };
 
     const basicStepFields = [
@@ -1025,7 +1131,7 @@ export default defineComponent({
       isUpdate.value = !!data?.isUpdate;
       activeTab.value = 'basic';
       wizardStep.value = 0;
-      await ensureAreaRootLoaded();
+      await Promise.all([ensureAreaRootLoaded(), ensureFormOptionsLoaded()]);
 
       if (unref(isUpdate)) {
         formData.value = cloneDeep(baseData);
@@ -1085,6 +1191,8 @@ export default defineComponent({
         formData.value = cloneDeep(baseData);
         renovationData.value = cloneDeep(baseRenovationData);
       }
+
+      sanitizeFormSelectValues();
     });
 
     const getTitle = computed(() => (unref(isUpdate) ? '编辑房源' : '新增房源'));
@@ -1352,6 +1460,14 @@ export default defineComponent({
       cascaderRule,
       positiveNumberRule,
       getSaleStatusLabel,
+      getSaleStatusBadge,
+      saleStatusOptions,
+      priceUnitOptions,
+      floorLevelOptions,
+      orientationOptions,
+      propertyTypeOptions,
+      decorationTypeOptions,
+      renovationStageOptions,
       wizardStep,
       mapPickerVisible,
       openMapPicker,

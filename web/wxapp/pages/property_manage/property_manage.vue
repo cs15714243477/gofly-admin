@@ -6,11 +6,6 @@
           <text class="material-symbols-outlined">arrow_back</text>
         </view>
       </template>
-      <template #right>
-        <view class="icon-btn primary" @tap="goAdd">
-          <text class="material-symbols-outlined">add</text>
-        </view>
-      </template>
     </TopHeader>
 
     <view class="toolbar">
@@ -129,7 +124,7 @@
         <view v-if="!loading && list.length === 0" class="empty-wrap">
           <text class="material-symbols-outlined empty-icon">home_work</text>
           <view class="empty-title">暂无可维护房源</view>
-          <view class="empty-desc">你可以点击右上角新增房源</view>
+          <view class="empty-desc">你可以点击右下角新增房源</view>
         </view>
 
         <view v-if="loading" class="loading-row">
@@ -142,6 +137,11 @@
 
       <view class="bottom-spacer"></view>
     </scroll-view>
+
+    <!-- 右下角悬浮新增 -->
+    <view class="fab" @tap="goAdd">
+      <text class="material-symbols-outlined fab-ic">add</text>
+    </view>
   </view>
 </template>
 
@@ -207,9 +207,15 @@ export default {
         if (!userStore.userInfo || !userStore.userInfo.id) {
           await userStore.getInfo()
         }
+        // 兼容：老版本缓存的 userInfo 可能没有 can_manage_properties，需要强制刷新一次
+        const ui = userStore.userInfo || {}
+        if (ui.id && typeof ui.can_manage_properties === 'undefined') {
+          await userStore.getInfo()
+        }
       } catch (e) {}
       const u = userStore.userInfo || {}
       const canManage = Number(u.can_manage_properties) === 1
+      this.currentUserId = Number(u.id || 0) || 0
       if (!canManage) {
         uni.showModal({
           title: '提示',
@@ -663,5 +669,30 @@ export default {
 
 .bottom-spacer {
   height: calc(env(safe-area-inset-bottom) + 24rpx);
+}
+
+.fab {
+  position: fixed;
+  right: 24rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 140rpx);
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 52rpx;
+  background: linear-gradient(135deg, #2d9cf0, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  box-shadow: 0 18rpx 34rpx rgba(37, 99, 235, 0.26);
+}
+
+.fab:active {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+
+.fab-ic {
+  color: #ffffff;
+  font-size: 52rpx !important;
 }
 </style>
