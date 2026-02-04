@@ -21,6 +21,7 @@
   "dependencies": {
     "@arco-design/color": "^0.4.0",
     "@arco-design/web-vue": "^2.57.0",
+    "@umoteam/editor": "^9.0.1",
     "@vueuse/core": "^10.5.0",
     "ace-builds": "^1.33.3",
     "axios": "^0.24.0",

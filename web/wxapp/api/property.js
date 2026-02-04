@@ -23,7 +23,7 @@ export default {
       custom: {
         showSuccess: false,
         showLoading: true,
-        auth: true,
+        auth: false,
         loadingMsg: "加载中",
       },
     }),

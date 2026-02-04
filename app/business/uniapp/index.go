@@ -6,6 +6,7 @@ import (
 	"errors"
 	"gofly/utils/gf"
 	"gofly/utils/tools/gcfg"
+	"gofly/utils/tools/grand"
 	"gofly/utils/tools/gtime"
 	"gofly/utils/tools/gvar"
 	"io"
@@ -25,8 +26,42 @@ type Index struct {
 	NoNeedAuths []string // 忽略RBAC权限认证接口配置
 }
 
+const (
+	uniappAutoNameMaxLen = 4
+	uniappDefaultTitle   = "金牌经纪人"
+)
+
+var (
+	uniappSurnames  = []rune("赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜戚谢邹喻柏水窦章云苏潘葛范彭郎鲁韦昌马苗凤花方俞任袁柳鲍史唐费廉岑薛雷贺倪汤")
+	uniappNameRunes = []rune("子轩浩然宇辰梓涵思远若溪一诺沐阳嘉宁佳怡欣妍诗雨清妍语彤皓轩志远晨曦天佑泽宇可馨依诺奕凡景行墨言书瑶安琪凌薇")
+)
+
+// randomChineseName 生成随机中文姓名，长度不超过 maxLen（按中文字符计数）。
+func randomChineseName(maxLen int) string {
+	if maxLen < 2 {
+		maxLen = 2
+	}
+	surname := []rune{uniappSurnames[grand.N(0, len(uniappSurnames)-1)]}
+	remain := maxLen - len(surname)
+	if remain <= 0 {
+		return string(surname)
+	}
+	givenLen := 2
+	if remain == 1 || grand.N(0, 1) == 0 {
+		givenLen = 1
+	}
+	if givenLen > remain {
+		givenLen = remain
+	}
+	nameRunes := append([]rune{}, surname...)
+	for i := 0; i < givenLen; i++ {
+		nameRunes = append(nameRunes, uniappNameRunes[grand.N(0, len(uniappNameRunes)-1)])
+	}
+	return string(nameRunes)
+}
+
 func init() {
-	fpath := Index{NoNeedLogin: []string{"login", "wxLogin", "logout", "getAgentCard"}, NoNeedAuths: []string{"*"}}
+	fpath := Index{NoNeedLogin: []string{"login", "wxLogin", "logout", "getAgentCard", "getLoginDocs"}, NoNeedAuths: []string{"*"}}
 	gf.Register(&fpath, fpath)
 }
 
@@ -62,15 +97,17 @@ func (api *Index) Login(c *gf.GinCtx) {
 		Find()
 	// 未绑定则自动创建（避免再次出现“手机号未绑定账号”）
 	if err != nil || user == nil {
+		defaultName := randomChineseName(uniappAutoNameMaxLen)
 		addID, addErr := gf.Model("business_user").Data(gf.Map{
 			"business_id": businessID,
 			"username":    mobile,
-			"name":        "",
+			"name":        defaultName,
 			"nickname":    mobile,
 			"mobile":      mobile,
 			"avatar":      "resource/uploads/static/avatar.png",
 			"sex":         0,
 			"role":        "user",
+			"title":       uniappDefaultTitle,
 			"status":      0,
 			"loginip":     gf.GetIp(c),
 			"prevtime":    0,
@@ -154,15 +191,17 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 		Find()
 	// 未绑定则自动创建
 	if err != nil || user == nil {
+		defaultName := randomChineseName(uniappAutoNameMaxLen)
 		addID, addErr := gf.Model("business_user").Data(gf.Map{
 			"business_id": businessID,
 			"username":    phone,
-			"name":        "",
+			"name":        defaultName,
 			"nickname":    phone,
 			"mobile":      phone,
 			"avatar":      "resource/uploads/static/avatar.png",
 			"sex":         0,
 			"role":        "user",
+			"title":       uniappDefaultTitle,
 			"openid":      "",
 			"unionid":     "",
 			"status":      0,
@@ -685,6 +724,27 @@ func (api *Index) GetAgentCard(c *gf.GinCtx) {
 	if userdata["name"].String() == "" {
 		userdata["name"] = userdata["nickname"]
 	}
+
+	// 名片推荐房源：经纪人推荐 + 系统推荐（可并存）
+	businessID := userdata["business_id"].Int64()
+	agentRecommendedProperties, selectedIDs, recErr := queryAgentRecommendedProperties(businessID, agentID, agentCardRecommendShowSize)
+	if recErr != nil {
+		agentRecommendedProperties = []gf.Map{}
+		selectedIDs = []int64{}
+	}
+	exclude := make(map[int64]struct{}, len(selectedIDs))
+	for _, id := range selectedIDs {
+		exclude[id] = struct{}{}
+	}
+	systemRecommendedProperties, sysErr := querySystemRecommendedProperties(businessID, agentCardRecommendShowSize, exclude)
+	if sysErr != nil {
+		systemRecommendedProperties = []gf.Map{}
+	}
+
+	userdata["agent_recommended_properties"] = gf.VarNew(agentRecommendedProperties)
+	userdata["system_recommended_properties"] = gf.VarNew(systemRecommendedProperties)
+	userdata["agent_recommend_count"] = gf.VarNew(len(agentRecommendedProperties))
+	userdata["system_recommend_count"] = gf.VarNew(len(systemRecommendedProperties))
 
 	gf.Success().SetMsg("获取经纪人名片").SetData(userdata).Regin(c)
 }

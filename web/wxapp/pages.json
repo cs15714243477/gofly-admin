@@ -8,6 +8,12 @@
 			}
 		},
 		{
+			"path": "pages/doc_webview/doc_webview",
+			"style": {
+				"navigationBarTitleText": "文档"
+			}
+		},
+		{
 			"path": "pages/registration/registration",
 			"style": {
 				"navigationBarTitleText": "注册",

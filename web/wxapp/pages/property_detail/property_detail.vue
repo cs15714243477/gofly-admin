@@ -58,14 +58,20 @@
             ></image>
           </swiper-item>
         </swiper>
-        <view class="banner-actions" v-if="showDownloadBtn" @click.stop="downloadCurrent">
+        <view
+          class="banner-actions"
+          v-if="showDownloadBtn"
+          @click.stop="downloadCurrent"
+        >
           <view class="dl-pill">
             <text class="material-symbols-outlined dl-icon">download</text>
             <text class="dl-text">{{ downloadLabel }}</text>
           </view>
         </view>
         <view class="banner-indicator"
-          >{{ bannerItems.length ? currentSwiper + 1 : 0 }}/{{ bannerItems.length }}</view
+          >{{ bannerItems.length ? currentSwiper + 1 : 0 }}/{{
+            bannerItems.length
+          }}</view
         >
       </view>
 
@@ -75,10 +81,15 @@
           <view class="title-row">
             <text class="title">{{ (property && property.title) || "-" }}</text>
             <view class="action-col">
-            <view class="share-btn" @click="handleShare" @longpress="debugEditState">
-              <text class="material-symbols-outlined share-icon">share</text>
-              <text>分享</text>
-            </view>
+              <view
+                v-if="!isPublicView"
+                class="share-btn"
+                @click="handleShare"
+                @longpress="debugEditState"
+              >
+                <text class="material-symbols-outlined share-icon">share</text>
+                <text>分享</text>
+              </view>
               <view class="edit-btn" v-if="canEditThisProperty" @click="goEdit">
                 <text class="material-symbols-outlined edit-icon">edit</text>
                 <text>编辑</text>
@@ -89,7 +100,7 @@
             <text
               v-for="(t, idx) in ((property && property.tags) || []).slice(
                 0,
-                6
+                6,
               )"
               :key="idx"
               class="tag"
@@ -99,12 +110,22 @@
             </text>
           </view>
           <view class="status-row" v-if="canEditThisProperty">
-            <view class="status-chip" :class="(property && property.sale_status) || ''">
+            <view
+              class="status-chip"
+              :class="(property && property.sale_status) || ''"
+            >
               <text class="material-symbols-outlined status-ic">sell</text>
-              <text>{{ (property && property.sale_status_label) || "状态" }}</text>
+              <text>{{
+                (property && property.sale_status_label) || "状态"
+              }}</text>
             </view>
-            <view v-if="Number(property && property.hot_status) === 1" class="status-chip hot">
-              <text class="material-symbols-outlined status-ic">local_fire_department</text>
+            <view
+              v-if="Number(property && property.hot_status) === 1"
+              class="status-chip hot"
+            >
+              <text class="material-symbols-outlined status-ic"
+                >local_fire_department</text
+              >
               <text>推荐</text>
             </view>
           </view>
@@ -135,7 +156,7 @@
         </view>
 
         <!-- 佣金横幅 -->
-        <view class="commission-banner">
+        <view v-if="!isPublicView" class="commission-banner">
           <view class="banner-bg-decor"></view>
           <view class="banner-main">
             <view class="icon-box">
@@ -221,7 +242,9 @@
               <view class="contact-item wide">
                 <text class="contact-label">收房价格（支付业主）</text>
                 <text class="contact-value price">{{
-                  (property && property.receiver_price) ? ("¥" + property.receiver_price) : "-"
+                  property && property.receiver_price
+                    ? "¥" + property.receiver_price
+                    : "-"
                 }}</text>
               </view>
             </view>
@@ -252,8 +275,8 @@
                   renovation.status === "none"
                     ? "未装修"
                     : renovation.status === "in_progress"
-                    ? "装修进行中"
-                    : "装修完成"
+                      ? "装修进行中"
+                      : "装修完成"
                 }}
               </view>
               <text class="reno-sub">{{ renovation.subtitle }}</text>
@@ -401,7 +424,7 @@
               >
             </view>
           </view>
-      <view class="map-box" @click="openMap">
+          <view class="map-box" @click="openMap">
             <map
               v-if="hasLocation"
               class="map-native"
@@ -417,12 +440,9 @@
               :show-location="false"
               @tap="openMap"
             ></map>
-            <image
-              v-else
-              src="/static/images/img_fdb9c430df.png"
-              mode="aspectFill"
-              class="map-image"
-            ></image>
+            <view v-else class="map-image map-image-empty">
+              <text class="material-symbols-outlined">map</text>
+            </view>
             <view class="map-mask">
               <view class="map-pin">
                 <text class="material-symbols-outlined pin-icon"
@@ -431,7 +451,9 @@
                 <text>{{ mapPinText() }}</text>
               </view>
               <view class="map-coords" v-if="hasLocation">
-                <text class="coord-text">{{ mapLng.toFixed(6) }}, {{ mapLat.toFixed(6) }}</text>
+                <text class="coord-text"
+                  >{{ mapLng.toFixed(6) }}, {{ mapLat.toFixed(6) }}</text
+                >
               </view>
             </view>
           </view>
@@ -450,10 +472,14 @@
               >
                 <view class="rec-img-box">
                   <image
-                    :src="rec.image"
+                    v-if="normalizeImage(rec.image)"
+                    :src="normalizeImage(rec.image)"
                     mode="aspectFill"
                     class="rec-image"
                   ></image>
+                  <view v-else class="rec-image rec-image-empty">
+                    <text class="material-symbols-outlined">image</text>
+                  </view>
                   <view class="rec-tag">{{ rec.size }}㎡</view>
                 </view>
                 <view class="rec-info">
@@ -468,11 +494,11 @@
           </scroll-view>
         </view>
       </view>
-      <view class="bottom-spacer"></view>
+      <view v-if="!isPublicView" class="bottom-spacer"></view>
     </scroll-view>
 
     <!-- 底部操作栏 -->
-    <view class="bottom-bar">
+    <view class="bottom-bar" v-if="!isPublicView">
       <view class="bar-content">
         <view class="action-btns">
           <view class="action-item" @click="callOwner">
@@ -518,6 +544,9 @@ export default {
       propertyId: 0,
       loading: false,
       property: {},
+      isPublicView: false,
+      publicFromAgentId: 0,
+      publicFromStyle: 0,
       currentUserId: 0,
       canManageProperties: false,
       statusBarHeight: 0,
@@ -530,16 +559,10 @@ export default {
       isFollowed: false,
       hasSmartLock: false,
       ownerPhone: "",
-      images: [
-        "/static/images/img_cdc09ae543.png",
-        "/static/images/img_cdc09ae543.png",
-      ],
-      bannerItems: [
-        { type: "image", src: "/static/images/img_cdc09ae543.png" },
-        { type: "image", src: "/static/images/img_cdc09ae543.png" },
-      ],
+      images: [],
+      bannerItems: [],
       videoUrl: "",
-      videoPoster: "/static/images/img_cdc09ae543.png",
+      videoPoster: "",
       allowImageDownload: true,
       allowVideoDownload: true,
       mapLat: 0,
@@ -577,10 +600,7 @@ export default {
         finishAt: "2026-01-10",
         materials: ["圣象地板", "马可波罗瓷砖", "多乐士乳胶漆"],
         note: "客厅墙面已完成找平与底漆，卫生间防水已做闭水试验；全屋线管/强弱电分离施工完成。",
-        images: [
-          "/static/images/img_08b712f810.png",
-          "/static/images/img_8642388cea.png",
-        ],
+        images: [],
       },
       recommends: [
         {
@@ -588,21 +608,21 @@ export default {
           rooms: "2室1厅",
           price: "72万",
           size: "89",
-          image: "/static/images/img_71f4809787.png",
+          image: "",
         },
         {
           name: "金地名津 精装大三房",
           rooms: "3室2厅",
           price: "98万",
           size: "96",
-          image: "/static/images/img_1112597ba0.png",
+          image: "",
         },
         {
           name: "万科四季花城",
           rooms: "3室2厅",
           price: "105万",
           size: "110",
-          image: "/static/images/img_662c3c598a.png",
+          image: "",
         },
       ],
     };
@@ -628,7 +648,7 @@ export default {
         const top = capsuleCenterY - circleBtnSizePx / 2;
         this.headerTop = Math.max(
           Number(this.statusBarHeight || 0),
-          Math.round(top)
+          Math.round(top),
         );
       } else {
         this.headerTop = this.statusBarHeight + 12;
@@ -641,6 +661,17 @@ export default {
     this.headerTop = this.statusBarHeight + 12;
     // #endif
 
+    const publicRaw = String(
+      (options && (options.public || options.is_public)) || "",
+    )
+      .trim()
+      .toLowerCase();
+    this.isPublicView =
+      publicRaw === "1" || publicRaw === "true" || publicRaw === "yes";
+    this.publicFromAgentId =
+      Number(options && (options.from_agent_id || options.agent_id || 0)) || 0;
+    this.publicFromStyle = Number(options && options.from_style) || 0;
+
     const id =
       Number(options && (options.id || options.ID || options.property_id)) || 0;
     this.propertyId = id;
@@ -648,11 +679,12 @@ export default {
       uni.showToast({ title: "房源ID缺失", icon: "none" });
       return;
     }
-    this.ensureCanManageProperties();
+    if (!this.isPublicView) this.ensureCanManageProperties();
     this.loadDetail();
   },
   computed: {
     canEditThisProperty() {
+      if (this.isPublicView) return false;
       if (!this.canManageProperties) return false;
       const pid = Number(this.propertyId || 0) || 0;
       if (!pid) return false;
@@ -663,6 +695,7 @@ export default {
       return agentId === uid;
     },
     showDownloadBtn() {
+      if (this.isPublicView) return false;
       const item = this.getCurrentBannerItem();
       if (!item) return false;
       if (item.type === "video") return !!this.allowVideoDownload;
@@ -683,6 +716,11 @@ export default {
   methods: {
     async ensureCanManageProperties() {
       // 仅用于 UI 控制；最终权限以后端校验为准
+      if (this.isPublicView) {
+        this.canManageProperties = false;
+        this.currentUserId = 0;
+        return;
+      }
       const userStore = $store("user");
       const token = uni.getStorageSync("token");
       if (!token && !userStore.isLogin) {
@@ -803,39 +841,57 @@ export default {
     },
     mapPinText() {
       const name = String(
-        (this.property && this.property.community_name) || ""
+        (this.property && this.property.community_name) || "",
       ).trim();
       const addr = String(
-        (this.property && this.property.address) || ""
+        (this.property && this.property.address) || "",
       ).trim();
       if (name && addr) return `${name} · ${addr}`;
       return name || addr || "暂无位置信息";
+    },
+    normalizeImage(url) {
+      const imageUrl = String(url || "").trim();
+      if (!imageUrl) return "";
+      if (imageUrl.indexOf("/static/images/") === 0) return "";
+      return imageUrl;
     },
     async loadDetail() {
       if (this.loading || !this.propertyId) return false;
       this.loading = true;
       let res;
       try {
-        res = await propertyApi.getDetail({ id: this.propertyId });
+        res = await propertyApi.getDetail({
+          id: this.propertyId,
+          public: this.isPublicView ? 1 : 0,
+        });
       } catch (e) {
         this.loading = false;
-        if (!uni.getStorageSync("token")) {
+        if (!this.isPublicView && !uni.getStorageSync("token")) {
           uni.reLaunch({ url: "/pages/login/login" });
         }
         return false;
       }
       this.loading = false;
       if (!res || res.code !== 0) {
+        const msg = String((res && (res.message || res.msg)) || "").trim();
+        if (!this.isPublicView && /登录|token|认证/i.test(msg)) {
+          uni.reLaunch({ url: "/pages/login/login" });
+          return false;
+        }
         setTimeout(() => {
-          uni.navigateBack();
+          this.goBack();
         }, 600);
         return false;
       }
 
       const data = res.data || {};
+      if (typeof data.public_view !== "undefined") {
+        this.isPublicView = !!data.public_view;
+      }
       const p = data.property || {};
       // 兼容：后端也会回传 current_user（已登录用户ID）
-      if (!this.currentUserId) this.currentUserId = Number(data.current_user || 0) || 0;
+      if (!this.currentUserId)
+        this.currentUserId = Number(data.current_user || 0) || 0;
       if (!p || !p.id) {
         setTimeout(() => {
           uni.navigateBack();
@@ -846,6 +902,7 @@ export default {
       this.isFollowed = !!data.is_followed;
       this.hasSmartLock = Number(p.has_smart_lock) === 1;
       this.ownerPhone = String(p.owner_phone || "").trim();
+      if (this.isPublicView) this.ownerPhone = "";
 
       // 下载权限（后端默认：1 允许）
       this.allowImageDownload = Number(p.allow_image_download) !== 0;
@@ -853,14 +910,17 @@ export default {
 
       // 视频（单个）
       this.videoUrl = String(p.video_url || "").trim();
-      this.videoPoster = String(p.cover_image || "").trim();
+      this.videoPoster = this.normalizeImage(p.cover_image);
 
       const imgs = Array.isArray(data.images)
         ? data.images
         : Array.isArray(p.images)
-        ? p.images
-        : [];
-      if (imgs.length > 0) this.images = imgs;
+          ? p.images
+          : [];
+      const normalizedImgs = imgs
+        .map((u) => this.normalizeImage(u))
+        .filter(Boolean);
+      this.images = normalizedImgs;
       this.currentSwiper = 0;
 
       // Banner：优先展示视频（若存在）
@@ -912,7 +972,9 @@ export default {
         finishAt: String(r.actual_finish_date || "").trim() || "—",
         materials: Array.isArray(r.materials) ? r.materials : [],
         note: String(r.notes || "").trim() || "—",
-        images: Array.isArray(r.images) ? r.images : [],
+        images: Array.isArray(r.images)
+          ? r.images.map((u) => this.normalizeImage(u)).filter(Boolean)
+          : [],
       };
 
       const rec = Array.isArray(data.recommends) ? data.recommends : [];
@@ -922,7 +984,7 @@ export default {
         rooms: this.getLayoutText(it),
         price: `${it.price || "-"}${it.price_unit || ""}`,
         size: it.area || "-",
-        image: it.image || "",
+        image: this.normalizeImage(it.image || it.cover_image || ""),
       }));
       return true;
     },
@@ -935,16 +997,40 @@ export default {
       this.headerOpacity = Math.max(0, Math.min(1, Number(next.toFixed(3))));
     },
     goBack() {
-      uni.navigateBack();
+      if (!this.isPublicView) {
+        uni.navigateBack();
+        return;
+      }
+      const pages = getCurrentPages ? getCurrentPages() : [];
+      if (pages && pages.length > 1) {
+        uni.navigateBack();
+        return;
+      }
+      const aid = Number(this.publicFromAgentId || 0);
+      const style = Number(this.publicFromStyle || 0);
+      if (aid > 0) {
+        uni.reLaunch({
+          url: `/pages/agent_public_card/agent_public_card?agent_id=${encodeURIComponent(
+            aid,
+          )}&style=${encodeURIComponent(style)}`,
+        });
+        return;
+      }
+      uni.reLaunch({ url: "/pages/login/login" });
     },
     goToRec(rec) {
       const id = Number(rec && (rec.id || rec.ID)) || 0;
       if (!id) return;
       if (id === this.propertyId) return;
+      const publicQuery = this.isPublicView
+        ? `&public=1&from_agent_id=${encodeURIComponent(
+            this.publicFromAgentId,
+          )}&from_style=${encodeURIComponent(this.publicFromStyle)}`
+        : "";
       uni.redirectTo({
         url: `/pages/property_detail/property_detail?id=${encodeURIComponent(
-          id
-        )}`,
+          id,
+        )}${publicQuery}`,
       });
     },
     swiperChange(e) {
@@ -992,6 +1078,7 @@ export default {
     },
 
     async downloadCurrent() {
+      if (this.isPublicView) return;
       const item = this.getCurrentBannerItem();
       if (!item) return;
       if (item.type === "video" && !this.allowVideoDownload) return;
@@ -1040,6 +1127,7 @@ export default {
       });
     },
     handleShare() {
+      if (this.isPublicView) return;
       const title =
         this.property && this.property.title ? this.property.title : "房源";
       const id = this.propertyId;
@@ -1049,7 +1137,7 @@ export default {
           if (res.tapIndex === 0) {
             uni.navigateTo({
               url: `/pages/marketing_posters/marketing_posters?title=${encodeURIComponent(
-                title
+                title,
               )}`,
             });
             return;
@@ -1057,7 +1145,7 @@ export default {
           if (res.tapIndex === 1) {
             const link = id
               ? `/pages/property_detail/property_detail?id=${encodeURIComponent(
-                  id
+                  id,
                 )}`
               : `/pages/property_detail/property_detail`;
             uni.setClipboardData({
@@ -1074,15 +1162,19 @@ export default {
       });
     },
     openMap() {
+      if (this.isPublicView) {
+        uni.showToast({ title: "公开页不支持跳转地图", icon: "none" });
+        return;
+      }
       const lat = Number(this.property && this.property.latitude);
       const lng = Number(this.property && this.property.longitude);
       const name = String(
         (this.property &&
           (this.property.community_name || this.property.title)) ||
-          "房源"
+          "房源",
       ).trim();
       const address = String(
-        (this.property && this.property.address) || ""
+        (this.property && this.property.address) || "",
       ).trim();
       if (!lat || !lng || !isFinite(lat) || !isFinite(lng)) {
         uni.showToast({ title: "暂无定位信息", icon: "none" });
@@ -1099,6 +1191,7 @@ export default {
       });
     },
     async toggleFollow() {
+      if (this.isPublicView) return;
       if (!this.propertyId) return;
       let res;
       try {
@@ -1121,6 +1214,7 @@ export default {
       });
     },
     callOwner() {
+      if (this.isPublicView) return;
       if (!this.ownerPhone) {
         uni.showToast({ title: "暂无业主电话", icon: "none" });
         return;
@@ -1130,8 +1224,9 @@ export default {
       });
     },
     openLock() {
+      if (this.isPublicView) return;
       const ss = String(
-        (this.property && this.property.sale_status) || ""
+        (this.property && this.property.sale_status) || "",
       ).trim();
       if (ss === "sold" || ss === "off_market") {
         const label =
@@ -1148,7 +1243,7 @@ export default {
       // 进入开锁流程页（页面内可选择蓝牙开锁 / 获取密码开锁）
       uni.navigateTo({
         url: `/pages/unlock_steps/unlock_steps?property_id=${encodeURIComponent(
-          this.propertyId
+          this.propertyId,
         )}`,
       });
     },
@@ -1467,7 +1562,7 @@ export default {
     }
 
     &.hot {
-      background: rgba(37, 99, 235, 0.10);
+      background: rgba(37, 99, 235, 0.1);
       border-color: rgba(37, 99, 235, 0.16);
       color: #2563eb;
     }
@@ -1476,7 +1571,11 @@ export default {
 
 .contact-card {
   border-radius: 24rpx;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.02), rgba(37, 99, 235, 0.03));
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.02),
+    rgba(37, 99, 235, 0.03)
+  );
   border: 1rpx solid rgba(226, 232, 240, 0.9);
   padding: 18rpx 18rpx 8rpx;
 }
@@ -2022,6 +2121,16 @@ export default {
     height: 100%;
     opacity: 0.8;
   }
+  .map-image-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #eef2f7, #e2e8f0);
+    .material-symbols-outlined {
+      font-size: 64rpx;
+      color: #94a3b8;
+    }
+  }
 
   .map-mask {
     position: absolute;
@@ -2102,6 +2211,16 @@ export default {
       .rec-image {
         width: 100%;
         height: 100%;
+      }
+      .rec-image-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #eef2f7, #e2e8f0);
+        .material-symbols-outlined {
+          font-size: 52rpx;
+          color: #94a3b8;
+        }
       }
       .rec-tag {
         position: absolute;

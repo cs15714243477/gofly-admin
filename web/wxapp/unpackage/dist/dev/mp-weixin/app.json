@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/login/login",
+    "pages/doc_webview/doc_webview",
     "pages/registration/registration",
     "pages/home/home",
     "pages/property_list/property_list",

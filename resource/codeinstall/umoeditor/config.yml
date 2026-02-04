@@ -1,0 +1,49 @@
+#应用信息
+app:
+     #版本号
+     version: 1.0.0
+     #名称
+     title: umo文档编辑器
+     #描述
+     des: 基于基于 Vue3 和 Tiptap开发，支持分页，支持 Markdown 语法，支持基础的富文本编辑功能，支持多种插入多种格式的节点类型、提供了多种类型的实用工具，并支持设置页面的样式，支持导出多种类型的格式，支持打印和打印预览，支持文档块编辑，支持添加自定义扩展，支持多语言设置，支持暗色主题。
+     #标识包目录名
+     name: umoeditor
+     #安装状态
+     isinstall: true
+     #安装是否为覆盖原来代码
+     installcover: false
+#安装前端代码
+installvue:
+     #安装views文件B端
+     viewsfilesbusiness: 
+     #安装views文件夹B端
+     viewsfoldersbusiness: umoeditor
+     #安装组件文件B端
+     componentfilesbusiness: 
+     #安装组件文件B端
+     componentfoldersbusiness: 
+     #安装views文件A端
+     viewsfilesadmin: 
+     #安装views文件夹A端
+     viewsfoldersadmin: 
+     #安装组件文件A端
+     componentfilesadmin: 
+     #安装组件文件A端
+     componentfoldersadmin: 
+#后端代码
+installgo:
+     #安装app下代码文件夹（多个,分开）
+     appfolders: 
+     #安装utils工具类代码文件
+     utilsfiles: 
+     #合法性验证-目录取消验证
+     noVerifyAPIRoot: 
+     #token验证
+     noVerifyTokenRoot: 
+sqldb:
+     #数据库表名称（多个,分开）
+     packtables: 
+     #b端菜单ID
+     businessmenuids: 165
+     #a端菜单ID
+     adminmenuids: 

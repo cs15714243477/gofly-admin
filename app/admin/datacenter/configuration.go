@@ -5,6 +5,7 @@ import (
 	"gofly/utils/gf"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -15,6 +16,83 @@ type Configuration struct{}
 func init() {
 	fpath := Configuration{}
 	gf.Register(&fpath, fpath)
+}
+
+func getConfigLineList(configLines interface{}) []string {
+	switch lines := configLines.(type) {
+	case []string:
+		return lines
+	case []interface{}:
+		result := make([]string, 0, len(lines))
+		for _, line := range lines {
+			result = append(result, gf.String(line))
+		}
+		return result
+	default:
+		return []string{}
+	}
+}
+
+func getOrderedConfigData(lineList []string, dataMap map[string]interface{}) []map[string]interface{} {
+	newData := make([]map[string]interface{}, 0, len(dataMap))
+	seen := make(map[string]struct{}, len(dataMap))
+	inData := false
+
+	for _, line := range lineList {
+		trimLine := strings.TrimSpace(line)
+		if trimLine == "" || strings.HasPrefix(trimLine, "#") {
+			continue
+		}
+		if !inData {
+			if strings.HasPrefix(trimLine, "data:") {
+				inData = true
+			}
+			continue
+		}
+		if !strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "\t") {
+			break
+		}
+		content := strings.TrimSpace(line)
+		if content == "" || strings.HasPrefix(content, "#") {
+			continue
+		}
+		parts := strings.SplitN(content, ":", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if key == "" {
+			continue
+		}
+		value, exists := dataMap[key]
+		if !exists {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		keyname := key
+		if commentIndex := strings.Index(parts[1], "#"); commentIndex >= 0 {
+			comment := strings.TrimSpace(parts[1][commentIndex+1:])
+			if comment != "" {
+				keyname = comment
+			}
+		}
+		newData = append(newData, gf.Map{"keyname": keyname, "keyfield": key, "keyvalue": value})
+		seen[key] = struct{}{}
+	}
+
+	missingKeys := make([]string, 0, len(dataMap))
+	for key := range dataMap {
+		if _, ok := seen[key]; !ok {
+			missingKeys = append(missingKeys, key)
+		}
+	}
+	sort.Strings(missingKeys)
+	for _, key := range missingKeys {
+		newData = append(newData, gf.Map{"keyname": key, "keyfield": key, "keyvalue": dataMap[key]})
+	}
+	return newData
 }
 
 // 获取邮箱
@@ -57,18 +135,11 @@ func (api *Configuration) GetCodestoreConfig(c *gf.GinCtx) {
 		install_cofig, _ := gf.GetYmlConfigData(filepath.Join(path, "/resource/config"), fileName[0])
 		data_item := install_cofig.(map[string]interface{})
 		if data_item["conftype"] == "configuration" {
-			var new_data []map[string]interface{}
-			for k, v := range data_item["data"].(map[string]interface{}) {
-				keyname := k
-				for _, cfstr := range configstr {
-					cf_str := gf.String(cfstr)
-					cf_str_arr := strings.Split(cf_str, "#")
-					if strings.Contains(cf_str, k) && len(cf_str_arr) == 2 {
-						keyname = cf_str_arr[1]
-					}
-				}
-				new_data = append(new_data, gf.Map{"keyname": keyname, "keyfield": k, "keyvalue": v})
+			dataMap, ok := data_item["data"].(map[string]interface{})
+			if !ok {
+				continue
 			}
+			new_data := getOrderedConfigData(getConfigLineList(configstr), dataMap)
 			data_item["name"] = fileName[0]
 			data_item["data"] = new_data
 			list = append(list, install_cofig)

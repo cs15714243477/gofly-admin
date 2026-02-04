@@ -70,10 +70,14 @@
               :class="{ disabled: isSoldOrOff(item.sale_status) }"
             >
               <image
+                v-if="safeImage(item.image)"
                 class="card-img"
                 :src="safeImage(item.image)"
                 mode="aspectFill"
               />
+              <view v-else class="card-img card-img-empty">
+                <text class="material-symbols-outlined">image</text>
+              </view>
               <view
                 v-if="item.sale_status_label"
                 class="status-badge"
@@ -139,10 +143,14 @@
               :class="{ disabled: isSoldOrOff(item.sale_status) }"
             >
               <image
+                v-if="safeImage(item.image)"
                 class="card-img-v"
                 :src="safeImage(item.image)"
                 mode="aspectFill"
               />
+              <view v-else class="card-img-v card-img-empty">
+                <text class="material-symbols-outlined">image</text>
+              </view>
               <view
                 v-if="item.sale_status_label"
                 class="status-tag-v"
@@ -239,6 +247,8 @@ export default {
       const data = res.data || {};
       this.bannerImages = Array.isArray(data.bannerImages)
         ? data.bannerImages
+            .map((img) => this.safeImage(img))
+            .filter(Boolean)
         : [];
       this.followedTotal = Number(data.followedTotal || 0);
       this.followedProperties = Array.isArray(data.followedProperties)
@@ -266,7 +276,9 @@ export default {
     },
     safeImage(url) {
       const u = String(url || "").trim();
-      return u || "/static/images/img_28f6b412d7.png";
+      if (!u) return "";
+      if (u.indexOf("/static/images/") === 0) return "";
+      return u;
     },
     ensureTags(v) {
       if (!v) return [];
@@ -570,6 +582,16 @@ export default {
 .card-img {
   width: 100%;
   height: 100%;
+}
+.card-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eef2f7, #e2e8f0);
+  .material-symbols-outlined {
+    font-size: 52rpx;
+    color: #94a3b8;
+  }
 }
 .card-image.disabled {
   filter: grayscale(1) brightness(0.95);

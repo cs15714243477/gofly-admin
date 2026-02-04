@@ -55,10 +55,14 @@
           <view class="card-main" @tap="goDetail(item)">
             <view class="cover-box">
               <image
+                v-if="normalizeImage(item.image)"
                 class="cover"
-                :src="item.image || fallbackCover"
+                :src="normalizeImage(item.image)"
                 mode="aspectFill"
               ></image>
+              <view v-else class="cover cover-empty">
+                <text class="material-symbols-outlined">image</text>
+              </view>
               <view class="status-pill" :class="statusPillClass(item)">
                 {{ item.sale_status_label || '-' }}
               </view>
@@ -154,7 +158,6 @@ export default {
   components: { TopHeader },
   data() {
     return {
-      fallbackCover: '/static/images/img_cdc09ae543.png',
       loading: false,
       finished: false,
       page: 1,
@@ -176,6 +179,12 @@ export default {
     this.ensurePermissionAndLoad()
   },
   methods: {
+    normalizeImage(url) {
+      const u = String(url || '').trim()
+      if (!u) return ''
+      if (u.indexOf('/static/images/') === 0) return ''
+      return u
+    },
     ensureTags(v) {
       if (Array.isArray(v)) return v
       if (!v) return []
@@ -483,6 +492,16 @@ export default {
 .cover {
   width: 100%;
   height: 100%;
+}
+.cover-empty {
+  background: linear-gradient(135deg, #eef2f7, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  .material-symbols-outlined {
+    font-size: 48rpx;
+    color: #94a3b8;
+  }
 }
 
 .status-pill {

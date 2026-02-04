@@ -9,10 +9,13 @@ import (
 )
 
 // 小程序房源详情（避免走 RBAC：NoNeedAuths 传 "*"）
-type WxProperty struct{ NoNeedAuths []string }
+type WxProperty struct {
+	NoNeedLogin []string
+	NoNeedAuths []string
+}
 
 func init() {
-	fpath := WxProperty{NoNeedAuths: []string{"*"}}
+	fpath := WxProperty{NoNeedLogin: []string{"GetDetail"}, NoNeedAuths: []string{"*"}}
 	gf.Register(&fpath, fpath)
 }
 
@@ -105,6 +108,18 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
 
 	param, _ := gf.RequestParam(c)
+	publicRaw := strings.TrimSpace(c.Query("public"))
+	if publicRaw == "" {
+		publicRaw = strings.TrimSpace(gconv.String(param["public"]))
+	}
+	if publicRaw == "" {
+		publicRaw = strings.TrimSpace(c.Query("is_public"))
+	}
+	if publicRaw == "" {
+		publicRaw = strings.TrimSpace(gconv.String(param["is_public"]))
+	}
+	isPublicView := isPublicDetailView(publicRaw)
+
 	idStr := strings.TrimSpace(c.Query("id"))
 	if idStr == "" {
 		idStr = strings.TrimSpace(gconv.String(param["id"]))
@@ -112,6 +127,10 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 	id := gconv.Int64(idStr)
 	if id <= 0 {
 		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	if !isPublicView && userID <= 0 {
+		gf.Failed().SetCode(401).SetMsg("请先登录").Regin(c)
 		return
 	}
 
@@ -209,6 +228,49 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		})
 	}
 
+	// 经纪人公开信息（供分享落地详情页展示）
+	agentInfo := gf.Map{}
+	agentID := row["agent_id"].Int64()
+	if agentID > 0 {
+		agent, _ := gf.Model("business_user").
+			Fields("id,name,nickname,mobile,avatar,title,status,store_id,business_id").
+			Where("id", agentID).
+			Where("deletetime", nil).
+			Find()
+		if agent != nil && agent["status"].Int() == 0 {
+			agentName := agent["name"].String()
+			if strings.TrimSpace(agentName) == "" {
+				agentName = agent["nickname"].String()
+			}
+			agentStoreName := "未绑定"
+			if agent["store_id"].Int64() > 0 {
+				store, _ := gf.Model("business_stores").
+					Fields("name,status").
+					Where("id", agent["store_id"].Int64()).
+					Where("business_id", agent["business_id"].Int64()).
+					Where("deletetime", nil).
+					Find()
+				if store != nil && store["status"].Int() == 0 && strings.TrimSpace(store["name"].String()) != "" {
+					agentStoreName = store["name"].String()
+				}
+			}
+			agentAvatar := agent["avatar"].String()
+			if strings.TrimSpace(agentAvatar) == "" {
+				agentAvatar = gf.GetLocalUrl() + "resource/uploads/static/avatar.png"
+			} else if !strings.HasPrefix(agentAvatar, "http://") && !strings.HasPrefix(agentAvatar, "https://") {
+				agentAvatar = gf.GetFullUrl(agentAvatar)
+			}
+			agentInfo = gf.Map{
+				"id":         agent["id"].Int64(),
+				"name":       agentName,
+				"title":      agent["title"].String(),
+				"mobile":     agent["mobile"].String(),
+				"avatar":     agentAvatar,
+				"store_name": agentStoreName,
+			}
+		}
+	}
+
 	property := gf.Map{
 		"id":                   row["id"].Int64(),
 		"title":                row["title"].String(),
@@ -250,6 +312,22 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		"follow_count":         row["follow_count"].Int(),
 		"showing_count":        row["showing_count"].Int(),
 		"createtime":           row["createtime"].String(),
+		"agent_name":           gconv.String(agentInfo["name"]),
+		"agent_mobile":         gconv.String(agentInfo["mobile"]),
+		"agent_title":          gconv.String(agentInfo["title"]),
+		"agent_store_name":     gconv.String(agentInfo["store_name"]),
+	}
+
+	if isPublicView {
+		// 公开详情：仅展示基础信息，隐藏佣金及房主隐私字段
+		property["commission_rate"] = ""
+		property["commission_reward"] = ""
+		property["owner_name"] = ""
+		property["owner_phone"] = ""
+		property["receiver_name"] = ""
+		property["receiver_phone"] = ""
+		property["receiver_price"] = ""
+		isFollowed = false
 	}
 
 	gf.Success().SetMsg("获取房源详情").SetData(gf.Map{
@@ -258,6 +336,8 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		"is_followed":  isFollowed,
 		"renovation":   renovation,
 		"recommends":   recommends,
+		"agent":        agentInfo,
+		"public_view":  isPublicView,
 		"view_added":   true,
 		"business_id":  businessID,
 		"current_user": userID,

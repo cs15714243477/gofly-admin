@@ -42,13 +42,16 @@
 						<text class="material-symbols-outlined wx-icon">phone_iphone</text>
 						<text>微信一键登录</text>
 					</button>
+					<!-- 临时注释：更多登录方式先隐藏
 					<button class="more-login-btn" @click="toggleMoreLogin">
 						<text>{{ showMoreLogin ? '收起其他登录方式' : '更多登录方式' }}</text>
 						<text class="material-symbols-outlined more-icon">{{ showMoreLogin ? 'expand_less' : 'expand_more' }}</text>
 					</button>
+					-->
 					<!-- #endif -->
 
 					<!-- #ifdef MP-WEIXIN -->
+					<!-- 临时注释：更多登录方式先隐藏
 					<view v-if="showMoreLogin">
 						<view class="divider-row">
 							<view class="divider-line"></view>
@@ -80,6 +83,7 @@
 							<text class="link-text" @click="goToRegister">完善信息</text>
 						</view>
 					</view>
+					-->
 					<!-- #endif -->
 
 					<!-- #ifndef MP-WEIXIN -->
@@ -112,11 +116,11 @@
 
 			<!-- 底部协议（固定贴底，避免撑高出现滚动） -->
 			<view class="bottom-agreements">
-				<text class="agreement-link">用户协议</text>
+				<text class="agreement-link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click="openAgreement('user_agreement')">{{ agreementDocs.user_agreement.title }}</text>
 				<text class="divider">|</text>
-				<text class="agreement-link">隐私政策</text>
+				<text class="agreement-link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click="openAgreement('privacy_policy')">{{ agreementDocs.privacy_policy.title }}</text>
 				<text class="divider">|</text>
-				<text class="agreement-link">帮助中心</text>
+				<text class="agreement-link" :class="{ disabled: !hasAgreementDoc('help_center') }" @click="openAgreement('help_center')">{{ agreementDocs.help_center.title }}</text>
 			</view>
 		</view>
 	</view>
@@ -126,14 +130,19 @@
 	import $store from '@/store'
 	import userApi from '@/api/user'
 	export default {
+		onLoad() {
+			this.loadAgreementDocs()
+		},
 		data() {
 			return {
-				// #ifdef MP-WEIXIN
-				showMoreLogin: false,
-				// #endif
 				mobile: '',
 				captcha: '',
 				submitting: false,
+				agreementDocs: {
+					user_agreement: { title: '用户协议', content: '', url: '' },
+					privacy_policy: { title: '隐私政策', content: '', url: '' },
+					help_center: { title: '帮助中心', content: '', url: '' }
+				}
 			}
 		},
 		methods: {
@@ -144,6 +153,54 @@
 				uni.navigateTo({
 					url: '/pages/registration/registration?mode=complete'
 				})
+			},
+			async loadAgreementDocs() {
+				try {
+					const res = await userApi.getLoginDocs(false)
+					if (!res || res.code !== 0 || !res.data || !Array.isArray(res.data.docs)) return
+					const nextDocs = { ...this.agreementDocs }
+					res.data.docs.forEach((item) => {
+						const key = String(item && item.key ? item.key : '').trim()
+						if (!key || !nextDocs[key]) return
+						const title = String(item && item.title ? item.title : '').trim()
+						const content = String(item && item.content ? item.content : '').trim()
+						const url = String(item && item.url ? item.url : '').trim()
+						nextDocs[key] = {
+							title: title || nextDocs[key].title,
+							content,
+							url,
+						}
+					})
+					this.agreementDocs = nextDocs
+				} catch (e) {}
+			},
+			hasAgreementDoc(key) {
+				const doc = (this.agreementDocs && this.agreementDocs[key]) ? this.agreementDocs[key] : null
+				if (!doc) return false
+				return !!(String(doc.content || '').trim() || String(doc.url || '').trim())
+			},
+			openAgreement(key) {
+				const doc = (this.agreementDocs && this.agreementDocs[key]) ? this.agreementDocs[key] : null
+				const title = doc && doc.title ? String(doc.title).trim() : '文档'
+				const content = doc && doc.content ? String(doc.content).trim() : ''
+				const url = doc && doc.url ? String(doc.url).trim() : ''
+				if (!content && !url) {
+					uni.showToast({ title: `${title}暂未配置`, icon: 'none' })
+					return
+				}
+				if (content) {
+					uni.navigateTo({
+						url: `/pages/doc_webview/doc_webview?key=${encodeURIComponent(key)}`
+					})
+					return
+				}
+				if (/^https?:\/\//i.test(url)) {
+					uni.navigateTo({
+						url: `/pages/doc_webview/doc_webview?key=${encodeURIComponent(key)}`
+					})
+					return
+				}
+				uni.navigateTo({ url })
 			},
 			async handleLogin() {
 				if (!this.mobile || String(this.mobile).length !== 11) {
@@ -167,19 +224,6 @@
 					this.submitting = false
 				}
 			},
-			// #ifdef MP-WEIXIN
-			/**
-			 * 切换更多登录方式的显示状态
-			 *
-			 * 用于控制微信小程序中更多登录方式按钮的展开/收起状态
-			 * 通过反转 showMoreLogin 数据属性的值来实现状态切换
-			 *
-			 * @returns {void} 无返回值
-			 */
-			toggleMoreLogin() {
-				this.showMoreLogin = !this.showMoreLogin
-			},
-			// #endif
 			// #ifdef MP-WEIXIN
 			onGetPhoneNumber(e) {
 				// 需要用户点击按钮触发；e.detail.code 需传后端换取手机号（解密）
@@ -549,6 +593,14 @@
 			font-size: 24rpx;
 			color: #94a3b8;
 			font-weight: 500;
+
+			&:active {
+				color: #2d9cf0;
+			}
+
+			&.disabled {
+				color: #cbd5e1;
+			}
 		}
 
 		.divider {

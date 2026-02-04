@@ -12,7 +12,15 @@
 		<view class="main-content">
 			<!-- 顶部封面 -->
 			<view class="cover-section">
-				<image class="cover-image" src="/static/images/img_c8d6696c92.png" mode="aspectFill"></image>
+				<image
+					v-if="coverImage"
+					:src="coverImage"
+					mode="aspectFill"
+					class="cover-image"
+				></image>
+				<view v-else class="cover-image cover-image-empty">
+					<text class="material-symbols-outlined">image</text>
+				</view>
 				<view class="cover-mask"></view>
 				<view class="cover-info">
 					<view class="verified-tag">
@@ -105,6 +113,7 @@
 </template>
 
 <script>
+	import propertyApi from '@/api/property'
 	import ttlockApi from '@/api/ttlock'
 
 	export default {
@@ -113,6 +122,7 @@
 				statusBarHeight: 0,
 				headerTop: 0,
 				propertyId: 0,
+				coverImage: '',
 				passcode: '',
 				startDate: 0,
 				endDate: 0,
@@ -161,11 +171,41 @@
 			// #endif
 
 			this.loadPasscode()
+			this.loadPropertyCover()
 		},
 		onUnload() {
 			this.clearTimer()
 		},
 		methods: {
+			normalizeImage(url) {
+				const imageUrl = String(url || '').trim()
+				if (!imageUrl) return ''
+				if (imageUrl.indexOf('/static/images/') === 0) return ''
+				return imageUrl
+			},
+			async loadPropertyCover() {
+				if (!this.propertyId) return
+				try {
+					const res = await propertyApi.getDetail({ id: this.propertyId, public: 0 })
+					if (!res || res.code !== 0) return
+					const data = res.data || {}
+					const p = data.property || {}
+					const videoPoster = this.normalizeImage(p.cover_image)
+					const videoUrl = String(p.video_url || '').trim()
+					const imgs = Array.isArray(data.images)
+						? data.images
+						: Array.isArray(p.images)
+							? p.images
+							: []
+					const normalizedImgs = imgs.map((u) => this.normalizeImage(u)).filter(Boolean)
+					const coverCandidates = []
+					// 与房源详情轮播图逻辑对齐：有视频时优先封面图，其次首张图片
+					if (videoUrl && videoPoster) coverCandidates.push(videoPoster)
+					if (normalizedImgs.length) coverCandidates.push(normalizedImgs[0])
+					if (!coverCandidates.length && videoPoster) coverCandidates.push(videoPoster)
+					this.coverImage = coverCandidates[0] || ''
+				} catch (e) {}
+			},
 			goBack() {
 				uni.navigateBack()
 			},
@@ -300,6 +340,16 @@
 		.cover-image {
 			width: 100%;
 			height: 100%;
+		}
+		.cover-image-empty {
+			background: linear-gradient(135deg, #0ea5e9, #1e3a8a);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			.material-symbols-outlined {
+				font-size: 72rpx;
+				color: rgba(255, 255, 255, 0.45);
+			}
 		}
 		
 		.cover-mask {
