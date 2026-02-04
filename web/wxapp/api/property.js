@@ -14,10 +14,10 @@ export default {
       },
     }),
 
-  // 房源详情（小程序，走 /houses/wxproperty 控制器）
+  // 房源详情（小程序，走 /uniapp/wxproperty 控制器）
   getDetail: (data) =>
     request({
-      url: "/houses/wxproperty/getDetail",
+      url: "/uniapp/wxproperty/getDetail",
       method: "GET",
       data,
       custom: {
@@ -31,7 +31,7 @@ export default {
   // 关注/取消关注
   toggleFollow: (data) =>
     request({
-      url: "/houses/wxproperty/toggleFollow",
+      url: "/uniapp/wxproperty/toggleFollow",
       method: "POST",
       data,
       custom: {
@@ -61,7 +61,7 @@ export default {
   // 可维护房源列表
   getManageList: (data) =>
     request({
-      url: "/houses/wxproperty/getManageList",
+      url: "/uniapp/wxproperty/getManageList",
       method: "GET",
       data,
       custom: {
@@ -75,7 +75,7 @@ export default {
   // 获取可维护房源详情（编辑页回显）
   getManageContent: (data) =>
     request({
-      url: "/houses/wxproperty/getManageContent",
+      url: "/uniapp/wxproperty/getManageContent",
       method: "GET",
       data,
       custom: {
@@ -89,7 +89,7 @@ export default {
   // 获取可维护房源装修信息（编辑页）
   getManageRenovation: (data) =>
     request({
-      url: "/houses/wxproperty/getManageRenovation",
+      url: "/uniapp/wxproperty/getManageRenovation",
       method: "GET",
       data,
       custom: {
@@ -102,7 +102,7 @@ export default {
   // 保存可维护房源装修信息（编辑页）
   saveManageRenovation: (data) =>
     request({
-      url: "/houses/wxproperty/saveManageRenovation",
+      url: "/uniapp/wxproperty/saveManageRenovation",
       method: "POST",
       data,
       custom: {
@@ -116,7 +116,7 @@ export default {
   // 保存可维护房源（新增/编辑）
   saveManage: (data) =>
     request({
-      url: "/houses/wxproperty/saveManage",
+      url: "/uniapp/wxproperty/saveManage",
       method: "POST",
       data,
       custom: {
@@ -130,7 +130,7 @@ export default {
   // 房源表单下拉选项（后台字典配置，前端缓存）
   getFormOptions: (data) =>
     request({
-      url: "/houses/wxproperty/getFormOptions",
+      url: "/uniapp/wxproperty/getFormOptions",
       method: "GET",
       data,
       custom: {
@@ -143,7 +143,7 @@ export default {
   // 删除可维护房源（软删除）
   delManage: (data) =>
     request({
-      url: "/houses/wxproperty/delManage",
+      url: "/uniapp/wxproperty/delManage",
       method: "DELETE",
       data,
       custom: {

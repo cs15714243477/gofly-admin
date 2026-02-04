@@ -10,7 +10,7 @@
 				<view class="profile-card">
 					<view class="profile-bg-decor"></view>
 					<button class="edit-btn" @click="goEditCard">
-						<text class="material-symbols-outlined edit-icon">edit_square</text>
+						<text class="material-symbols-outlined edit-icon">edit</text>
 						<text>编辑</text>
 					</button>
 					<view class="profile-main">
@@ -428,7 +428,7 @@
 
 	/* Material Symbols 某些图标字形左右/上下偏移，做一点定向微调 */
 	.record-icon.is-smart-lock {
-		transform: translateY(2rpx);
+		transform: translateX(-2rpx) translateY(2rpx);
 	}
 
 	.record-dot {

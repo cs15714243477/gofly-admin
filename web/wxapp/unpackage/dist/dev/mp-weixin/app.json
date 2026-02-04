@@ -10,6 +10,7 @@
     "pages/agent_workbench_home/agent_workbench_home",
     "pages/unlock_details/unlock_details",
     "pages/unlock_steps/unlock_steps",
+    "pages/lock_manage/lock_manage",
     "pages/my_business_card/my_business_card",
     "pages/agent_public_card/agent_public_card",
     "pages/marketing_posters/marketing_posters",
@@ -29,6 +30,12 @@
   "permission": {
     "scope.userLocation": {
       "desc": "进入软件需要定位获取对应区域的信息"
+    }
+  },
+  "plugins": {
+    "ttlock-plugin": {
+      "version": "3.1.6",
+      "provider": "wx43d5971c94455481"
     }
   },
   "usingComponents": {}

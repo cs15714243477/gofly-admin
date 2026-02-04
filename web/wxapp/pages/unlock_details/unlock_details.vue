@@ -19,7 +19,7 @@
 						<text class="material-symbols-outlined tag-icon">verified_user</text>
 						<text>已核验</text>
 					</view>
-					<view class="building-name">阳光花园 3栋 201室</view>
+					<view class="building-name">房源ID：{{ propertyId }}</view>
 					<view class="scene-link">
 						<text class="material-symbols-outlined scene-icon">image</text>
 						<text>房源实景图</text>
@@ -33,7 +33,7 @@
 					<view class="card-bg-decor"></view>
 					<text class="card-label">动态密码</text>
 					<view class="password-row">
-						<text class="password-text">259 308</text>
+						<text class="password-text">{{ passcodeDisplay }}</text>
 						<view class="copy-btn" @click="copyPassword">
 							<text class="material-symbols-outlined">content_copy</text>
 						</view>
@@ -48,22 +48,22 @@
 							</view>
 							<view class="timer-info">
 								<text class="timer-title">本次密码有效时间</text>
-								<text class="timer-val">2小时0分1秒</text>
+								<text class="timer-val">{{ remainLabel }}</text>
 							</view>
 						</view>
-						<button class="extend-btn">延时</button>
+						<button class="extend-btn" @click="extendPasscode">延时</button>
 					</view>
 
 					<!-- 时间详情 -->
 					<view class="time-details">
 						<view class="time-item">
 							<text class="time-lab">申请时间</text>
-							<text class="time-val">14:00</text>
+							<text class="time-val">{{ formatTime(startDate) }}</text>
 						</view>
 						<view class="time-divider"></view>
 						<view class="time-item">
 							<text class="time-lab">截止时间</text>
-							<text class="time-val accent">16:00</text>
+							<text class="time-val accent">{{ formatTime(endDate) }}</text>
 							<view class="active-dot"></view>
 						</view>
 					</view>
@@ -82,14 +82,17 @@
 						<view class="notice-tip">
 							若门锁无反应，请尝试使用USB应急电源接口供电。
 						</view>
+						<view class="notice-tip">
+							提示：部分门锁需要在门锁附近完成一次蓝牙连接/蓝牙开锁后，云端数据（如状态/记录）才会同步更新。
+						</view>
 					</view>
 				</view>
 
 				<!-- 操作按钮组 -->
 				<view class="btn-row">
-					<button class="action-btn">
+					<button class="action-btn" @click="refreshPasscode">
 						<text class="material-symbols-outlined btn-icon rotate">refresh</text>
-						<text>刷新状态</text>
+						<text>换新密码</text>
 					</button>
 					<button class="action-btn">
 						<text class="material-symbols-outlined btn-icon">report_problem</text>
@@ -102,14 +105,43 @@
 </template>
 
 <script>
+	import ttlockApi from '@/api/ttlock'
+
 	export default {
 		data() {
 			return {
 				statusBarHeight: 0,
-				headerTop: 0
+				headerTop: 0,
+				propertyId: 0,
+				passcode: '',
+				startDate: 0,
+				endDate: 0,
+				remainSeconds: 0,
+				timer: null,
 			}
 		},
-		onLoad() {
+		computed: {
+			passcodeDisplay() {
+				const raw = String(this.passcode || '').trim()
+				if (!raw) return '——'
+				const pure = raw.replace(/\s+/g, '')
+				if (/^\d{6}$/.test(pure)) return `${pure.slice(0, 3)} ${pure.slice(3)}`
+				return raw
+			},
+			remainLabel() {
+				if (!this.endDate) return '—'
+				const s = Number(this.remainSeconds || 0)
+				if (!Number.isFinite(s) || s <= 0) return '已过期'
+				const h = Math.floor(s / 3600)
+				const m = Math.floor((s % 3600) / 60)
+				const ss = Math.floor(s % 60)
+				return `${h}小时${m}分${ss}秒`
+			},
+		},
+		onLoad(options) {
+			const pid = Number((options && (options.property_id || options.id)) || 0)
+			this.propertyId = Number.isFinite(pid) ? pid : 0
+
 			const info = uni.getSystemInfoSync()
 			this.statusBarHeight = info.statusBarHeight
 			// #ifdef MP-WEIXIN
@@ -127,14 +159,75 @@
 			// #ifndef MP-WEIXIN
 			this.headerTop = this.statusBarHeight + 12
 			// #endif
+
+			this.loadPasscode()
+		},
+		onUnload() {
+			this.clearTimer()
 		},
 		methods: {
 			goBack() {
 				uni.navigateBack()
 			},
+			clearTimer() {
+				if (this.timer) {
+					clearInterval(this.timer)
+					this.timer = null
+				}
+			},
+			startTimer() {
+				this.clearTimer()
+				this.timer = setInterval(() => {
+					if (!this.endDate) return
+					const remain = Math.floor((this.endDate - Date.now()) / 1000)
+					this.remainSeconds = remain > 0 ? remain : 0
+				}, 1000)
+			},
+			formatTime(ts) {
+				const t = Number(ts || 0)
+				if (!t) return '--:--'
+				const d = new Date(t)
+				const hh = String(d.getHours()).padStart(2, '0')
+				const mm = String(d.getMinutes()).padStart(2, '0')
+				return `${hh}:${mm}`
+			},
+			async loadPasscode() {
+				if (!this.propertyId) {
+					uni.showToast({ title: '缺少房源ID，无法获取密码', icon: 'none' })
+					return
+				}
+				const res = await ttlockApi.getPropertyPasscode({ property_id: this.propertyId })
+				if (!res || res.code !== 0) return
+				const data = res.data || {}
+
+				this.passcode = String(data.keyboardPwd || data.keyboard_pwd || '').trim()
+				this.startDate = Number(data.startDate || data.start_date || 0) || 0
+				this.endDate = Number(data.endDate || data.end_date || 0) || 0
+				this.remainSeconds = this.endDate ? Math.max(0, Math.floor((this.endDate - Date.now()) / 1000)) : 0
+				this.startTimer()
+			},
+			async refreshPasscode() {
+				const prev = String(this.passcode || '').trim()
+				await this.loadPasscode()
+				const next = String(this.passcode || '').trim()
+				if (next && next !== prev) {
+					uni.showToast({ title: '已更换新密码', icon: 'success' })
+				} else if (next) {
+					uni.showToast({ title: '密码已刷新', icon: 'none' })
+				}
+			},
+			extendPasscode() {
+				uni.showToast({ title: '暂不支持延时，可点击“换新密码”重新生成', icon: 'none' })
+			},
 			copyPassword() {
+				const raw = String(this.passcode || '').trim()
+				const pure = raw.replace(/\s+/g, '')
+				if (!pure) {
+					uni.showToast({ title: '暂无可复制的密码', icon: 'none' })
+					return
+				}
 				uni.setClipboardData({
-					data: '259308',
+					data: pure,
 					success: () => {
 						uni.showToast({
 							title: '复制成功',

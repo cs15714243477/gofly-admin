@@ -3,8 +3,8 @@ title: "程序基础配置"
 pluginident: "wxapp" #插件标识
 status: true
 data:
-  appid: "wxc8fac8c37b2d84f7"  #小程序appid
-  secretkey: "15ef6d338ccc34abd59f8a24a4b286be"  #小程序密钥
+  appid: "wx31dc07ddc933a816"  #小程序appid
+  secretkey: "94d25d306f49ef94dd609971640655a9"  #小程序密钥
   ttlock_client_id: "d23678d3e3044584a8e7af4ab878e0cd"  #通通锁 TTLock ClientId
   ttlock_client_secret: "fc940bfd559b998fe6ad3ad92f7bd4fc"  #通通锁 TTLock ClientSecret
   ttlock_username: "15714243477"  #通通锁 TTLock 登录账号（邮箱/手机号）

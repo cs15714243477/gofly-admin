@@ -31,7 +31,7 @@
     },
     "quickapp" : {},
     "mp-weixin" : {
-        "appid" : "wxc8fac8c37b2d84f7",
+        "appid" : "wx31dc07ddc933a816",
         "setting" : {
             "urlCheck" : false,
             "minified" : true,
@@ -42,8 +42,15 @@
             "scope.userLocation" : {
                 "desc" : "进入软件需要定位获取对应区域的信息"
             }
+        },
+        "plugins" : {
+            "ttlock-plugin" : {
+                "version" : "3.1.6",
+                "provider" : "wx43d5971c94455481"
+            }
         }
     },
+ 
     "mp-alipay" : {
         "usingComponents" : true
     },

@@ -6,16 +6,6 @@
           <text class="material-symbols-outlined">arrow_back</text>
         </view>
       </template>
-      <template #right>
-        <view class="right-actions">
-          <view class="icon-btn ghost" :class="{ disabled: loading }" @tap="onRefresh">
-            <text class="material-symbols-outlined">refresh</text>
-          </view>
-          <view class="icon-btn primary" :class="{ disabled: syncing }" @tap="handleSync">
-            <text class="material-symbols-outlined">sync</text>
-          </view>
-        </view>
-      </template>
     </TopHeader>
 
     <view class="toolbar">
@@ -64,14 +54,13 @@
         <view v-if="filteredLocks.length === 0 && !loading" class="empty">
           <text class="material-symbols-outlined empty-ic">smart_lock</text>
           <text class="empty-title">暂无设备数据</text>
-          <text class="empty-sub">请先点击右上角同步或稍后再试</text>
+          <text class="empty-sub">请先点击右下角“同步”或稍后再试</text>
         </view>
 
         <view
           class="card"
           v-for="it in filteredLocks"
           :key="it.ttlock_lock_id"
-          @tap="openDetail(it)"
         >
           <view class="card-head">
             <view class="head-left">
@@ -117,14 +106,6 @@
               <text class="material-symbols-outlined btn-ic">link</text>
               <text>{{ it.bind_property_id ? "更换绑定" : "绑定房源" }}</text>
             </button>
-            <button class="btn ghost" @tap.stop="openRecords(it)">
-              <text class="material-symbols-outlined btn-ic">history</text>
-              <text>开锁记录</text>
-            </button>
-            <button class="btn primary" @tap.stop="remoteUnlock(it)">
-              <text class="material-symbols-outlined btn-ic">lock_open</text>
-              <text>远程开锁</text>
-            </button>
           </view>
         </view>
 
@@ -139,6 +120,18 @@
 
       <view class="bottom-spacer"></view>
     </scroll-view>
+
+    <!-- 右下角悬浮操作 -->
+    <view class="fab">
+      <view class="fab-btn ghost" :class="{ disabled: loading }" @tap="onRefresh">
+        <text class="material-symbols-outlined fab-ic">refresh</text>
+        <text class="fab-txt">刷新</text>
+      </view>
+      <view class="fab-btn primary" :class="{ disabled: syncing }" @tap="handleSync">
+        <text class="material-symbols-outlined fab-ic">sync</text>
+        <text class="fab-txt">同步</text>
+      </view>
+    </view>
 
     <!-- 绑定房源弹窗 -->
     <view class="mask" v-if="bindVisible" @tap="closeBind">
@@ -203,49 +196,6 @@
         </scroll-view>
       </view>
     </view>
-
-    <!-- 开锁记录弹窗 -->
-    <view class="mask" v-if="recordsVisible" @tap="closeRecords">
-      <view class="sheet records" @tap.stop>
-        <view class="sheet-head">
-          <text class="sheet-title">开锁记录</text>
-          <view class="sheet-close" @tap="closeRecords">
-            <text class="material-symbols-outlined">close</text>
-          </view>
-        </view>
-        <view class="sheet-sub">{{ recordsLockDisplay }}</view>
-
-        <scroll-view
-          scroll-y="true"
-          class="r-list"
-          lower-threshold="160"
-          @scrolltolower="loadMoreRecords"
-        >
-          <view v-if="recordsLoading && records.length === 0" class="p-loading">
-            <text>加载中...</text>
-          </view>
-          <view v-else-if="!recordsLoading && records.length === 0" class="p-empty">
-            <text>暂无记录</text>
-          </view>
-
-          <view class="r-item" v-for="(r, idx) in records" :key="idx">
-            <view class="r-row">
-              <text class="r-title">{{ recordTitle(r) }}</text>
-              <text class="r-time">{{ recordTime(r) }}</text>
-            </view>
-            <view class="r-sub">{{ recordSub(r) }}</view>
-          </view>
-
-          <view v-if="recordsLoading && records.length > 0" class="p-loading">
-            <text>加载中...</text>
-          </view>
-          <view v-else-if="recordsFinished && records.length > 0" class="p-end">
-            <text>没有更多了</text>
-          </view>
-          <view style="height: 20rpx"></view>
-        </scroll-view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -285,15 +235,6 @@ export default {
       propertyPage: 1,
       propertyPageSize: 15,
       propertyList: [],
-
-      // records modal
-      recordsVisible: false,
-      recordsLock: null,
-      recordsLoading: false,
-      recordsFinished: false,
-      recordsPage: 1,
-      recordsPageSize: 20,
-      records: [],
     };
   },
   computed: {
@@ -310,12 +251,6 @@ export default {
     },
     bindLockDisplay() {
       const l = this.bindLock || {};
-      const name = l.lock_name || "未命名锁";
-      const mac = l.lock_mac ? ` · ${l.lock_mac}` : "";
-      return `${name}（${l.ttlock_lock_id || "-"}）${mac}`;
-    },
-    recordsLockDisplay() {
-      const l = this.recordsLock || {};
       const name = l.lock_name || "未命名锁";
       const mac = l.lock_mac ? ` · ${l.lock_mac}` : "";
       return `${name}（${l.ttlock_lock_id || "-"}）${mac}`;
@@ -450,31 +385,6 @@ export default {
       }
     },
 
-    // ---- detail / actions ----
-    openDetail(lock) {
-      // 轻量：详情统一走弹窗/记录/绑定；这里留给后续扩展
-      if (!lock) return;
-      // 默认打开记录弹窗，避免“点了没反应”的感觉
-      this.openRecords(lock);
-    },
-    async remoteUnlock(lock) {
-      const lockId = Number(lock && lock.ttlock_lock_id) || 0;
-      if (!lockId) return;
-      uni.showModal({
-        title: "远程开锁",
-        content: "确认执行远程开锁？",
-        success: async (r) => {
-          if (!r.confirm) return;
-          try {
-            const resp = await ttlockApi.remoteUnlock({ ttlock_lock_id: lockId });
-            if (resp && resp.code === 0) {
-              uni.showToast({ title: "已发送开锁指令", icon: "success" });
-            }
-          } catch (e) {}
-        },
-      });
-    },
-
     // ---- bind property ----
     openBind(lock) {
       if (!lock || !lock.ttlock_lock_id) return;
@@ -555,94 +465,6 @@ export default {
         },
       });
     },
-
-    // ---- records ----
-    openRecords(lock) {
-      if (!lock || !lock.ttlock_lock_id) return;
-      this.recordsLock = lock;
-      this.recordsVisible = true;
-      this.recordsPage = 1;
-      this.recordsFinished = false;
-      this.records = [];
-      this.fetchRecords(true);
-    },
-    closeRecords() {
-      this.recordsVisible = false;
-      this.recordsLock = null;
-      this.records = [];
-      this.recordsLoading = false;
-      this.recordsFinished = false;
-    },
-    async fetchRecords(reset) {
-      if (this.recordsLoading) return;
-      this.recordsLoading = true;
-      try {
-        if (reset) {
-          this.recordsPage = 1;
-          this.recordsFinished = false;
-          this.records = [];
-        }
-        const lockId = Number(this.recordsLock && this.recordsLock.ttlock_lock_id) || 0;
-        if (!lockId) return;
-        const res = await ttlockApi.getLockRecords({
-          ttlock_lock_id: lockId,
-          page: this.recordsPage,
-          pageSize: this.recordsPageSize,
-        });
-        if (!res || res.code !== 0) return;
-        const data = res.data || {};
-        const items = Array.isArray(data.list)
-          ? data.list
-          : Array.isArray(data.items)
-            ? data.items
-            : Array.isArray(data.records)
-              ? data.records
-              : [];
-        const total = Number(data.total || data.totalCount || data.count || 0);
-        const merged = (Array.isArray(this.records) ? this.records : []).concat(items);
-        this.records = merged;
-        if (total > 0 && merged.length >= total) this.recordsFinished = true;
-        if (items.length === 0) this.recordsFinished = true;
-      } catch (e) {
-      } finally {
-        this.recordsLoading = false;
-      }
-    },
-    async loadMoreRecords() {
-      if (this.recordsLoading || this.recordsFinished) return;
-      this.recordsPage += 1;
-      await this.fetchRecords(false);
-    },
-    recordTitle(r) {
-      // 兼容不同字段：recordType/recordTypeName/description
-      return (
-        String((r && (r.recordTypeName || r.recordType || r.desc || r.description)) || "操作记录") ||
-        "操作记录"
-      );
-    },
-    recordTime(r) {
-      const t = r && (r.lockDate || r.date || r.time || r.createDate || r.createTime);
-      if (!t) return "";
-      const n = Number(t);
-      if (isFinite(n) && n > 0) {
-        const ms = n < 2000000000 ? n * 1000 : n;
-        const d = new Date(ms);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
-        const hh = String(d.getHours()).padStart(2, "0");
-        const mm = String(d.getMinutes()).padStart(2, "0");
-        return `${y}-${m}-${dd} ${hh}:${mm}`;
-      }
-      return String(t);
-    },
-    recordSub(r) {
-      const op = r && (r.username || r.operator || r.openName || r.userName || "");
-      const way = r && (r.openWay || r.method || r.openType || "");
-      const sn = r && (r.success ? "成功" : r.success === false ? "失败" : "");
-      const parts = [op, way, sn].map((s) => String(s || "").trim()).filter(Boolean);
-      return parts.join(" · ");
-    },
   },
 };
 </script>
@@ -660,6 +482,55 @@ export default {
   display: flex;
   align-items: center;
   gap: 12rpx;
+}
+
+.fab {
+  position: fixed;
+  right: 24rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 28rpx);
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  z-index: 80;
+}
+
+.fab-btn {
+  min-width: 156rpx;
+  height: 84rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  box-shadow: 0 12rpx 24rpx rgba(15, 23, 42, 0.12);
+}
+
+.fab-btn.primary {
+  background: linear-gradient(135deg, #2d9cf0, #2563eb);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 16rpx 30rpx rgba(37, 99, 235, 0.26);
+}
+
+.fab-btn.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.fab-ic {
+  font-size: 34rpx;
+  line-height: 1;
+  display: block;
+}
+
+.fab-txt {
+  font-size: 26rpx;
+  font-weight: 800;
+  letter-spacing: 0.6rpx;
 }
 
 .icon-btn {
@@ -847,6 +718,9 @@ export default {
 
 .lock-ic .material-symbols-outlined {
   font-size: 38rpx;
+  line-height: 1;
+  display: block;
+  transform: translateX(-110rpx);
 }
 
 .head-texts {
@@ -1051,7 +925,7 @@ export default {
 }
 
 .bottom-spacer {
-  height: 30rpx;
+  height: calc(env(safe-area-inset-bottom) + 240rpx);
 }
 
 /* ---------- modal ---------- */
@@ -1075,10 +949,6 @@ export default {
   box-shadow: 0 -18rpx 40rpx rgba(15, 23, 42, 0.18);
   display: flex;
   flex-direction: column;
-}
-
-.sheet.records {
-  max-height: 82vh;
 }
 
 .sheet-head {
@@ -1206,47 +1076,4 @@ export default {
   font-size: 24rpx;
 }
 
-.r-list {
-  flex: 1;
-  overflow: hidden;
-  padding: 10rpx 18rpx 0;
-}
-
-.r-item {
-  padding: 16rpx 14rpx;
-  border-radius: 20rpx;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: #ffffff;
-  margin-bottom: 12rpx;
-}
-
-.r-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-}
-
-.r-title {
-  font-size: 26rpx;
-  font-weight: 900;
-  color: #0f172a;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.r-time {
-  font-size: 22rpx;
-  color: #64748b;
-  flex: 0 0 auto;
-}
-
-.r-sub {
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: #64748b;
-}
 </style>

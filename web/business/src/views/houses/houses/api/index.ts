@@ -11,7 +11,7 @@ enum Api {
   del = '/houses/houses/del',
   getStatusLogs = '/houses/houses/getStatusLogs',
   // 表单下拉选项（统一配置/字典兜底）
-  getFormOptions = '/houses/wxproperty/getFormOptions',
+  getFormOptions = '/uniapp/wxproperty/getFormOptions',
   // 装修信息
   getRenovation = '/houses/houses/getRenovation',
   saveRenovation = '/houses/houses/saveRenovation',

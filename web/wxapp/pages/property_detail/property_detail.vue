@@ -501,7 +501,7 @@
           <text v-else class="material-symbols-outlined unlock-icon"
             >lock_open</text
           >
-          <text>{{ hasSmartLock ? "智能锁" : "密码开锁" }}</text>
+          <text>{{ hasSmartLock ? "智能锁" : "未绑定智能锁" }}</text>
         </button>
       </view>
     </view>
@@ -1141,11 +1141,15 @@ export default {
         uni.showToast({ title: `房源${label}，暂不可开锁`, icon: "none" });
         return;
       }
-      // 有智能锁 -> 进入申请开锁流程；无智能锁 -> 进入密码开锁详情页
+      if (!this.hasSmartLock) {
+        uni.showToast({ title: "该房源未绑定智能锁，无法开锁", icon: "none" });
+        return;
+      }
+      // 进入开锁流程页（页面内可选择蓝牙开锁 / 获取密码开锁）
       uni.navigateTo({
-        url: this.hasSmartLock
-          ? "/pages/unlock_steps/unlock_steps"
-          : "/pages/unlock_details/unlock_details",
+        url: `/pages/unlock_steps/unlock_steps?property_id=${encodeURIComponent(
+          this.propertyId
+        )}`,
       });
     },
     setRenovationStatus(key) {
