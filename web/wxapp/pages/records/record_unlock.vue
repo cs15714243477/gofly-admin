@@ -1,6 +1,12 @@
 <template>
   <view class="record-page">
-    <TopHeader title="开锁记录" />
+    <TopHeader title="开锁记录">
+      <template #left>
+        <view class="icon-btn" @tap="goBack">
+          <text class="material-symbols-outlined">arrow_back</text>
+        </view>
+      </template>
+    </TopHeader>
     <scroll-view scroll-y class="list">
       <view v-if="loading && items.length === 0" class="hint">加载中...</view>
       <view v-else-if="!loading && items.length === 0" class="hint"
@@ -45,6 +51,19 @@ export default {
     this.loadData();
   },
   methods: {
+    goBack() {
+      try {
+        // eslint-disable-next-line no-undef
+        const pages = typeof getCurrentPages === "function" ? getCurrentPages() : [];
+        if (pages && pages.length > 1) {
+          uni.navigateBack();
+        } else {
+          uni.reLaunch({ url: "/pages/agent_workbench_home/agent_workbench_home" });
+        }
+      } catch (e) {
+        uni.navigateBack();
+      }
+    },
     async loadData() {
       this.loading = true;
       try {
@@ -75,6 +94,19 @@ export default {
   display: flex;
   flex-direction: column;
   background: #f6f7f8;
+}
+.record-page .icon-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+}
+.record-page .icon-btn:active {
+  background: rgba(15, 23, 42, 0.1);
 }
 .list {
   flex: 1;

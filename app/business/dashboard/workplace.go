@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"gofly/utils/gf"
+	"time"
 )
 
 /**
@@ -63,4 +64,159 @@ func (api *Workplace) DelQuick(c *gf.GinCtx) {
 	} else {
 		gf.Success().SetMsg("删除成功！").SetData(res2).Regin(c)
 	}
+}
+
+// 获取首页概况统计
+// GET /business/dashboard/workplace/get_statistical
+func (api *Workplace) Get_statistical(c *gf.GinCtx) {
+	businessID := c.GetInt64("businessID") // 当前商户ID
+	if businessID == 0 {
+		gf.Success().SetMsg("获取概况统计成功").SetData(gf.Map{
+			"propertyTotal":       0,
+			"propertyOnSale":      0,
+			"lockBindTotal":       0,
+			"unlockPendingTotal":  0,
+			"todayPropertyAdd":    0,
+			"todayUnlockRequests": 0,
+		}).Regin(c)
+		return
+	}
+
+	// 1) 房源统计
+	propertyTotal, err := gf.Model("business_properties").
+		Where("business_id", businessID).
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取房源统计失败").SetData(err).Regin(c)
+		return
+	}
+	propertyOnSale, err := gf.Model("business_properties").
+		Where("business_id", businessID).
+		Where("sale_status", "on_sale").
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取在售房源统计失败").SetData(err).Regin(c)
+		return
+	}
+
+	// 2) 智能锁绑定统计
+	lockBindTotal, err := gf.Model("business_property_locks").
+		Where("business_id", businessID).
+		Where("bind_status", 1).
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取智能锁统计失败").SetData(err).Regin(c)
+		return
+	}
+
+	// 3) 待审核开锁申请（按房源归属商户过滤）
+	unlockPendingTotal, err := gf.Model("business_unlock_requests", "ur").
+		InnerJoin("business_properties", "p", "p.id=ur.property_id").
+		Where("p.business_id", businessID).
+		Where("ur.request_status", "pending").
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取开锁申请统计失败").SetData(err).Regin(c)
+		return
+	}
+
+	// 4) 今日新增房源 / 今日开锁申请
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	todayPropertyAdd, err := gf.Model("business_properties").
+		Where("business_id", businessID).
+		Where("createtime", ">=", todayStart).
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取今日新增房源失败").SetData(err).Regin(c)
+		return
+	}
+	todayUnlockRequests, err := gf.Model("business_unlock_requests", "ur").
+		InnerJoin("business_properties", "p", "p.id=ur.property_id").
+		Where("p.business_id", businessID).
+		Where("ur.createtime", ">=", todayStart).
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取今日开锁申请失败").SetData(err).Regin(c)
+		return
+	}
+
+	gf.Success().SetMsg("获取概况统计成功").SetData(gf.Map{
+		"propertyTotal":       propertyTotal,
+		"propertyOnSale":      propertyOnSale,
+		"lockBindTotal":       lockBindTotal,
+		"unlockPendingTotal":  unlockPendingTotal,
+		"todayPropertyAdd":    todayPropertyAdd,
+		"todayUnlockRequests": todayUnlockRequests,
+	}).Regin(c)
+}
+
+// 获取近 7 天趋势（默认：新增房源）
+// GET /business/dashboard/workplace/get_visitlist
+func (api *Workplace) Get_visitlist(c *gf.GinCtx) {
+	businessID := c.GetInt64("businessID") // 当前商户ID
+
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	start := todayStart.AddDate(0, 0, -6)
+
+	// 先构造 7 天日期轴，补齐缺失日期
+	dates := make([]string, 0, 7)
+	dateCountMap := make(map[string]int, 7)
+	for i := 0; i < 7; i++ {
+		key := start.AddDate(0, 0, i).Format("2006-01-02")
+		dates = append(dates, key)
+		dateCountMap[key] = 0
+	}
+
+	// businessID 为 0 时直接返回 0 数据
+	if businessID != 0 {
+		list, err := gf.Model("business_properties").
+			Fields("DATE_FORMAT(createtime,'%Y-%m-%d') as x, COUNT(*) as y").
+			Where("business_id", businessID).
+			Where("createtime", ">=", start).
+			Group("DATE_FORMAT(createtime,'%Y-%m-%d')").
+			Order("x asc").
+			Select()
+		if err != nil {
+			gf.Failed().SetMsg("获取趋势数据失败").SetData(err).Regin(c)
+			return
+		}
+		for _, item := range list {
+			x := item["x"].String()
+			y := item["y"].Int()
+			dateCountMap[x] = y
+		}
+	}
+
+	result := make([]gf.Map, 0, 7)
+	for _, x := range dates {
+		result = append(result, gf.Map{
+			"x": x,
+			"y": dateCountMap[x],
+		})
+	}
+	gf.Success().SetMsg("获取趋势数据成功").SetData(result).Regin(c)
+}
+
+// 获取热门房源（按浏览量排序）
+// GET /business/dashboard/workplace/get_popular
+func (api *Workplace) Get_popular(c *gf.GinCtx) {
+	businessID := c.GetInt64("businessID") // 当前商户ID
+	if businessID == 0 {
+		gf.Success().SetMsg("获取热门房源成功").SetData([]interface{}{}).Regin(c)
+		return
+	}
+
+	list, err := gf.Model("business_properties").
+		Fields("id,title,view_count as viewCount,follow_count as followCount,showing_count as showingCount,sale_status as saleStatus,price,price_unit as priceUnit,area").
+		Where("business_id", businessID).
+		Order("view_count desc,id desc").
+		Limit(10).
+		Select()
+	if err != nil {
+		gf.Failed().SetMsg("获取热门房源失败").SetData(err).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("获取热门房源成功").SetData(list).Regin(c)
 }

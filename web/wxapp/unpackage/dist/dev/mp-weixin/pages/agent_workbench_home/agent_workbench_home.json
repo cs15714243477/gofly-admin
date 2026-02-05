@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "工作台",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "bottom-tab-bar": "../../components/BottomTabBar",
-    "top-header": "../../components/TopHeader"
-  }
-}

@@ -38,10 +38,21 @@
 				<view class="form">
 					<!-- #ifdef MP-WEIXIN -->
 					<!-- 微信一键登录（手机号授权）——默认只显示这个 -->
-					<button class="wx-login-btn" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
+					<button class="wx-login-btn" :disabled="submitting || !agreed" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
 						<text class="material-symbols-outlined wx-icon">phone_iphone</text>
 						<text>微信一键登录</text>
 					</button>
+					<view class="agree-row">
+						<view class="agree-left" @click="toggleAgree">
+							<text class="material-symbols-outlined agree-icon">{{ agreed ? 'check_circle' : 'radio_button_unchecked' }}</text>
+							<text class="agree-text">我已阅读并同意</text>
+						</view>
+						<view class="agree-links">
+							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click.stop="openAgreement('user_agreement')">《{{ agreementDocs.user_agreement.title }}》</text>
+							<text class="agree-sep">和</text>
+							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click.stop="openAgreement('privacy_policy')">《{{ agreementDocs.privacy_policy.title }}》</text>
+						</view>
+					</view>
 					<!-- 临时注释：更多登录方式先隐藏
 					<button class="more-login-btn" @click="toggleMoreLogin">
 						<text>{{ showMoreLogin ? '收起其他登录方式' : '更多登录方式' }}</text>
@@ -104,7 +115,19 @@
 						</view>
 					</view>
 
-					<button class="login-btn" :disabled="submitting" @click="handleLogin">{{ submitting ? '登录中...' : '登录' }}</button>
+					<view class="agree-row">
+						<view class="agree-left" @click="toggleAgree">
+							<text class="material-symbols-outlined agree-icon">{{ agreed ? 'check_circle' : 'radio_button_unchecked' }}</text>
+							<text class="agree-text">我已阅读并同意</text>
+						</view>
+						<view class="agree-links">
+							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click.stop="openAgreement('user_agreement')">《{{ agreementDocs.user_agreement.title }}》</text>
+							<text class="agree-sep">和</text>
+							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click.stop="openAgreement('privacy_policy')">《{{ agreementDocs.privacy_policy.title }}》</text>
+						</view>
+					</view>
+
+					<button class="login-btn" :disabled="submitting || !agreed" @click="handleLogin">{{ submitting ? '登录中...' : '登录' }}</button>
 
 					<view class="footer-links">
 						<text class="text-grey">还没有账号？</text>
@@ -132,12 +155,14 @@
 	export default {
 		onLoad() {
 			this.loadAgreementDocs()
+			this.loadAgreeState()
 		},
 		data() {
 			return {
 				mobile: '',
 				captcha: '',
 				submitting: false,
+				agreed: false,
 				agreementDocs: {
 					user_agreement: { title: '用户协议', content: '', url: '' },
 					privacy_policy: { title: '隐私政策', content: '', url: '' },
@@ -146,6 +171,28 @@
 			}
 		},
 		methods: {
+			loadAgreeState() {
+				// 记住用户勾选状态（本机生效）
+				try {
+					this.agreed = !!uni.getStorageSync('wxapp_login_agreed')
+				} catch (e) {
+					this.agreed = false
+				}
+			},
+			saveAgreeState() {
+				try {
+					uni.setStorageSync('wxapp_login_agreed', this.agreed ? 1 : '')
+				} catch (e) {}
+			},
+			toggleAgree() {
+				this.agreed = !this.agreed
+				this.saveAgreeState()
+			},
+			ensureAgreed() {
+				if (this.agreed) return true
+				uni.showToast({ title: '请先阅读并同意协议', icon: 'none' })
+				return false
+			},
 			goBack() {
 				uni.navigateBack()
 			},
@@ -203,6 +250,7 @@
 				uni.navigateTo({ url })
 			},
 			async handleLogin() {
+				if (!this.ensureAgreed()) return
 				if (!this.mobile || String(this.mobile).length !== 11) {
 					uni.showToast({ title: '请输入11位手机号', icon: 'none' })
 					return
@@ -226,6 +274,7 @@
 			},
 			// #ifdef MP-WEIXIN
 			onGetPhoneNumber(e) {
+				if (!this.ensureAgreed()) return
 				// 需要用户点击按钮触发；e.detail.code 需传后端换取手机号（解密）
 				const phoneCode = e && e.detail && e.detail.code
 				if (!phoneCode) {
@@ -404,10 +453,10 @@
 		}
 	}
 
-	.form {
-		width: 100%;
+		.form {
+			width: 100%;
 
-		.wx-login-btn {
+			.wx-login-btn {
 			width: 100%;
 			height: 104rpx;
 			background-color: #10b981;
@@ -423,10 +472,71 @@
 			border: none;
 			margin-bottom: 26rpx;
 
-			&::after { border: none; }
-			&:active { background-color: #059669; transform: scale(0.98); }
+				&::after { border: none; }
+				&:active { background-color: #059669; transform: scale(0.98); }
+				&[disabled] {
+					background-color: #86efac;
+					box-shadow: none;
+					opacity: 0.95;
+				}
 
-			.wx-icon { font-size: 44rpx; }
+				.wx-icon { font-size: 44rpx; }
+			}
+
+		.agree-row {
+			margin-top: 10rpx;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16rpx;
+			padding: 0 4rpx;
+			flex-wrap: wrap;
+
+			.agree-left {
+				display: flex;
+				align-items: center;
+				gap: 10rpx;
+				min-width: 0;
+			}
+
+			.agree-icon {
+				font-size: 34rpx;
+				color: #2d9cf0;
+				line-height: 1;
+			}
+
+			.agree-text {
+				font-size: 24rpx;
+				color: #64748b;
+				font-weight: 600;
+			}
+
+			.agree-links {
+				display: flex;
+				align-items: center;
+				gap: 8rpx;
+				flex-wrap: wrap;
+			}
+
+			.agree-link {
+				font-size: 24rpx;
+				color: #2d9cf0;
+				font-weight: 700;
+
+				&:active {
+					color: #2563eb;
+				}
+
+				&.disabled {
+					color: #cbd5e1;
+				}
+			}
+
+			.agree-sep {
+				font-size: 24rpx;
+				color: #94a3b8;
+				font-weight: 600;
+			}
 		}
 
 		.more-login-btn {
@@ -554,6 +664,12 @@
 			box-shadow: 0 8rpx 20rpx rgba(45, 156, 240, 0.2);
 			border: none;
 
+			&[disabled] {
+				background-color: #93c5fd;
+				box-shadow: none;
+				opacity: 0.9;
+			}
+
 			&::after {
 				border: none;
 			}
@@ -581,7 +697,7 @@
 				margin-left: 8rpx;
 			}
 		}
-	}
+		}
 
 	.bottom-agreements {
 		padding: 24rpx 0 calc(env(safe-area-inset-bottom) + 24rpx);

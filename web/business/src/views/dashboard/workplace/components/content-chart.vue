@@ -8,9 +8,6 @@
       }"
       :title="$t('workplace.contentData')"
     >
-      <template #extra>
-        <a-link>{{ $t('workplace.viewMore') }}</a-link>
-      </template>
       <Chart height="289px" :option="chartOption" />
     </a-card>
   </a-spin>
@@ -20,7 +17,7 @@
   import { ref } from 'vue';
   import { graphic } from 'echarts';
   import useLoading from '@/hooks/loading';
-  import { queryContentData, ContentDataRecord } from '@/api/dashboard';
+  import { getVisitlist, ContentDataRecord } from '@/api/dashboard/workplace';
   import useChartOption from '@/hooks/chart-option';
   import { ToolTipFormatterParams } from '@/types/echarts';
   import { AnyObject } from '@/types/global';
@@ -97,9 +94,8 @@
           show: false,
         },
         axisLabel: {
-          formatter(value: any, idx: number) {
-            if (idx === 0) return value;
-            return `${value}k`;
+          formatter(value: any) {
+            return `${value}`;
           },
         },
         splitLine: {
@@ -116,8 +112,8 @@
           const [firstElement] = params as ToolTipFormatterParams[];
           return `<div>
             <p class="tooltip-title">${firstElement.axisValueLabel}</p>
-            <div class="content-panel"><span>总内容量</span><span class="tooltip-value">${(
-              Number(firstElement.value) * 10000
+            <div class="content-panel"><span>新增房源</span><span class="tooltip-value">${Number(
+              firstElement.value
             ).toLocaleString()}</span></div>
           </div>`;
         },
@@ -177,7 +173,9 @@
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: chartData } = await queryContentData();
+      const chartData = await getVisitlist({});
+      xAxis.value = [];
+      chartsData.value = [];
       chartData.forEach((el: ContentDataRecord, idx: number) => {
         xAxis.value.push(el.x);
         chartsData.value.push(el.y);

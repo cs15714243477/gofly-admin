@@ -1,10 +1,13 @@
 <template>
-  <div class="layoutNew-box" :class="{phoneStyle:isPhone}"
-    :style="isPhone?`background:#ffffff;`:`background-image: `+(theme === 'dark'?'':'url('+getAssetsFile('login_gig_bg.jpeg')+');')">
+  <div
+    class="layoutNew-box"
+    :class="{ phoneStyle: isPhone }"
+    :style="isPhone ? 'background:#ffffff;' : `background-image:url(${getAssetsFile('login_gig_bg.jpeg')});`"
+  >
     <div class="header-nav pc_height flex flex-middle flex-between">
       <div class="icon-left ">
-         <img style="height: 37px;" src="/logo.png" />
-         <span class="app-title">{{ AppTitle }}</span>
+        <img class="brand-logo" src="/logo.png" alt="logo" />
+        <span class="app-title">{{ BrandName }}</span>
       </div>
       <div class="arco-right">
         <a-select v-model="currentLocale" :style="{width:'100%'}" :bordered="false" @change="changeLocale">
@@ -17,21 +20,36 @@
     <div class="login-container flex-all-center">
       <!--左边介绍·可选择1或者2方式-->
       <div class="left-banner" v-if="!isPhone">
-        <div class="hotspot-img">
+          <div class="hotspot-img">
           <!--1.自定义文字-->
           <div class="custom-notes">
             <div class="notes-header">
               <div class="notes-title">
-                Go语言开发,用<span class="sub-title">GoFly框架</span>
+                {{ BrandName }}
               </div>
               <div class="notes-desc">
-                <template v-for="text in desclist">
-                  <span class="desc-line">/</span>{{ text }}
-                </template>
+                <div v-for="text in desclist" :key="text" class="desc-item">
+                  <span class="desc-dot" aria-hidden="true" />
+                  <span>{{ text }}</span>
+                </div>
               </div>
             </div>
-            <div class="image-wrap">
-                <img src="./image/banner_logo.png">
+            <div class="hero-cards" aria-hidden="true">
+              <div class="hero-card card-a">
+                <div class="card-kicker">权限与安全</div>
+                <div class="card-title">角色权限分级</div>
+                <div class="card-desc">菜单 / 按钮精细化控制，操作更可追溯</div>
+              </div>
+              <div class="hero-card card-b">
+                <div class="card-kicker">业务效率</div>
+                <div class="card-title">流程清晰易用</div>
+                <div class="card-desc">常用功能一屏直达，减少培训成本</div>
+              </div>
+              <div class="hero-card card-c">
+                <div class="card-kicker">数据可视化</div>
+                <div class="card-title">关键指标看板</div>
+                <div class="card-desc">实时掌握门店与业务进展</div>
+              </div>
             </div>
           </div>
           <!--2.整张图-->
@@ -41,46 +59,12 @@
       <!--右边登录表单-->
       <div class="right-form">
         <div class="login-card">
-          <div class="login-title">{{isEmailLogin?$t('login.form.tabemail'):$t('login.form.welcome')+`${AppTitle}`}}</div>
-          <!--表单-->
-          <EmailLogin v-show="isEmailLogin" />
-          <a-tabs v-show="!isEmailLogin" class="login-right-form">
-            <a-tab-pane key="1" :title="$t('login.form.tabacount')">
-              <AccountLogin />
-            </a-tab-pane>
-            <a-tab-pane key="2" :title="$t('login.form.tabmobile')">
-              <PhoneLogin />
-            </a-tab-pane>
-          </a-tabs>
-          <!--协议-->
-          <div class="protocol-text">
-            {{ $t('login.form.login.agree') }} {{ AppTitle }}
-            <a href="https://goflys.cn/" target="_blank">{{ $t('login.form.login.service') }}</a>
-            {{ $t('login.form.login.and') }}
-            <a href="https://goflys.cn/" target="_blank">{{ $t('login.form.login.policy') }}</a>
+          <div class="login-title">
+            <div class="login-title__main">欢迎登录</div>
+            <div class="login-title__sub">{{ BrandName }}</div>
           </div>
-          <!--其他登录方式-->
-          <div class="login-ouath text-conent">
-            <a-divider orientation="center">{{ $t('login.form.other') }}</a-divider>
-            <div class="optoin-list">
-              <div v-if="isEmailLogin" class="mode item" @click="toggleLoginMode"><icon-user />{{ $t('login.form.tabacountmobile') }}</div>
-              <div v-else class="mode item" @click="toggleLoginMode"><icon-email />{{ $t('login.form.tabemail') }}</div>
-               <a class="item icon-circle flex-all-center" title="使用 飞书 账号登录" @click="onOauth('lark')">
-               <icon-bytedance-color />
-              </a>
-               <a class="item icon-circle flex-all-center" title="使用 飞书 账号登录" @click="onOauth('lark')">
-                <Icon icon="icon-lark-color" :size="24" />
-              </a>
-              <a class="item icon-circle flex-all-center" title="使用 微信 账号登录" @click="onOauth('wechat')">
-                <Icon icon="icon-wechat" :size="24" color="#28c445" />
-              </a>
-            </div>
-          </div>
-          <!--没有账号跳转注册-->
-          <div class="no-account-register flex-all-center">
-            {{ $t('login.form.no-acount') }}<a href="https://goflys.cn/"><span style="font-weight: 500;">{{ $t('login.form.register.now') }}</span></a> 
-          </div>
-
+          <AccountLogin />
+          <div class="login-tips">建议使用 Chrome / Edge 浏览器访问</div>
         </div>
       </div>
     </div>
@@ -108,20 +92,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref,computed,onMounted,onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import AccountLogin from './components/account/index.vue'
-import PhoneLogin from './components/phone/index.vue'
-import EmailLogin from './components/email/index.vue'
 import { useDark } from '@vueuse/core';
 import { useAppStore } from '@/store';
-import { Icon } from '@/components/Icon';
-import { Message } from '@arco-design/web-vue'
 import { LOCALE_OPTIONS } from '@/locale';
 import useLocale from '@/hooks/locale';
+
+const BrandName = '极速放管理系统'
 const appStore = useAppStore();
-const theme = computed(() => {
-  return appStore.theme;
-});
 useDark({
   selector: 'body',
   attribute: 'arco-theme',
@@ -141,30 +120,12 @@ const Team = window?.globalConfig.Team
 const nowyear = new Date().getFullYear()
 const CompanySite = window?.globalConfig.CompanySite
 const Company = window?.globalConfig.Company
-const isEmailLogin = ref(false)
-const desclist = ref(["开发效率高","基础功能完善","开发文档全面"])
-// 切换登录模式
-const toggleLoginMode = () => {
-  isEmailLogin.value = !isEmailLogin.value
-}
+const desclist = ref(['权限分级更清晰', '数据看板更直观', '流程协作更高效'])
 // 获取assets静态资源
  const getAssetsFile = (url: string) => {
   return new URL(`./image/${url}`, import.meta.url).href;
 };
 
-//获取网站配置-应用名称
-const AppTitle = computed(() => {
-  switch (currentLocale.value) {
-    case 'zh-CN':
-      return window?.globalConfig.AppTitle_zhCN;
-    case 'zh-TW':
-      return window?.globalConfig.AppTitle_zhTW;
-    case 'en-US':
-      return window?.globalConfig.AppTitle_enUS;
-    default:
-      return window?.globalConfig.AppTitle_enUS;
-  }
-});
 //判断移动端、pc端
 const isMobile=()=> {
   let flag = navigator.userAgent.match(/(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i)
@@ -195,49 +156,56 @@ onUnmounted(() => {
       } 
   } 
 })
-// 第三方登录授权
-const onOauth = async (source: string) => {
-  Message.warning({ content: '请根据需求接第三方登录授权', id: "socialAuth" })
-  // const { data } = await socialAuth(source)
-  // window.location.href = data.authorizeUrl
-}
 </script>
 <style lang="less" scoped>
-:deep(.arco-tabs-nav-tab-list){
-  margin-left: -16px;
-}
-:deep(.arco-tabs-tab-title){
-  font-size: 16px;
-}
-:deep(.arco-tabs-tab:hover){
-  color: rgb(var(--primary-6));
-}
-:deep(.arco-tabs-nav::before){
-  height: 0px;
-}
 :deep(.arco-input-wrapper){
   background-color: transparent;
   border: 1px solid var(--color-neutral-3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
-:deep(.arco-tabs-nav-type-line .arco-tabs-tab:hover .arco-tabs-tab-title::before){
-  background: transparent;
+:deep(.arco-input-wrapper:hover){
+  border-color: rgb(var(--primary-6));
+}
+:deep(.arco-input-wrapper:focus-within){
+  border-color: rgb(var(--primary-6));
+  box-shadow: 0 0 0 3px rgba(var(--primary-6), 0.12);
 }
 .layoutNew-box {
+  position: relative;
+  overflow: hidden;
   background-repeat: no-repeat;
   background-size: cover;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  &::before{
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 540px at 15% 20%, rgba(18, 120, 255, 0.20) 0%, rgba(18, 120, 255, 0.00) 55%),
+      radial-gradient(720px 520px at 82% 28%, rgba(20, 184, 166, 0.18) 0%, rgba(20, 184, 166, 0.00) 55%),
+      radial-gradient(700px 540px at 65% 85%, rgba(245, 158, 11, 0.10) 0%, rgba(245, 158, 11, 0.00) 55%);
+  }
   .header-nav {
+      position: relative;
+      z-index: 1;
       padding-left: 32px;
       .icon-left{
-        img{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        .brand-logo{
+          height: 37px;
+          width: auto;
           vertical-align: text-bottom;
         }
         .app-title{
           position: relative;
-          margin-left:5px;
-          letter-spacing: 2px;
+          letter-spacing: 1px;
           padding-bottom: 2px;
-          font-size: 28px;
+          font-size: 26px;
           font-weight: 900;
           vertical-align: text-bottom;
           color: var(--color-neutral-10);
@@ -259,11 +227,13 @@ const onOauth = async (source: string) => {
   }
   //内容
   .login-container{
+    position: relative;
+    z-index: 1;
     box-sizing: border-box;
     height: calc(100vh - 125px);
     margin: 0 auto;
     max-width: 1200px;
-    min-height: 650px;
+    min-height: 640px;
     padding: 0 40px;
     //左边介绍
     .left-banner{
@@ -272,48 +242,107 @@ const onOauth = async (source: string) => {
       flex: 1 1;
       height: 100%;
       position: relative;
-      .hotspot-img{
-        max-width: 100%;
-        min-height: 650px;
-        .custom-notes{
-          .notes-header{
-            .notes-title{
-              font-size: 39px;
-              font-weight: 900;
-              letter-spacing: 2px;
-              color: var(--color-neutral-10);
-              .sub-title{
+        .hotspot-img{
+          max-width: 100%;
+          min-height: 650px;
+          .custom-notes{
+            max-width: 560px;
+            .notes-header{
+              .notes-title{
+                font-size: 44px;
+                font-weight: 900;
+                letter-spacing: 1.5px;
+                line-height: 1.15;
                 background-clip: text;
-                background-image: linear-gradient(123deg, #299dff 13.15%, #986afe 88.72%);
+                -webkit-background-clip: text;
+                background-image: linear-gradient(115deg, rgb(var(--primary-6)) 0%, #14b8a6 52%, #f59e0b 110%);
                 color: transparent;
                 display: inline-block;
               }
-            }
-            .notes-desc{
-              font-size: 20px;
-              padding-top: 20px;
-              font-weight: 600;
-              color: var(--color-neutral-8);
-              .desc-line{
-                color: #605dff;
-                padding-left: 10px;
-                padding-right: 3px;
-                font-weight: 600;
-                &:first-child{
-                  padding-left: 0px;
+              .notes-desc{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px 18px;
+                padding-top: 18px;
+                .desc-item{
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  padding: 8px 12px;
+                  border-radius: 999px;
+                  background: rgba(255,255,255,0.55);
+                  border: 1px solid rgba(255,255,255,0.55);
+                  color: var(--color-neutral-10);
+                  font-size: 14px;
+                  font-weight: 600;
+                  letter-spacing: 0.2px;
+                  backdrop-filter: blur(10px);
+                }
+                .desc-dot{
+                  width: 8px;
+                  height: 8px;
+                  border-radius: 999px;
+                  background: rgb(var(--primary-6));
+                  box-shadow: 0 0 0 4px rgba(var(--primary-6), 0.18);
                 }
               }
             }
+            .hero-cards{
+              position: relative;
+              margin-top: 56px;
+              height: 340px;
+            }
+            .hero-card{
+              position: absolute;
+              width: 360px;
+              padding: 18px 18px 16px;
+              border-radius: 18px;
+              background: rgba(255,255,255,0.78);
+              border: 1px solid rgba(255,255,255,0.60);
+              box-shadow: 0 30px 80px rgba(0, 0, 0, 0.16);
+              backdrop-filter: blur(14px);
+              transition: transform 0.25s ease, box-shadow 0.25s ease;
+              .card-kicker{
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.12em;
+                color: var(--color-neutral-8);
+                margin-bottom: 8px;
+              }
+              .card-title{
+                font-size: 18px;
+                font-weight: 800;
+                color: var(--color-neutral-10);
+                margin-bottom: 6px;
+              }
+              .card-desc{
+                font-size: 13px;
+                color: var(--color-neutral-8);
+                line-height: 1.7;
+              }
+              &:hover{
+                box-shadow: 0 36px 90px rgba(0, 0, 0, 0.20);
+              }
+            }
+            .card-a{
+              top: 0;
+              left: 0;
+              transform: rotate(-2deg);
+            }
+            .card-b{
+              top: 98px;
+              left: 150px;
+              transform: rotate(1deg);
+            }
+            .card-c{
+              top: 195px;
+              left: 35px;
+              transform: rotate(-1deg);
+            }
           }
-          .image-wrap{
-            padding-top: 60px;
-            text-align: center;
-            width: 100%;
-          }
-        }
-        img {
-            max-width: 540px;
-            object-fit: contain;
+          img {
+              max-width: 540px;
+              object-fit: contain;
             width: 100%;
         }
       }
@@ -321,108 +350,52 @@ const onOauth = async (source: string) => {
     //右边提交登录表单
     .right-form{
       .login-card{
-          background: var(--color-bg-2);
-          border-radius: 20px;
-          box-shadow: 0 5px 15px rgba(0, 0, 0, .05);
+          background: rgba(255,255,255,0.86);
+          border-radius: 22px;
+          border: 1px solid rgba(255,255,255,0.60);
+          box-shadow: 0 18px 65px rgba(0, 0, 0, .14);
+          backdrop-filter: blur(18px);
           box-sizing: border-box;
-          min-height: 632px;
           position: relative;
           width: 476px;
           display: flex;
           flex-direction: column;
           margin-bottom: 30px;
-          padding: 48px 43px 32px;
+          padding: 44px 42px 32px;
           .login-title{
-            color: var(--color-neutral-10);
-            font-size: 24px;
-            font-weight: 500;
-            letter-spacing: .003em;
-            line-height: 32px;
             white-space:nowrap;
             overflow: hidden;
-          }
-          //表单tab
-          .login-right-form{
-            margin-top: 20px;
-          }
-          //协议
-          .protocol-text{
-            color: var(--color-neutral-8);
-            font-size: 12px;
-            font-weight: 400;
-            line-height: 20px;
-            margin-bottom: 4px;
-          }
-          //其他登录方式
-          .text-conent{
-            color: var(--color-neutral-6);
-            display: flex;
-            font-size: 14px;
-            justify-content: space-between;
-          }
-          .login-ouath{
-            margin-top: auto;
-            padding: 0 5px;
-            flex-wrap: wrap;
-            .optoin-list{
-              align-items: center;
-              display: flex;
-              justify-content: center;
-              width: 100%;
-              .item {
-                margin-right: 15px;
-              }
-              .icon-circle{
-                border: 1px solid #eaedf1;
-                border-radius: 32px;
-                box-sizing: border-box;
-                height: 32px;
-                width: 32px;
-              }
-              .mode {
-                color: var(--color-text-2);
-                font-size: 12px;
-                font-weight: 400;
-                line-height: 20px;
-                padding: 6px 10px;
-                align-items: center;
-                border: 1px solid var(--color-border-3);
-                border-radius: 32px;
-                box-sizing: border-box;
-                display: flex;
-                height: 32px;
-                justify-content: center;
-                cursor: pointer;
-                user-select: none;
-                .icon {
-                  width: 21px;
-                  height: 20px;
-                }
-              }
-              .mode svg {
-                font-size: 16px;
-                margin-right: 10px;
-              }
-              .mode:hover,.icon-circle:hover {
-                background: rgba(var(--primary-6), 0.05);
-                border: 1px solid rgb(var(--primary-3));
-                color: rgb(var(--arcoblue-6));
-              }
+            margin-bottom: 22px;
+            .login-title__main{
+              color: var(--color-neutral-8);
+              font-size: 13px;
+              font-weight: 700;
+              letter-spacing: 0.18em;
+              margin-bottom: 10px;
+            }
+            .login-title__sub{
+              color: var(--color-neutral-10);
+              font-size: 30px;
+              font-weight: 900;
+              letter-spacing: 1px;
+              line-height: 1.2;
             }
           }
-          //提示注册
-          .no-account-register{
+          .login-tips{
+            margin-top: 14px;
             color: var(--color-neutral-8);
-            font-size: 14px;
-            font-weight: 400;
-            line-height: 22px;
-            margin-top: auto;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+            opacity: 0.9;
           }
       }
     }
   }
   //底部
   .footer-container{
+    position: relative;
+    z-index: 1;
     box-sizing: border-box;
     .beian-box{
       padding-bottom: 10px;
@@ -484,6 +457,9 @@ a {
   .layoutNew-box{
     background: #fff !important;
   }
+  .layoutNew-box::before{
+    display: none;
+  }
   .layoutNew-box .login-container .left-banner{
     flex: unset;
   }
@@ -500,17 +476,38 @@ a {
         height: 100%;
         width: 100%;
         box-shadow:none !important;
+        border: none;
+        background: transparent;
+        backdrop-filter: none;
         padding: 48px 20px 0px 20px;
       }
     }
     
   }
 }
-:deep(.arco-divider-text){
-    white-space:nowrap;
+:global(body[arco-theme='dark']) .layoutNew-box{
+  background-image: none !important;
+  background:
+    radial-gradient(900px 540px at 18% 22%, rgba(18, 120, 255, 0.26) 0%, rgba(18, 120, 255, 0.00) 55%),
+    radial-gradient(720px 520px at 82% 28%, rgba(20, 184, 166, 0.18) 0%, rgba(20, 184, 166, 0.00) 55%),
+    radial-gradient(700px 540px at 65% 85%, rgba(245, 158, 11, 0.14) 0%, rgba(245, 158, 11, 0.00) 55%),
+    linear-gradient(180deg, rgba(13, 17, 23, 1) 0%, rgba(16, 24, 40, 1) 100%);
+}
+:global(body[arco-theme='dark']) .layoutNew-box .login-card{
+  background: rgba(17, 24, 39, 0.72);
+  border-color: rgba(255,255,255,0.10);
+  box-shadow: 0 18px 80px rgba(0, 0, 0, 0.55);
+}
+:global(body[arco-theme='dark']) .layoutNew-box .hero-card{
+  background: rgba(17, 24, 39, 0.62);
+  border-color: rgba(255,255,255,0.10);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
 }
 //手机端样式
 .phoneStyle{
+  &::before{
+    display: none;
+  }
   height: 100vh;
   width: 100vw;
   box-sizing: border-box;
@@ -561,20 +558,21 @@ a {
         width: 100%;
         box-sizing: border-box;
         box-shadow:none !important;
+        border: none;
+        background: transparent;
+        backdrop-filter: none;
         padding: 70px 20px 20px 20px;
         .login-title{
-            color: var(--color-neutral-10);
-            font-size: 20px;
-            font-weight: 500;
-            letter-spacing: .003em;
-            line-height: 32px;
-            white-space:nowrap;
-            overflow: hidden;
+          margin-bottom: 18px;
+          .login-title__main{
+            font-size: 12px;
+            margin-bottom: 10px;
+          }
+          .login-title__sub{
+            font-size: 26px;
+          }
         }
       }
-    }
-    .no-account-register{
-      padding-bottom: 20px;
     }
     
   }

@@ -505,6 +505,10 @@
             <text class="material-symbols-outlined bar-icon">call</text>
             <text class="bar-text">拨打电话</text>
           </view>
+          <view class="action-item" @click="recordShowing">
+            <text class="material-symbols-outlined bar-icon">location_on</text>
+            <text class="bar-text">带看</text>
+          </view>
           <view class="action-item" @click="toggleFollow">
             <text
               v-if="isFollowed"
@@ -531,14 +535,117 @@
         </button>
       </view>
     </view>
+
+    <!-- 分享弹窗（转发好友/复制文案） -->
+    <view v-if="shareSheetOpen" class="share-mask" @tap="closeShareSheet">
+      <view class="share-sheet" @tap.stop>
+        <view class="share-title">分享房源</view>
+        <view class="share-actions">
+          <button
+            class="share-action primary"
+            open-type="share"
+            :data-id="propertyId"
+            :data-title="String((property && property.title) || '房源')"
+            :data-image="shareCover"
+            @tap.stop="onTapForward"
+          >
+            <text class="material-symbols-outlined">ios_share</text>
+            <text>转发给好友</text>
+          </button>
+          <view class="share-divider"></view>
+          <view class="share-action" @tap="copyPromoteText">
+            <text class="material-symbols-outlined">content_copy</text>
+            <text>复制推广文案</text>
+          </view>
+        </view>
+        <view class="share-cancel" @tap="closeShareSheet">取消</view>
+      </view>
+    </view>
+
+    <!-- 带看登记弹窗（填写客户姓名/电话） -->
+    <view v-if="showingSheetOpen" class="sheet-mask" @tap="closeShowingSheet">
+      <view class="sheet-panel" @tap.stop>
+        <view class="sheet-title">记录带看</view>
+        <view class="sheet-tip">请填写客户姓名与电话，便于后续在带看记录中查看</view>
+        <view class="sheet-form">
+          <view class="sheet-field">
+            <text class="sheet-label">客户姓名</text>
+            <input
+              class="sheet-input"
+              v-model="showingForm.client_name"
+              placeholder="请输入客户姓名"
+              maxlength="20"
+              confirm-type="next"
+            />
+          </view>
+          <view class="sheet-divider"></view>
+          <view class="sheet-field">
+            <text class="sheet-label">客户电话</text>
+            <input
+              class="sheet-input"
+              v-model="showingForm.client_phone"
+              placeholder="请输入客户电话"
+              type="number"
+              maxlength="20"
+              confirm-type="done"
+              @confirm="submitShowing"
+            />
+          </view>
+        </view>
+        <view class="sheet-actions-row">
+          <view class="sheet-btn cancel" @tap="closeShowingSheet">取消</view>
+          <view
+            class="sheet-btn primary"
+            :class="{ disabled: showingSaving }"
+            @tap="submitShowing"
+          >
+            {{ showingSaving ? "保存中..." : "确认记录" }}
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
 import propertyApi from "@/api/property";
+import userApi from "@/api/user";
 import $store from "@/store";
 
 export default {
+  onShareAppMessage(options) {
+    const dataset =
+      options && options.target && options.target.dataset
+        ? options.target.dataset
+        : {};
+    const id = Number(dataset.id || this.propertyId || 0) || 0;
+    const title = String(dataset.title || (this.property && this.property.title) || "房源").trim() || "房源";
+    const rawImg = String(dataset.image || "").trim();
+    const imageUrl = /^https?:\/\//i.test(rawImg) ? rawImg : "";
+
+    // “登录走经纪人”：携带 from_agent_id；“未登录走客户”：不带
+    const token = uni.getStorageSync("token");
+    const userStore = $store("user");
+    const agentId = token
+      ? Number(this.currentUserId || (userStore && userStore.userInfo && userStore.userInfo.id) || 0) || 0
+      : 0;
+
+    let path = `/pages/property_detail/property_detail?id=${encodeURIComponent(id)}&public=1`;
+    if (agentId > 0) {
+      path += `&from_agent_id=${encodeURIComponent(agentId)}&from_style=0`;
+    }
+
+    // 尝试写入分享日志（不影响转发）
+    try {
+      if (!this.isPublicView && id > 0) {
+        this.tryLogActivity("share", id, { channel: "转发给好友" });
+      }
+    } catch (e) {}
+
+    const out = { title, path };
+    if (imageUrl) out.imageUrl = imageUrl;
+    return out;
+  },
   data() {
     return {
       propertyId: 0,
@@ -625,6 +732,14 @@ export default {
           image: "",
         },
       ],
+      viewLogged: false,
+      shareSheetOpen: false,
+      showingSheetOpen: false,
+      showingSaving: false,
+      showingForm: {
+        client_name: "",
+        client_phone: "",
+      },
     };
   },
   onLoad(options) {
@@ -712,8 +827,24 @@ export default {
       const lng = Number(this.mapLng);
       return !!lat && !!lng && isFinite(lat) && isFinite(lng);
     },
+    shareCover() {
+      return this.getShareCover();
+    },
   },
   methods: {
+    openShareSheet() {
+      this.shareSheetOpen = true;
+    },
+    closeShareSheet() {
+      this.shareSheetOpen = false;
+    },
+    onTapForward() {
+      this.closeShareSheet();
+    },
+    closeShowingSheet() {
+      this.showingSheetOpen = false;
+      this.showingSaving = false;
+    },
     async ensureCanManageProperties() {
       // 仅用于 UI 控制；最终权限以后端校验为准
       if (this.isPublicView) {
@@ -855,6 +986,12 @@ export default {
       if (imageUrl.indexOf("/static/images/") === 0) return "";
       return imageUrl;
     },
+    getShareCover() {
+      const cover = this.normalizeImage(this.property && this.property.cover_image);
+      if (cover) return cover;
+      const first = Array.isArray(this.images) ? String(this.images[0] || "").trim() : "";
+      return this.normalizeImage(first);
+    },
     async loadDetail() {
       if (this.loading || !this.propertyId) return false;
       this.loading = true;
@@ -903,6 +1040,11 @@ export default {
       this.hasSmartLock = Number(p.has_smart_lock) === 1;
       this.ownerPhone = String(p.owner_phone || "").trim();
       if (this.isPublicView) this.ownerPhone = "";
+
+      this.tryLogActivity("view", this.propertyId, {
+        count: 1,
+        from: this.isPublicView ? "public" : "agent",
+      });
 
       // 下载权限（后端默认：1 允许）
       this.allowImageDownload = Number(p.allow_image_download) !== 0;
@@ -1128,37 +1270,103 @@ export default {
     },
     handleShare() {
       if (this.isPublicView) return;
+      this.openShareSheet();
+    },
+    recordShowing() {
+      if (this.isPublicView) return;
+      const pid = Number(this.propertyId || 0) || 0;
+      if (!pid) {
+        uni.showToast({ title: "房源ID缺失", icon: "none" });
+        return;
+      }
+      this.showingForm = { client_name: "", client_phone: "" };
+      this.showingSheetOpen = true;
+    },
+    async submitShowing() {
+      if (this.showingSaving) return;
+      const pid = Number(this.propertyId || 0) || 0;
+      if (!pid) {
+        uni.showToast({ title: "房源ID缺失", icon: "none" });
+        return;
+      }
+      const name = String(
+        (this.showingForm && this.showingForm.client_name) || "",
+      ).trim();
+      const rawPhone = String(
+        (this.showingForm && this.showingForm.client_phone) || "",
+      ).trim();
+      const phone = rawPhone.replace(/\D/g, "");
+
+      if (!name) {
+        uni.showToast({ title: "请输入客户姓名", icon: "none" });
+        return;
+      }
+      if (!phone) {
+        uni.showToast({ title: "请输入客户电话", icon: "none" });
+        return;
+      }
+      if (phone.length < 6) {
+        uni.showToast({ title: "客户电话格式不正确", icon: "none" });
+        return;
+      }
+
+      this.showingSaving = true;
+      try {
+        await this.tryLogActivity("showing", pid, {
+          client_name: name,
+          client_phone: phone,
+        });
+        this.showingSheetOpen = false;
+        uni.showToast({ title: "已记录带看", icon: "none" });
+      } finally {
+        this.showingSaving = false;
+      }
+    },
+    async copyPromoteText() {
+      const pid = Number(this.propertyId || 0) || 0;
       const title =
         this.property && this.property.title ? this.property.title : "房源";
-      const id = this.propertyId;
-      uni.showActionSheet({
-        itemList: ["生成获客海报", "复制房源链接", "模拟分享（占位）"],
-        success: (res) => {
-          if (res.tapIndex === 0) {
-            uni.navigateTo({
-              url: `/pages/marketing_posters/marketing_posters?title=${encodeURIComponent(
-                title,
-              )}`,
-            });
-            return;
-          }
-          if (res.tapIndex === 1) {
-            const link = id
-              ? `/pages/property_detail/property_detail?id=${encodeURIComponent(
-                  id,
-                )}`
-              : `/pages/property_detail/property_detail`;
-            uni.setClipboardData({
-              data: `${title}\n${link}`,
-              success: () =>
-                uni.showToast({ title: "已复制链接", icon: "none" }),
-            });
-            return;
-          }
-          if (res.tapIndex === 2) {
-            uni.showToast({ title: "分享功能待接入", icon: "none" });
-          }
-        },
+      this.closeShareSheet();
+      if (!pid) {
+        uni.showToast({ title: "房源ID缺失", icon: "none" });
+        return;
+      }
+      this.tryLogActivity("share", pid, { channel: "复制文案" });
+
+      let urlLink = "";
+      try {
+        const linkRes = await propertyApi.getPropertyUrlLink(
+          { property_id: pid },
+          true,
+        );
+        if (linkRes && linkRes.code === 0 && linkRes.data) {
+          urlLink = String(linkRes.data.url_link || "").trim();
+        }
+      } catch (e) {
+        urlLink = "";
+      }
+      if (!urlLink) {
+        urlLink = `/pages/property_detail/property_detail?id=${encodeURIComponent(
+          pid,
+        )}&public=1`;
+      }
+
+      const layoutText = this.getLayoutText(this.property || {});
+      const areaText =
+        this.property && this.property.area ? `${this.property.area}㎡` : "";
+      const priceText =
+        this.property && this.property.price
+          ? `¥${this.property.price}${this.property.price_unit || ""}`
+          : "";
+      const line2 = [layoutText, areaText, priceText]
+        .filter(Boolean)
+        .join(" | ");
+
+      const text = `【优质房源推荐】${title}${line2 ? `\n${line2}` : ""}\n小程序链接：${urlLink}`;
+      uni.setClipboardData({
+        data: text,
+        success: () => uni.showToast({ title: "已复制推广文案", icon: "none" }),
+        fail: () => uni.showToast({ title: "复制失败", icon: "none" }),
       });
     },
     openMap() {
@@ -1219,6 +1427,11 @@ export default {
         uni.showToast({ title: "暂无业主电话", icon: "none" });
         return;
       }
+      this.tryLogActivity("call", this.propertyId, {
+        type: "呼出",
+        phone: this.ownerPhone,
+        target_name: "业主",
+      });
       uni.makePhoneCall({
         phoneNumber: this.ownerPhone,
       });
@@ -1250,6 +1463,30 @@ export default {
     setRenovationStatus(key) {
       // 展示用：不允许手动切换，避免与真实数据不一致
       void key;
+    },
+    async tryLogActivity(activityType, propertyId, meta) {
+      if (this.isPublicView) return;
+      if (!uni.getStorageSync("token")) return;
+      const type = String(activityType || "").trim();
+      if (!type) return;
+      if (type === "view") {
+        if (this.viewLogged) return;
+        this.viewLogged = true;
+      }
+      const pid = Number(propertyId || 0) || 0;
+      try {
+        await userApi.addWorkbenchActivityLog(
+          {
+            activity_type: type,
+            property_id: pid,
+            page: "property_detail",
+            meta: meta || {},
+          },
+          false,
+        );
+      } catch (e) {
+        // 日志写入失败不影响主流程
+      }
     },
   },
 };
@@ -1467,6 +1704,11 @@ export default {
       color: #2563eb;
       font-weight: 700;
       flex-shrink: 0;
+      line-height: 1;
+
+      &::after {
+        border: none;
+      }
 
       .share-icon {
         font-size: 28rpx;
@@ -2354,5 +2596,181 @@ export default {
 
 .bottom-spacer {
   height: 64rpx;
+}
+
+.share-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.share-sheet {
+  width: 100%;
+  background-color: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 18rpx 18rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  box-sizing: border-box;
+}
+
+.share-title {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 12rpx 12rpx 18rpx;
+}
+
+.share-actions {
+  border-radius: 24rpx;
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+}
+
+.share-action {
+  height: 92rpx;
+  padding: 0 18rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #334155;
+  background: #ffffff;
+  border: none;
+  text-align: left;
+  line-height: 1;
+}
+
+.share-action.primary {
+  color: #2d9cf0;
+}
+
+.share-action::after {
+  border: none;
+}
+
+.share-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+}
+
+.share-cancel {
+  margin-top: 16rpx;
+  height: 88rpx;
+  border-radius: 24rpx;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #334155;
+}
+
+.sheet-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet-panel {
+  width: 100%;
+  background-color: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 18rpx 18rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  box-sizing: border-box;
+}
+
+.sheet-title {
+  font-size: 28rpx;
+  font-weight: 900;
+  color: #0f172a;
+  padding: 12rpx 12rpx 6rpx;
+}
+
+.sheet-tip {
+  padding: 0 12rpx 18rpx;
+  font-size: 24rpx;
+  color: #64748b;
+}
+
+.sheet-form {
+  border-radius: 24rpx;
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.sheet-field {
+  padding: 18rpx;
+}
+
+.sheet-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 800;
+  color: #64748b;
+  margin-bottom: 12rpx;
+}
+
+.sheet-input {
+  height: 84rpx;
+  border-radius: 18rpx;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0 18rpx;
+  box-sizing: border-box;
+  font-size: 28rpx;
+  color: #0f172a;
+}
+
+.sheet-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+}
+
+.sheet-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.sheet-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 900;
+  border: 1px solid transparent;
+}
+
+.sheet-btn.cancel {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.sheet-btn.primary {
+  background: #2d9cf0;
+  color: #ffffff;
+  box-shadow: 0 8rpx 20rpx rgba(45, 156, 240, 0.26);
+}
+
+.sheet-btn.disabled {
+  opacity: 0.65;
 }
 </style>

@@ -1,52 +1,66 @@
 <template>
-  <a-card
-    class="general-card"
-    :title="$t('workplace.announcement')"
-    :header-style="{ paddingBottom: '0' }"
-    :body-style="{ padding: '15px 20px 13px 20px' }"
-  >
-    <template #extra>
-      <a-link>{{ $t('workplace.viewMore') }}</a-link>
-    </template>
-    <div>
-      <div v-for="(item, idx) in list" :key="idx" class="item">
-        <a-tag :color="item.type" size="small">{{ item.label }}</a-tag>
-        <span class="item-content">
-          {{ item.content }}
-        </span>
+  <a-spin :loading="loading" style="width: 100%">
+    <a-card
+      class="general-card"
+      :title="$t('workplace.announcement')"
+      :header-style="{ paddingBottom: '0' }"
+      :body-style="{ padding: '15px 20px 13px 20px' }"
+    >
+      <div v-if="list.length">
+        <div v-for="item in list" :key="item.id" class="item">
+          <a-tag :color="tagColor(item.type)" size="small">{{ tagText(item.type) }}</a-tag>
+          <span class="item-content" :class="{ unread: item.isread === 0 }">
+            {{ item.title || item.content }}
+          </span>
+        </div>
       </div>
-    </div>
-  </a-card>
+      <a-empty v-else description="暂无消息" />
+    </a-card>
+  </a-spin>
 </template>
 
 <script lang="ts" setup>
-  const list = [
-    {
-      type: 'orangered',
-      label: '活动',
-      content: '内容最新优惠活动',
-    },
-    {
-      type: 'cyan',
-      label: '消息',
-      content: '新增内容尚未通过审核，详情请点击查看。',
-    },
-    {
-      type: 'blue',
-      label: '通知',
-      content: '当前产品试用期即将结束，如需续费请点击查看。',
-    },
-    {
-      type: 'blue',
-      label: '通知',
-      content: '1月新系统升级计划通知',
-    },
-    {
-      type: 'cyan',
-      label: '消息',
-      content: '新增内容已经通过审核，详情请点击查看。',
-    },
-  ];
+  import { ref } from 'vue';
+  import useLoading from '@/hooks/loading';
+  import { queryMessageList } from '@/api/message';
+
+  type MessageItem = {
+    id: number;
+    type: string | number;
+    title?: string;
+    content?: string;
+    isread?: number;
+    createtime?: number | string;
+    path?: string;
+  };
+
+  const { loading, setLoading } = useLoading(true);
+  const list = ref<MessageItem[]>([]);
+
+  const tagText = (type: MessageItem['type']) => {
+    if (type === 'notice' || type === 2) return '通知';
+    if (type === 'todo' || type === 3) return '待办';
+    return '消息';
+  };
+  const tagColor = (type: MessageItem['type']) => {
+    if (type === 'notice' || type === 2) return 'blue';
+    if (type === 'todo' || type === 3) return 'orangered';
+    return 'cyan';
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const data = await queryMessageList();
+      list.value = (data?.items || []).slice(0, 5) as MessageItem[];
+    } catch (err) {
+      // 你可以在这里统一处理错误提示
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
 </script>
 
 <style scoped lang="less">
@@ -66,6 +80,10 @@
       text-decoration: none;
       font-size: 13px;
       cursor: pointer;
+    }
+    .unread {
+      color: var(--color-text-1);
+      font-weight: 500;
     }
   }
 </style>

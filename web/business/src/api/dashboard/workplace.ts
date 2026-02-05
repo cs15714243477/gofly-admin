@@ -11,18 +11,44 @@ enum Api {
     getMsmContent = '/dashboard/workplace/get_msmContent',
 }
 
-//获取文章统计
-export function getStatistical(params: object) {
-  return defHttp.get({ url: Api.getStatistical, params:params }, { errorMessageMode: 'message' });
+// 首页概况统计
+export interface WorkplaceStatistical {
+  propertyTotal: number;
+  propertyOnSale: number;
+  lockBindTotal: number;
+  unlockPendingTotal: number;
+  todayPropertyAdd: number;
+  todayUnlockRequests: number;
 }
-//获取访问统计
+export function getStatistical(params: object) {
+  return defHttp.get<WorkplaceStatistical>({ url: Api.getStatistical, params }, { errorMessageMode: 'message' });
+}
+
+// 趋势数据类型
+export interface ContentDataRecord {
+  x: string;
+  y: number;
+}
 export function getVisitlist(params: object) {
-    return defHttp.get<ContentDataRecord []>({ url: Api.getVisitlist, params:params }, { errorMessageMode: 'message' });
-  }
-//获取热门文章
+  return defHttp.get<ContentDataRecord[]>({ url: Api.getVisitlist, params }, { errorMessageMode: 'message' });
+}
+
+// 热门房源
+export interface PopularPropertyRecord {
+  id: number;
+  title: string;
+  viewCount: number;
+  followCount: number;
+  showingCount: number;
+  saleStatus: 'on_sale' | 'sold' | 'off_market' | string;
+  price: number;
+  priceUnit: string;
+  area: number;
+}
 export function getPopular(params: object) {
-  return defHttp.get({ url: Api.getPopular, params:params }, { errorMessageMode: 'message' });
-} 
+  return defHttp.get<PopularPropertyRecord[]>({ url: Api.getPopular, params }, { errorMessageMode: 'message' });
+}
+
 //提交快捷操作数据
 export function saveQuick(params: object) {
     return defHttp.post({ url: Api.saveQuick, params:params}, { errorMessageMode: 'message' });
@@ -50,11 +76,6 @@ export function getMsmContent(params: object) {
 export interface DataItem {
     id:number,
     name: string;
-}
-//统计表单
-export interface ContentDataRecord {
-  x: string;
-  y: number;
 }
 
 //公告类型

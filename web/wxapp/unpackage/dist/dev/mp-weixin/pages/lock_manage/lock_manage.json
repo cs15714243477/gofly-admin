@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "智能门锁",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "top-header": "../../components/TopHeader"
-  }
-}

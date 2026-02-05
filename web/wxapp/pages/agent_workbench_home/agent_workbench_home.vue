@@ -38,59 +38,21 @@
       <scroll-view scroll-y="true" class="content-scroll">
         <view class="scroll-content">
           <view class="section">
-            <view class="section-title">业务记录</view>
-            <view class="records-list">
+            <view class="section-title">快捷工作台</view>
+            <view class="records-grid">
               <view
-                class="property-card"
+                class="record-grid-item"
                 v-for="(item, index) in displayRecords"
                 :key="index"
                 @click="openRecord(item)"
               >
-                <view class="card-main">
-                  <view
-                    class="record-image-box"
-                    :class="{ 'has-notice': item.hasNotice }"
-                  >
-                    <view class="record-icon-chip">
-                      <text class="material-symbols-outlined record-icon">{{
-                        item.icon
-                      }}</text>
-                    </view>
-                    <view class="record-dot" v-if="item.hasNotice"></view>
-                  </view>
-                  <view class="record-info-box">
-                    <view class="title">{{ item.name }}</view>
-                    <view class="meta">
-                      <text class="bold">{{ getRecordHint(item) }}</text>
-                    </view>
-                    <view class="stats">
-                      <text>{{ item.countLabel || "暂无统计" }}</text>
-                      <text class="stats-sep"></text>
-                      <text>{{
-                        item.hasNotice ? "有新动态" : "点击查看详情"
-                      }}</text>
-                    </view>
-                  </view>
+                <view class="record-grid-icon-wrap">
+                  <text class="material-symbols-outlined record-grid-icon">{{
+                    item.icon
+                  }}</text>
+                  <view class="record-grid-dot" v-if="item.hasNotice"></view>
                 </view>
-                <view
-                  class="card-footer"
-                  :class="item.hasNotice ? 'orange-footer' : 'grey-footer'"
-                >
-                  <view class="footer-left">
-                    <view class="footer-icon-box">
-                      <text class="material-symbols-outlined footer-icon">{{
-                        item.hasNotice ? "notifications_active" : "insights"
-                      }}</text>
-                    </view>
-                    <text class="footer-text">{{ getRecordFooter(item) }}</text>
-                  </view>
-                  <view class="footer-btn">
-                    <text class="material-symbols-outlined btn-icon"
-                      >arrow_forward</text
-                    >
-                    <text>进入</text>
-                  </view>
-                </view>
+                <text class="record-grid-name">{{ item.name }}</text>
               </view>
             </view>
           </view>
@@ -352,7 +314,7 @@ export default {
       });
     },
     openAbout() {
-      uni.navigateTo({ url: "/pages/doc_webview/doc_webview?key=help_center" });
+      uni.navigateTo({ url: "/pages/doc_webview/doc_webview?key=about_us" });
     },
     async copyAgentLink() {
       const res = await userApi.getAgentUrlLink({}, true);
@@ -581,206 +543,92 @@ export default {
   margin-bottom: 12rpx;
 }
 
-.records-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.property-card {
-  background-color: #ffffff;
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
   border-radius: 24rpx;
   overflow: hidden;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.02);
-  border: 1px solid #f1f5f9;
 }
 
-.card-main {
-  padding: 20rpx;
+.record-grid-item {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 18rpx 8rpx;
   display: flex;
-  gap: 18rpx;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  min-height: 176rpx;
+  box-shadow: none;
+  position: relative;
+  transition: background-color 200ms ease, opacity 200ms ease;
+}
+.record-grid-item:active {
+  background-color: #f8fafc;
+  opacity: 0.92;
 }
 
-.record-image-box {
-  width: 224rpx;
-  height: 192rpx;
-  border-radius: 16rpx;
-  position: relative;
-  overflow: hidden;
-  flex-shrink: 0;
+/* 图标之间用“小竖线”分隔（每行 3 个） */
+.record-grid-item::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 28rpx;
+  bottom: 28rpx;
+  width: 1px;
+  background: #e2e8f0;
+}
+.record-grid-item:nth-child(3n)::after,
+.record-grid-item:last-child::after {
+  display: none;
+}
+
+.record-grid-icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
   background: linear-gradient(135deg, #2d9cf0, #2563eb);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
-.record-image-box.has-notice {
-  background: linear-gradient(135deg, #fb923c, #f97316);
+.record-grid-icon {
+  color: #ffffff;
+  font-size: 42rpx !important;
+  line-height: 1;
 }
 
-.record-icon-chip {
-  width: 96rpx;
-  height: 96rpx;
+.record-grid-dot {
+  width: 12rpx;
+  height: 12rpx;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
-  border: 2rpx solid rgba(255, 255, 255, 0.28);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #ef4444;
+  border: 2rpx solid #ffffff;
+  position: absolute;
+  right: -2rpx;
+  top: -2rpx;
 }
 
-.record-info-box {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.record-info-box .title {
-  font-size: 30rpx;
-  font-weight: bold;
+.record-grid-name {
+  font-size: 24rpx;
+  font-weight: 600;
   color: #0f172a;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
+  line-height: 1.25;
+  min-height: 50rpx;
   display: -webkit-box;
-  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.record-info-box .meta {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  font-size: 24rpx;
-  color: #64748b;
-}
-
-.record-info-box .meta .bold {
-  font-weight: 500;
-  color: #334155;
-}
-
-.record-info-box .stats {
-  font-size: 20rpx;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  margin-top: auto;
-}
-
-.record-info-box .stats .stats-sep {
-  width: 1px;
-  height: 16rpx;
-  background-color: #e2e8f0;
-  margin: 0 12rpx;
-}
-
-.record-icon {
-  font-size: 56rpx !important;
-  color: #ffffff;
-  line-height: 1;
-  display: block;
-}
-
-.record-dot {
-  position: absolute;
-  top: 14rpx;
-  right: 14rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background-color: #ef4444;
-  border-radius: 50%;
-  border: 3rpx solid #ffffff;
-}
-
-.card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14rpx 20rpx;
-  border-top: 1rpx solid transparent;
-}
-
-.card-footer.orange-footer {
-  background-color: #fff7ed;
-  border-color: #ffedd5;
-}
-
-.card-footer.orange-footer .footer-icon-box {
-  background-color: #f97316;
-}
-
-.card-footer.orange-footer .footer-text {
-  color: #9a3412;
-  font-weight: bold;
-}
-
-.card-footer.grey-footer {
-  background-color: #f8fafc;
-  border-color: #f1f5f9;
-}
-
-.card-footer.grey-footer .footer-icon-box {
-  background-color: #cbd5e1;
-}
-
-.card-footer.grey-footer .footer-text {
-  color: #64748b;
-  font-weight: 500;
-}
-
-.footer-left {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  flex: 1;
-  min-width: 0;
-}
-
-.footer-icon-box {
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.footer-icon {
-  color: #ffffff;
-  font-size: 28rpx;
-}
-
-.footer-text {
-  font-size: 24rpx;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.footer-btn {
-  height: 52rpx;
-  padding: 0 24rpx;
-  background-color: #ffffff;
-  border: 1px solid #fed7aa;
-  border-radius: 40rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 22rpx;
-  font-weight: bold;
-  color: #ea580c;
-  line-height: 1;
-  margin-left: 24rpx;
-}
-
-.footer-btn .btn-icon {
-  font-size: 28rpx;
-}
 
 .service-list {
   background-color: #ffffff;

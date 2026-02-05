@@ -31,14 +31,16 @@
 			"path": "pages/property_list/property_list",
 			"style": {
 				"navigationBarTitleText": "房源列表",
-				"navigationStyle": "custom"
+				"navigationStyle": "custom",
+				"enableShareAppMessage": true
 			}
 		},
 		{
 			"path": "pages/property_detail/property_detail",
 			"style": {
 				"navigationBarTitleText": "房源详情",
-				"navigationStyle": "custom"
+				"navigationStyle": "custom",
+				"enableShareAppMessage": true
 			}
 		},
 		{

@@ -128,6 +128,17 @@ export default {
         auth: true,
       },
     }),
+  // 写入工作台活动日志（带看/浏览/分享/通话）
+  addWorkbenchActivityLog: (data, showLoading = false) =>
+    request({
+      url: "/uniapp/addWorkbenchActivityLog",
+      method: "POST",
+      data,
+      custom: {
+        showLoading,
+        auth: true,
+      },
+    }),
   // 获取名片推荐房源配置（经纪人编辑用）
   getAgentCardRecommendConfig: (showLoading = true) =>
     request({

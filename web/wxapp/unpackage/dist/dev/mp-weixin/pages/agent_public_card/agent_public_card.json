@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "经纪人名片",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "top-header": "../../components/TopHeader"
-  }
-}

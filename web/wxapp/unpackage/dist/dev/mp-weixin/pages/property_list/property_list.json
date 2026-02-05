@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "房源列表",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "bottom-tab-bar": "../../components/BottomTabBar",
-    "top-header": "../../components/TopHeader"
-  }
-}

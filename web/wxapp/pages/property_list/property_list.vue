@@ -180,6 +180,32 @@
     <!-- 底部导航 -->
     <BottomTabBar active="property" />
 
+    <!-- 分享弹窗（转发好友/复制文案） -->
+    <view v-if="shareSheetOpen" class="share-mask" @tap="closeShareSheet">
+      <view class="share-sheet" @tap.stop>
+        <view class="share-title">微信推广</view>
+        <view class="share-actions">
+          <button
+            class="share-action primary"
+            open-type="share"
+            :data-id="sharePropertyId"
+            :data-title="sharePropertyTitle"
+            :data-image="sharePropertyImage"
+            @tap.stop="onTapForward"
+          >
+            <text class="material-symbols-outlined">ios_share</text>
+            <text>转发给好友</text>
+          </button>
+          <view class="share-divider"></view>
+          <view class="share-action" @tap="copyPromoteText">
+            <text class="material-symbols-outlined">content_copy</text>
+            <text>复制推广文案</text>
+          </view>
+        </view>
+        <view class="share-cancel" @tap="closeShareSheet">取消</view>
+      </view>
+    </view>
+
     <!-- 筛选弹层（静态数据 + 本地过滤/排序） -->
     <view v-if="filterOpen" class="filter-mask" @tap="closeFilter">
       <view class="filter-sheet" @tap.stop>
@@ -421,9 +447,55 @@ import BottomTabBar from "@/components/BottomTabBar.vue";
 import TopHeader from "@/components/TopHeader.vue";
 import areaApi from "@/api/area";
 import propertyApi from "@/api/property";
+import userApi from "@/api/user";
+import $store from "@/store";
 
 export default {
   components: { BottomTabBar, TopHeader },
+  onShareAppMessage(options) {
+    const dataset =
+      options && options.target && options.target.dataset
+        ? options.target.dataset
+        : {};
+    const id = Number(dataset.id || 0) || 0;
+    const title = String(dataset.title || "房源").trim() || "房源";
+    const rawImg = String(dataset.image || "").trim();
+    const imageUrl = /^https?:\/\//i.test(rawImg) ? rawImg : "";
+
+    const token = uni.getStorageSync("token");
+    const userStore = $store("user");
+    const agentId =
+      token && userStore && userStore.userInfo
+        ? Number(userStore.userInfo.id || 0) || 0
+        : 0;
+
+    let path = `/pages/property_detail/property_detail?id=${encodeURIComponent(
+      id
+    )}&public=1`;
+    if (agentId > 0) {
+      path += `&from_agent_id=${encodeURIComponent(
+        agentId
+      )}&from_style=0`;
+    }
+
+    if (agentId > 0 && id > 0) {
+      try {
+        userApi.addWorkbenchActivityLog(
+          {
+            activity_type: "share",
+            property_id: id,
+            page: "property_list",
+            meta: { channel: "转发给好友" },
+          },
+          false
+        );
+      } catch (e) {}
+    }
+
+    const out = { title, path };
+    if (imageUrl) out.imageUrl = imageUrl;
+    return out;
+  },
   onLoad() {
     this.initPage();
   },
@@ -447,6 +519,8 @@ export default {
       pagination: { page: 1, pageSize: 10, total: 0 },
       propertyList: [],
       searchTimer: null,
+      shareSheetOpen: false,
+      shareItem: null,
       filterOptions: {
         property_types: [],
         decoration_types: [],
@@ -694,8 +768,84 @@ export default {
     displayList() {
       return Array.isArray(this.propertyList) ? this.propertyList : [];
     },
+    sharePropertyId() {
+      const it = this.shareItem || {};
+      return Number(it && (it.id || it.ID)) || 0;
+    },
+    sharePropertyTitle() {
+      const it = this.shareItem || {};
+      return String(it && it.title ? it.title : "房源");
+    },
+    sharePropertyImage() {
+      const it = this.shareItem || {};
+      return String(it && it.image ? it.image : "");
+    },
   },
   methods: {
+    openShareSheet(item) {
+      if (!item) return;
+      if (String(item.sale_status || "").trim() === "off_market") return;
+      this.shareItem = item;
+      this.shareSheetOpen = true;
+    },
+    closeShareSheet() {
+      this.shareSheetOpen = false;
+    },
+    onTapForward() {
+      // 分享由 open-type=share 触发；这里仅做关闭弹窗
+      this.closeShareSheet();
+    },
+    async copyPromoteText() {
+      const item = this.shareItem;
+      this.closeShareSheet();
+      const id = Number(item && (item.id || item.ID)) || 0;
+      const title = String((item && item.title) || "房源").trim() || "房源";
+      if (!id) {
+        uni.showToast({ title: "房源ID缺失", icon: "none" });
+        return;
+      }
+
+      let urlLink = "";
+      try {
+        const linkRes = await propertyApi.getPropertyUrlLink(
+          { property_id: id },
+          true
+        );
+        if (linkRes && linkRes.code === 0 && linkRes.data) {
+          urlLink = String(linkRes.data.url_link || "").trim();
+        }
+      } catch (e) {
+        urlLink = "";
+      }
+      if (!urlLink) {
+        urlLink = `/pages/property_detail/property_detail?id=${encodeURIComponent(
+          id
+        )}&public=1`;
+      }
+
+      const priceText =
+        item && item.price
+          ? `¥${item.price}${item.price_unit || ""}`
+          : "";
+      const layoutText = this.getLayoutText(item);
+      const areaText = item && item.area ? `${item.area}㎡` : "";
+      const line2 = [layoutText, areaText, priceText]
+        .filter(Boolean)
+        .join(" | ");
+      const text = `【优质房源推荐】${title}${
+        line2 ? `\n${line2}` : ""
+      }\n小程序链接：${urlLink}`;
+
+      uni.setClipboardData({
+        data: text,
+        success: () => {
+          uni.showToast({ title: "已复制推广文案", icon: "none" });
+        },
+        fail: () => {
+          uni.showToast({ title: "复制失败", icon: "none" });
+        },
+      });
+    },
     statNumber(key) {
       const stats = (this.filterOptions && this.filterOptions.stats) || {};
       const v = stats ? stats[key] : undefined;
@@ -1059,39 +1209,7 @@ export default {
       }
     },
     handlePromote(item) {
-      const title = (item && item.title) || "房源";
-      uni.showActionSheet({
-        itemList: ["生成获客海报", "复制推广文案", "模拟分享（占位）"],
-        success: (res) => {
-          if (res.tapIndex === 0) {
-            uni.navigateTo({
-              url: `/pages/marketing_posters/marketing_posters?title=${encodeURIComponent(
-                title
-              )}`,
-            });
-            return;
-          }
-          if (res.tapIndex === 1) {
-            const id = item && (item.id || item.ID);
-            const path = id
-              ? `/pages/property_detail/property_detail?id=${encodeURIComponent(
-                  id
-                )}`
-              : "/pages/property_detail/property_detail";
-            const text = `【优质房源推荐】${title}\n点击查看详情：${path}`;
-            uni.setClipboardData({
-              data: text,
-              success: () => {
-                uni.showToast({ title: "已复制推广文案", icon: "none" });
-              },
-            });
-            return;
-          }
-          if (res.tapIndex === 2) {
-            uni.showToast({ title: "分享功能待接入", icon: "none" });
-          }
-        },
-      });
+      this.openShareSheet(item);
     },
     async fetchList(reset) {
       if (this.loading) return false;
@@ -2172,5 +2290,79 @@ export default {
     background-color: #2d9cf0;
     color: #ffffff;
   }
+}
+
+.share-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.share-sheet {
+  width: 100%;
+  background-color: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 18rpx 18rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  box-sizing: border-box;
+}
+
+.share-title {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 12rpx 12rpx 18rpx;
+}
+
+.share-actions {
+  border-radius: 24rpx;
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+}
+
+.share-action {
+  height: 92rpx;
+  padding: 0 18rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #334155;
+  background: #ffffff;
+  border: none;
+  text-align: left;
+  line-height: 1;
+}
+
+.share-action.primary {
+  color: #2d9cf0;
+}
+
+.share-action::after {
+  border: none;
+}
+
+.share-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+}
+
+.share-cancel {
+  margin-top: 16rpx;
+  height: 88rpx;
+  border-radius: 24rpx;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #334155;
 }
 </style>

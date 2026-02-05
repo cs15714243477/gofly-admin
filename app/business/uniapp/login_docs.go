@@ -31,6 +31,9 @@ func (api *Index) GetLoginDocs(c *gf.GinCtx) {
 	helpCenterTitle := "帮助中心"
 	helpCenterContent := ""
 	helpCenterURL := ""
+	aboutUsTitle := "关于我们"
+	aboutUsContent := ""
+	aboutUsURL := ""
 
 	if conf, err := gf.GetConfByFile("wxapp_login_docs"); err == nil && conf != nil {
 		if m, ok := conf.(map[string]interface{}); ok {
@@ -53,6 +56,12 @@ func (api *Index) GetLoginDocs(c *gf.GinCtx) {
 					}
 					helpCenterContent = strings.TrimSpace(gconv.String(data["help_center_content"]))
 					helpCenterURL = strings.TrimSpace(gconv.String(data["help_center_url"]))
+
+					if v := strings.TrimSpace(gconv.String(data["about_us_title"])); v != "" {
+						aboutUsTitle = v
+					}
+					aboutUsContent = strings.TrimSpace(gconv.String(data["about_us_content"]))
+					aboutUsURL = strings.TrimSpace(gconv.String(data["about_us_url"]))
 				}
 			}
 		}
@@ -63,6 +72,7 @@ func (api *Index) GetLoginDocs(c *gf.GinCtx) {
 			wxDocItem("user_agreement", userAgreementTitle, userAgreementContent, userAgreementURL),
 			wxDocItem("privacy_policy", privacyPolicyTitle, privacyPolicyContent, privacyPolicyURL),
 			wxDocItem("help_center", helpCenterTitle, helpCenterContent, helpCenterURL),
+			wxDocItem("about_us", aboutUsTitle, aboutUsContent, aboutUsURL),
 		},
 	}).Regin(c)
 }

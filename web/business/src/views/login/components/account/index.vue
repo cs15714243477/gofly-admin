@@ -57,8 +57,8 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const loginConfig = useStorage('login-config', {
   rememberMe: true,
-  username: 'gofly', // 演示默认值
-  password: 'gofly123' // 演示默认值
+  username: '',
+  password: ''
 })
 
 const formRef = ref<FormInstance>()

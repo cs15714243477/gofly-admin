@@ -46,24 +46,48 @@ func wxParseMeta(raw string) map[string]interface{} {
 }
 
 func wxMetaString(meta map[string]interface{}, keys ...string) string {
+	if meta == nil || len(keys) == 0 {
+		return ""
+	}
 	for _, k := range keys {
-		if meta == nil {
-			return ""
-		}
 		if v, ok := meta[k]; ok {
 			if s := strings.TrimSpace(gconv.String(v)); s != "" {
 				return s
 			}
 		}
 	}
+
+	// 兼容：活动日志 meta_data 可能是 {page:"xxx", meta:{...}} 的包装结构
+	if nested, ok := meta["meta"]; ok && nested != nil {
+		switch vv := nested.(type) {
+		case map[string]interface{}:
+			for _, k := range keys {
+				if v, ok := vv[k]; ok {
+					if s := strings.TrimSpace(gconv.String(v)); s != "" {
+						return s
+					}
+				}
+			}
+		case string:
+			m := wxParseMeta(vv)
+			for _, k := range keys {
+				if v, ok := m[k]; ok {
+					if s := strings.TrimSpace(gconv.String(v)); s != "" {
+						return s
+					}
+				}
+			}
+		}
+	}
+
 	return ""
 }
 
 func wxMetaInt(meta map[string]interface{}, keys ...string) int {
+	if meta == nil || len(keys) == 0 {
+		return 0
+	}
 	for _, k := range keys {
-		if meta == nil {
-			return 0
-		}
 		if v, ok := meta[k]; ok {
 			n := gconv.Int(v)
 			if n > 0 {
@@ -71,6 +95,32 @@ func wxMetaInt(meta map[string]interface{}, keys ...string) int {
 			}
 		}
 	}
+
+	// 兼容：活动日志 meta_data 可能是 {page:"xxx", meta:{...}} 的包装结构
+	if nested, ok := meta["meta"]; ok && nested != nil {
+		switch vv := nested.(type) {
+		case map[string]interface{}:
+			for _, k := range keys {
+				if v, ok := vv[k]; ok {
+					n := gconv.Int(v)
+					if n > 0 {
+						return n
+					}
+				}
+			}
+		case string:
+			m := wxParseMeta(vv)
+			for _, k := range keys {
+				if v, ok := m[k]; ok {
+					n := gconv.Int(v)
+					if n > 0 {
+						return n
+					}
+				}
+			}
+		}
+	}
+
 	return 0
 }
 
@@ -335,16 +385,13 @@ func (api *Index) GetWorkbenchRecords(c *gf.GinCtx) {
 			}
 			switch recordType {
 			case wxRecordTypeShowing:
-				client := wxMetaString(meta, "client", "client_name", "customer", "name")
+				client := wxMetaString(meta, "client_name", "client", "customer", "name")
 				if client == "" {
 					client = "客户"
 				}
-				showType := wxMetaString(meta, "showing_type", "type", "channel")
-				if showType == "" {
-					showType = "线下"
-				}
 				item["client"] = client
-				item["type"] = showType
+				item["phone"] = wxMetaString(meta, "client_phone", "phone", "mobile")
+				item["type"] = "带看"
 			case wxRecordTypeView:
 				viewCount := wxMetaInt(meta, "count", "view_count", "times")
 				if viewCount <= 0 {

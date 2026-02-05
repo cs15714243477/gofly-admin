@@ -153,4 +153,18 @@ export default {
         loadingMsg: "删除中",
       },
     }),
+
+  // 获取房源推广 URL Link（微信内可点击跳转小程序）
+  getPropertyUrlLink: (data, showLoading = true) =>
+    request({
+      url: "/uniapp/getPropertyUrlLink",
+      method: "GET",
+      data,
+      custom: {
+        showSuccess: false,
+        showLoading,
+        auth: true,
+        loadingMsg: "生成链接中",
+      },
+    }),
 };

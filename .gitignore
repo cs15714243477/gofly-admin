@@ -4,3 +4,6 @@ resource/config.yaml
 resource/website
 .idea
 .git_bak/
+
+# 小程序构建产物（避免误提交、也可手动清理）
+web/wxapp/unpackage/dist/dev/

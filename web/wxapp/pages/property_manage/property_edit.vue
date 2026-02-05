@@ -752,6 +752,9 @@ import $store from "@/store";
 import md5 from "js-md5";
 import { baseUrl } from "@/utils/config";
 
+// 默认省市区（新增房源、或地址无法解析时使用；带省/市/区后缀）
+const DEFAULT_ADDRESS_REGION = ["辽宁省", "沈阳市", "沈河区"];
+
 // base64 编码（兼容小程序端无 window.btoa）
 function base64Encode(str = "") {
   try {
@@ -844,7 +847,7 @@ export default {
       images: [],
       newTag: "",
       // 地址分段输入：省市区 + 详细地址（最终保存时合成到 form.address）
-      addressRegion: ["", "", ""],
+      addressRegion: [...DEFAULT_ADDRESS_REGION],
       addressDetail: "",
       saleStatusOptions: [
         { label: "在售", value: "on_sale" },
@@ -1159,20 +1162,61 @@ export default {
             .map((it) => String(it || "").trim())
             .filter(Boolean)
         : [];
-      const detail = String(this.addressDetail || "").trim();
+      let detail = String(this.addressDetail || "").trim();
+
+      // 防止重复：当“详细地址”里本身包含省市区（比如地图选点返回了完整地址/用户粘贴了完整地址），
+      // 保存时再拼接一次会出现“省市区省市区省市区…”的累积。
+      if (region.length >= 3 && detail) {
+        const esc = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const p0 = esc(region[0]);
+        const p1 = esc(region[1]);
+        const p2 = esc(region[2]);
+        // 支持空格或“/”作为分隔符；移除开头连续重复的“省 市 区”片段
+        const re = new RegExp(
+          `^(?:${p0}\\s*(?:/|\\s)+${p1}\\s*(?:/|\\s)+${p2}\\s*)+`,
+        );
+        let next = detail.replace(re, "").trim();
+        // 兼容：某些来源地址可能没有任何分隔符（如“辽宁省沈阳市沈河区…”）
+        if (next === detail) {
+          const re2 = new RegExp(`^(?:${p0}${p1}${p2}\\s*)+`);
+          next = detail.replace(re2, "").trim();
+        }
+        if (next !== detail) {
+          detail = next;
+          // 同步回写，避免用户看到的输入框内容也越来越长
+          this.addressDetail = detail;
+        }
+      }
+
       return [...region, detail].filter(Boolean).join(" ");
     },
     initAddressUIFromAddress(address) {
       const raw = String(address || "").trim();
-      this.addressRegion = ["", "", ""];
+      // 兜底：保证“省市区”始终有默认值（避免进入页面为空）
+      this.addressRegion = [...DEFAULT_ADDRESS_REGION];
       this.addressDetail = "";
       if (!raw) return;
       const parts = raw.split(/\\s+/).filter(Boolean);
       if (parts.length >= 3) {
-        this.addressRegion = [parts[0] || "", parts[1] || "", parts[2] || ""];
+        let p0 = parts[0] || "";
+        const p1 = parts[1] || "";
+        const p2 = parts[2] || "";
+
+        // 兼容：直辖市历史数据可能是“北京 北京市 海淀区 ...”，region 期望“北京市”
+        if (
+          ["北京", "天津", "上海", "重庆"].includes(p0) &&
+          p1 &&
+          p1.endsWith("市") &&
+          p1.includes(p0)
+        ) {
+          p0 = p1;
+        }
+
+        this.addressRegion = [p0, p1, p2];
         this.addressDetail = parts.slice(3).join(" ");
         return;
       }
+      // 只有详细地址/或字段内容不满足 3 段：保留默认省市区，把 raw 作为“详细地址”
       this.addressDetail = raw;
     },
     onRenovationStageChange(e) {
@@ -1808,6 +1852,7 @@ export default {
 }
 
 .textarea {
+  width: 100%;
   min-height: 160rpx;
   border-radius: 20rpx;
   border: 1px solid #e5edf7;
@@ -1822,6 +1867,21 @@ export default {
 
 .placeholder {
   color: #94a3b8;
+}
+
+/* 横屏/宽屏：表单占满宽度，不保留左右留白 */
+@media screen and (orientation: landscape), screen and (min-width: 750px) {
+  .card {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .footer {
+    padding-left: 0;
+    padding-right: 0;
+    border-radius: 0;
+  }
 }
 
 .grid {
