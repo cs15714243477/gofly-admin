@@ -261,7 +261,6 @@
                 v-for="t in renovationTabs"
                 :key="t.key"
                 :class="{ active: renovation.status === t.key }"
-                @click="setRenovationStatus(t.key)"
               >
                 {{ t.label }}
               </view>
@@ -372,6 +371,56 @@
                 <view class="reno-info-row col">
                   <text class="k">装修说明</text>
                   <text class="v desc">{{ renovation.note }}</text>
+                </view>
+              </view>
+            </view>
+
+            <!-- 工序时间线（全流程） -->
+            <view
+              v-if="renovation.timeline && renovation.timeline.length"
+              class="reno-stage-timeline"
+            >
+              <view class="reno-stage-title-row">
+                <text class="reno-stage-title">施工时间线</text>
+                <text class="reno-stage-tip">按工序查看状态与图片</text>
+              </view>
+
+              <view class="stage-list">
+                <view
+                  class="stage-item"
+                  v-for="(it, idx) in renovation.timeline"
+                  :key="it.stage + '_' + idx"
+                >
+                  <view class="stage-rail">
+                    <view class="stage-dot" :class="it.status"></view>
+                    <view
+                      class="stage-line"
+                      v-if="idx !== renovation.timeline.length - 1"
+                    ></view>
+                  </view>
+                  <view class="stage-body">
+                    <view class="stage-head">
+                      <text class="stage-name">{{ it.stage }}</text>
+                      <text class="stage-tag" :class="it.status">{{
+                        stageStatusText(it.status)
+                      }}</text>
+                      <text v-if="it.date" class="stage-date">{{ it.date }}</text>
+                    </view>
+                    <text v-if="it.note" class="stage-note">{{ it.note }}</text>
+                    <view
+                      class="stage-img-grid"
+                      v-if="it.images && it.images.length"
+                    >
+                      <image
+                        class="stage-thumb"
+                        v-for="(img, iidx) in it.images"
+                        :key="iidx"
+                        :src="img"
+                        mode="aspectFill"
+                        @click.stop="previewStageImage(it, iidx)"
+                      ></image>
+                    </view>
+                  </view>
                 </view>
               </view>
             </view>
@@ -685,13 +734,10 @@ export default {
         { label: "产权", value: "商品房" },
       ],
 
-      // 未装修：展示“未装修”状态说明
-      // 装修进行中：展示 轮播施工图 + 进度条 + 预计完工 + 材料标签 + 施工说明
-      // 装修完成：展示完成时间 + 材料 + 装修说明
-      // 实现方式：
-      // 页面右上角用小的状态切换条（未装修/进行中/已完成）做演示切换（静态数据）
-      // 数据在 data() 里新增 renovationTabs 和 renovation（包含 images/materials/note/progress/stage 等）
-      // 已补齐对应样式（与当前“高端”风格一致）
+      // 装修展示：
+      // - 总状态：未装修 / 施工中 / 已完工
+      // - 工序时间线：全流程按工序展示状态（未开始/进行中/已完成）
+      // - 工序图片：按工序分组展示，点击可预览
 
       renovationTabs: [
         { key: "none", label: "未装修" },
@@ -708,6 +754,7 @@ export default {
         materials: ["圣象地板", "马可波罗瓷砖", "多乐士乳胶漆"],
         note: "客厅墙面已完成找平与底漆，卫生间防水已做闭水试验；全屋线管/强弱电分离施工完成。",
         images: [],
+        timeline: [],
       },
       recommends: [
         {
@@ -986,6 +1033,120 @@ export default {
       if (imageUrl.indexOf("/static/images/") === 0) return "";
       return imageUrl;
     },
+    normalizeRenovationStageStatus(v) {
+      const s = String(v || "").trim().toLowerCase();
+      if (s === "done" || s === "finished" || s === "completed") return "done";
+      if (s === "doing" || s === "in_progress" || s === "progress")
+        return "doing";
+      return "todo";
+    },
+    parseRenovationStageLogs(raw) {
+      let arr = raw;
+      if (typeof raw === "string") {
+        const s = raw.trim();
+        if (s && s.indexOf("[") === 0) {
+          try {
+            arr = JSON.parse(s);
+          } catch (e) {
+            arr = [];
+          }
+        } else {
+          arr = [];
+        }
+      }
+      if (!Array.isArray(arr)) return [];
+      const out = [];
+      arr.forEach((it) => {
+        const stage = String(
+          (it && (it.stage || it.stage_name || it.name)) || "",
+        ).trim();
+        if (!stage) return;
+        const date = String((it && it.date) || "").trim();
+        const note = String((it && (it.note || it.notes)) || "").trim();
+        const st = this.normalizeRenovationStageStatus(it && it.status);
+
+        let imgs = [];
+        if (Array.isArray(it && it.images)) imgs = it.images;
+        else if (typeof (it && it.images) === "string") {
+          imgs = String(it.images || "")
+            .split(",")
+            .map((x) => String(x || "").trim())
+            .filter(Boolean);
+        }
+        const normalizedImgs = imgs
+          .map((u) => this.normalizeImage(u))
+          .filter(Boolean);
+        out.push({
+          stage,
+          status: st,
+          date,
+          note,
+          images: Array.from(new Set(normalizedImgs)),
+        });
+      });
+      return out;
+    },
+    buildRenovationStageTimeline({ overallStatus, currentStage, logs }) {
+      const fallback = [
+        "设计",
+        "拆改",
+        "水电",
+        "泥瓦",
+        "木工",
+        "油漆",
+        "安装",
+        "软装",
+        "验收",
+      ];
+      const order = fallback.slice(0);
+      (Array.isArray(logs) ? logs : []).forEach((it) => {
+        const s = String((it && it.stage) || "").trim();
+        if (!s) return;
+        if (order.indexOf(s) === -1) order.push(s);
+      });
+
+      const overall = String(overallStatus || "").trim();
+      const cur = String(currentStage || "").trim();
+      const curIdx = cur ? order.indexOf(cur) : -1;
+
+      return order.map((stage, idx) => {
+        const found = (Array.isArray(logs) ? logs : []).find(
+          (x) => x && x.stage === stage,
+        );
+        let st = found ? String(found.status || "").trim() : "todo";
+        const date = found ? String(found.date || "").trim() : "";
+        const note = found ? String(found.note || "").trim() : "";
+        const images = found && Array.isArray(found.images) ? found.images : [];
+
+        if (!found) {
+          if (overall === "done") st = "done";
+          else if (overall === "none") st = "todo";
+          else if (overall === "in_progress" && curIdx >= 0) {
+            if (idx < curIdx) st = "done";
+            else if (idx === curIdx) st = "doing";
+            else st = "todo";
+          }
+        } else {
+          // 总状态兜底覆盖（避免出现“已完工但某阶段仍未开始”）
+          if (overall === "done") st = "done";
+          if (overall === "none") st = "todo";
+        }
+        st = this.normalizeRenovationStageStatus(st);
+        return { stage, status: st, date, note, images };
+      });
+    },
+    stageStatusText(s) {
+      const v = String(s || "").trim();
+      if (v === "done") return "已完成";
+      if (v === "doing") return "进行中";
+      return "未开始";
+    },
+    previewStageImage(item, idx) {
+      const list = item && Array.isArray(item.images) ? item.images : [];
+      if (!list.length) return;
+      const current = list[idx] || list[0];
+      uni.previewImage({ current, urls: list });
+    },
     getShareCover() {
       const cover = this.normalizeImage(this.property && this.property.cover_image);
       if (cover) return cover;
@@ -1105,6 +1266,12 @@ export default {
       } else if (statusRaw === "2") {
         status = "done";
       }
+      const stageLogs = this.parseRenovationStageLogs(r.stage_logs);
+      const stageTimeline = this.buildRenovationStageTimeline({
+        overallStatus: status,
+        currentStage: String(r.current_stage || "").trim(),
+        logs: stageLogs,
+      });
       this.renovation = {
         status,
         subtitle: String(r.subtitle || "房源装修情况").trim() || "房源装修情况",
@@ -1117,6 +1284,7 @@ export default {
         images: Array.isArray(r.images)
           ? r.images.map((u) => this.normalizeImage(u)).filter(Boolean)
           : [],
+        timeline: stageTimeline,
       };
 
       const rec = Array.isArray(data.recommends) ? data.recommends : [];
@@ -1459,10 +1627,6 @@ export default {
           this.propertyId,
         )}`,
       });
-    },
-    setRenovationStatus(key) {
-      // 展示用：不允许手动切换，避免与真实数据不一致
-      void key;
     },
     async tryLogActivity(activityType, propertyId, meta) {
       if (this.isPublicView) return;
@@ -2281,6 +2445,153 @@ export default {
   color: #2563eb;
   font-size: 22rpx;
   font-weight: 700;
+}
+
+.reno-stage-timeline {
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx dashed rgba(148, 163, 184, 0.35);
+}
+
+.reno-stage-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+}
+
+.reno-stage-title {
+  font-size: 26rpx;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.reno-stage-tip {
+  font-size: 22rpx;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.stage-list {
+  margin-top: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.stage-item {
+  display: flex;
+  align-items: stretch;
+  gap: 14rpx;
+}
+
+.stage-rail {
+  width: 30rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: 10rpx;
+}
+
+.stage-dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 999rpx;
+  background: rgba(148, 163, 184, 0.35);
+  border: 4rpx solid rgba(148, 163, 184, 0.18);
+  box-sizing: border-box;
+
+  &.doing {
+    background: rgba(37, 99, 235, 0.9);
+    border-color: rgba(37, 99, 235, 0.18);
+  }
+
+  &.done {
+    background: rgba(34, 197, 94, 0.88);
+    border-color: rgba(34, 197, 94, 0.18);
+  }
+}
+
+.stage-line {
+  width: 6rpx;
+  flex: 1;
+  margin-top: 10rpx;
+  border-radius: 999rpx;
+  background: rgba(226, 232, 240, 0.9);
+}
+
+.stage-body {
+  flex: 1;
+  min-width: 0;
+  background-color: #ffffff;
+  border-radius: 22rpx;
+  padding: 18rpx;
+  border: 1rpx solid rgba(226, 232, 240, 0.95);
+}
+
+.stage-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.stage-name {
+  font-size: 26rpx;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.stage-tag {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 900;
+  letter-spacing: 0.2rpx;
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+
+  &.doing {
+    background: rgba(37, 99, 235, 0.14);
+    color: #1d4ed8;
+  }
+  &.done {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+  }
+}
+
+.stage-date {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.stage-note {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #334155;
+  font-weight: 600;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.stage-img-grid {
+  margin-top: 12rpx;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10rpx;
+}
+
+.stage-thumb {
+  width: 100%;
+  height: 160rpx;
+  border-radius: 18rpx;
+  overflow: hidden;
+  background-color: rgba(226, 232, 240, 0.9);
+  border: 1rpx solid rgba(226, 232, 240, 0.95);
 }
 
 .info-list {

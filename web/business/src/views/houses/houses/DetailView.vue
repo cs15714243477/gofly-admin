@@ -78,7 +78,7 @@
 
       <!-- Detail Body Content -->
       <div class="detail-body">
-        <a-tabs type="line" size="medium">
+        <a-tabs v-model:active-key="mainTabKey" type="line" size="medium">
            <a-tab-pane key="1" title="房源档案">
             <div class="tab-content">
                <div class="detail-shell">
@@ -355,6 +355,45 @@
                    </div>
                 </div>
 
+                <div class="stage-timeline" v-if="renovationStageTimeline.length">
+                  <div class="stage-item" v-for="(it, idx) in renovationStageTimeline" :key="it.stage + '_' + idx">
+                    <div class="stage-rail">
+                      <div class="stage-dot" :class="it.status"></div>
+                      <div class="stage-line" v-if="idx !== renovationStageTimeline.length - 1"></div>
+                    </div>
+                    <div class="stage-body">
+                      <div class="stage-head">
+                        <div class="stage-title">{{ it.stage }}</div>
+                        <a-tag size="small" :color="getStageStatusColor(it.status)">{{ getStageStatusText(it.status) }}</a-tag>
+                        <span v-if="it.date" class="stage-date">{{ it.date }}</span>
+                      </div>
+                      <div v-if="it.note" class="stage-note">{{ it.note }}</div>
+                      <div class="stage-media" v-if="it.images && it.images.length">
+                        <a-image-preview-group infinite>
+                          <div class="stage-grid">
+                            <div class="stage-img" v-for="(img, sidx) in it.images" :key="sidx">
+                              <a-image :src="img" :alt="`装修-${it.stage}-${sidx + 1}`" width="100%" height="100%" fit="cover" />
+                              <div class="img-actions" v-if="allowImageDownload">
+                                <a-tooltip content="下载图片" position="tr">
+                                  <a-button
+                                    class="download-btn"
+                                    type="primary"
+                                    size="mini"
+                                    shape="circle"
+                                    @click.stop="downloadUrl(img, `${detailData.title || '房源'}-装修-${it.stage}-${sidx + 1}.jpg`)"
+                                  >
+                                    <template #icon><icon-download /></template>
+                                  </a-button>
+                                </a-tooltip>
+                              </div>
+                            </div>
+                          </div>
+                        </a-image-preview-group>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="renovation-media" v-if="renovationImages.length">
                    <div class="media-header">
                       <span class="media-title">装修图片</span>
@@ -383,6 +422,170 @@
                 </div>
              </div>
              <a-empty v-else description="暂无装修信息" />
+          </a-tab-pane>
+
+          <a-tab-pane key="5" title="经纪人记录">
+            <div class="records-wrapper">
+              <a-tabs v-model:active-key="recordTabKey" type="card-gutter" size="small" class="records-tabs">
+                <a-tab-pane key="view">
+                  <template #title>
+                    <icon-eye /> 浏览记录
+                  </template>
+
+                  <div class="records-toolbar">
+                    <a-space size="mini" wrap>
+                      <a-button size="mini" type="primary" :loading="viewLogLoading" @click="reloadViewLogs">
+                        <template #icon><icon-refresh /></template>
+                        刷新
+                      </a-button>
+                      <a-tag bordered size="small">共 {{ viewLogPagination.total || 0 }} 条</a-tag>
+                    </a-space>
+                    <div class="records-tip">说明：浏览记录来源于小程序/业务端的行为日志。</div>
+                  </div>
+
+                  <a-spin :loading="viewLogLoading" style="width: 100%">
+                    <a-table
+                      row-key="id"
+                      :data="viewLogList"
+                      :pagination="viewLogPagination"
+                      :bordered="false"
+                      size="mini"
+                      @page-change="handleViewLogPageChange"
+                      @page-size-change="handleViewLogPageSizeChange"
+                    >
+                      <a-table-column title="时间" data-index="createtime" :width="170" />
+                      <a-table-column title="经纪人" :width="220">
+                        <template #cell="{ record }">
+                          <div class="user-cell">
+                            <div class="user-main">
+                              <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                              <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                            </div>
+                            <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
+                          </div>
+                        </template>
+                      </a-table-column>
+                      <a-table-column title="次数" :width="90">
+                        <template #cell="{ record }">{{ record._count || 1 }}</template>
+                      </a-table-column>
+                      <a-table-column title="页面/备注">
+                        <template #cell="{ record }">
+                          <span>{{ record._page || '-' }}</span>
+                        </template>
+                      </a-table-column>
+                    </a-table>
+                  </a-spin>
+                </a-tab-pane>
+
+                <a-tab-pane key="showing">
+                  <template #title>
+                    <icon-user-group /> 带看记录
+                  </template>
+
+                  <div class="records-toolbar">
+                    <a-space size="mini" wrap>
+                      <a-button size="mini" type="primary" :loading="showingLogLoading" @click="reloadShowingLogs">
+                        <template #icon><icon-refresh /></template>
+                        刷新
+                      </a-button>
+                      <a-tag bordered size="small">共 {{ showingLogPagination.total || 0 }} 条</a-tag>
+                    </a-space>
+                    <div class="records-tip">说明：带看记录来源于小程序/业务端的行为日志。</div>
+                  </div>
+
+                  <a-spin :loading="showingLogLoading" style="width: 100%">
+                    <a-table
+                      row-key="id"
+                      :data="showingLogList"
+                      :pagination="showingLogPagination"
+                      :bordered="false"
+                      size="mini"
+                      @page-change="handleShowingLogPageChange"
+                      @page-size-change="handleShowingLogPageSizeChange"
+                    >
+                      <a-table-column title="时间" data-index="createtime" :width="170" />
+                      <a-table-column title="经纪人" :width="220">
+                        <template #cell="{ record }">
+                          <div class="user-cell">
+                            <div class="user-main">
+                              <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                              <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                            </div>
+                            <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
+                          </div>
+                        </template>
+                      </a-table-column>
+                      <a-table-column title="客户" :width="140">
+                        <template #cell="{ record }">{{ record._client || '-' }}</template>
+                      </a-table-column>
+                      <a-table-column title="电话" :width="150">
+                        <template #cell="{ record }">{{ record._phone || '-' }}</template>
+                      </a-table-column>
+                      <a-table-column title="页面/备注">
+                        <template #cell="{ record }">{{ record._page || '-' }}</template>
+                      </a-table-column>
+                    </a-table>
+                  </a-spin>
+                </a-tab-pane>
+
+                <a-tab-pane key="unlock">
+                  <template #title>
+                    <icon-unlock /> 开锁记录
+                  </template>
+
+                  <div class="records-toolbar">
+                    <a-space size="mini" wrap>
+                      <a-button size="mini" type="primary" :loading="unlockLogLoading" @click="reloadUnlockLogs">
+                        <template #icon><icon-refresh /></template>
+                        刷新
+                      </a-button>
+                      <a-tag bordered size="small">共 {{ unlockLogPagination.total || 0 }} 条</a-tag>
+                    </a-space>
+                    <div class="records-tip">说明：开锁记录为开锁申请/结果记录（来自业务开锁记录表）。</div>
+                  </div>
+
+                  <a-spin :loading="unlockLogLoading" style="width: 100%">
+                    <a-table
+                      row-key="id"
+                      :data="unlockLogList"
+                      :pagination="unlockLogPagination"
+                      :bordered="false"
+                      size="mini"
+                      @page-change="handleUnlockLogPageChange"
+                      @page-size-change="handleUnlockLogPageSizeChange"
+                    >
+                      <a-table-column title="时间" :width="170">
+                        <template #cell="{ record }">{{ record.updatetime || record.request_time || record.createtime || '-' }}</template>
+                      </a-table-column>
+                      <a-table-column title="经纪人" :width="220">
+                        <template #cell="{ record }">
+                          <div class="user-cell">
+                            <div class="user-main">
+                              <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                              <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                            </div>
+                            <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
+                          </div>
+                        </template>
+                      </a-table-column>
+                      <a-table-column title="方式" :width="110">
+                        <template #cell="{ record }">{{ getUnlockTypeLabel(record.request_type) }}</template>
+                      </a-table-column>
+                      <a-table-column title="状态" :width="110">
+                        <template #cell="{ record }">
+                          <a-tag :color="getUnlockStatusColor(record.request_status)" size="small">
+                            {{ getUnlockStatusLabel(record.request_status) }}
+                          </a-tag>
+                        </template>
+                      </a-table-column>
+                      <a-table-column title="备注">
+                        <template #cell="{ record }">{{ record.approval_remark || '-' }}</template>
+                      </a-table-column>
+                    </a-table>
+                  </a-spin>
+                </a-tab-pane>
+              </a-tabs>
+            </div>
           </a-tab-pane>
         </a-tabs>
       </div>
@@ -453,11 +656,11 @@
  </template>
 
 <script lang="ts">
-import { defineComponent, h, ref, computed } from 'vue';
+import { defineComponent, h, ref, computed, watch } from 'vue';
 import { BasicModal, useModal, useModalInner } from '/@/components/Modal';
 import useLoading from '@/hooks/loading';
 import { Message, Modal } from '@arco-design/web-vue';
-import { getContent, getRenovation, getStatusLogs } from './api';
+import { getContent, getRenovation, getStatusLogs, getBehaviorLogs } from './api';
 import { GetFullPath } from '@/utils/tool';
 import BindLockModal from '../ttlock/modal/BindLockModal.vue';
 import { getLockDetail, getPropertyLock, remoteUnlock, unbindProperty } from '../ttlock/api';
@@ -488,6 +691,42 @@ export default defineComponent({
       showTotal: true,
       showPageSize: true,
     });
+
+    const mainTabKey = ref('1');
+    const recordTabKey = ref<'view' | 'showing' | 'unlock'>('view');
+
+    const viewLogLoading = ref(false);
+    const viewLogLoaded = ref(false);
+    const viewLogList = ref<any[]>([]);
+    const viewLogPagination = ref<any>({
+      current: 1,
+      pageSize: 10,
+      total: 0,
+      showTotal: true,
+      showPageSize: true,
+    });
+
+    const showingLogLoading = ref(false);
+    const showingLogLoaded = ref(false);
+    const showingLogList = ref<any[]>([]);
+    const showingLogPagination = ref<any>({
+      current: 1,
+      pageSize: 10,
+      total: 0,
+      showTotal: true,
+      showPageSize: true,
+    });
+
+    const unlockLogLoading = ref(false);
+    const unlockLogLoaded = ref(false);
+    const unlockLogList = ref<any[]>([]);
+    const unlockLogPagination = ref<any>({
+      current: 1,
+      pageSize: 10,
+      total: 0,
+      showTotal: true,
+      showPageSize: true,
+    });
     const { loading, setLoading } = useLoading();
     const { copy } = useClipboard();
     
@@ -497,6 +736,9 @@ export default defineComponent({
       detailData.value = {};
       renovationData.value = {};
       lockInfo.value = null;
+      mainTabKey.value = '1';
+      recordTabKey.value = 'view';
+      resetBehaviorLogs();
 
       if (data?.record?.id) {
         setLoading(true);
@@ -512,6 +754,7 @@ export default defineComponent({
           } catch (e) { /* ignore */ }
           
           await reloadLockInfo();
+          await ensureBehaviorLoaded();
         } catch (e) {
           console.error(e);
         }
@@ -691,6 +934,218 @@ export default defineComponent({
       fetchStatusLogs();
     };
 
+    const safeParseMeta = (raw: any) => {
+      const s = (raw ?? '').toString().trim();
+      if (!s) return {};
+      try {
+        const out = JSON.parse(s);
+        return out && typeof out === 'object' ? out : {};
+      } catch (e) {
+        return {};
+      }
+    };
+
+    const metaGetValue = (meta: any, key: string) => {
+      if (!meta || typeof meta !== 'object') return undefined;
+      if (Object.prototype.hasOwnProperty.call(meta, key)) return meta[key];
+      const nested = (meta as any).meta;
+      if (!nested) return undefined;
+      if (typeof nested === 'object' && Object.prototype.hasOwnProperty.call(nested, key)) return nested[key];
+      if (typeof nested === 'string') {
+        const parsed = safeParseMeta(nested);
+        if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, key)) return (parsed as any)[key];
+      }
+      return undefined;
+    };
+
+    const metaString = (meta: any, ...keys: string[]) => {
+      for (const k of keys) {
+        const v = metaGetValue(meta, k);
+        const s = (v ?? '').toString().trim();
+        if (s) return s;
+      }
+      return '';
+    };
+
+    const metaInt = (meta: any, ...keys: string[]) => {
+      for (const k of keys) {
+        const v = metaGetValue(meta, k);
+        const n = Number(v);
+        if (Number.isFinite(n) && n > 0) return Math.trunc(n);
+      }
+      return 0;
+    };
+
+    const decorateActivityRows = (rows: any[], recordType: 'view' | 'showing') => {
+      for (const r of rows) {
+        const meta = safeParseMeta(r?.meta_data);
+        r._page = metaString(meta, 'page') || metaString(meta, 'path', 'route', 'url');
+        if (recordType === 'view') {
+          const cnt = metaInt(meta, 'count', 'view_count', 'times');
+          r._count = cnt > 0 ? cnt : 1;
+        } else {
+          r._client = metaString(meta, 'client_name', 'client', 'customer', 'name');
+          r._phone = metaString(meta, 'client_phone', 'phone', 'mobile');
+        }
+      }
+    };
+
+    const normalizeListResp = (resp: any) => resp?.items ? resp : (resp?.data?.items ? resp.data : (resp?.data ?? resp));
+
+    const fetchBehaviorLogs = async (
+      recordType: 'view' | 'showing' | 'unlock',
+      listRef: any,
+      paginationRef: any,
+      loadingRef: any,
+      loadedRef: any,
+    ) => {
+      if (!detailData.value?.id) return;
+      if (loadingRef.value) return;
+      loadingRef.value = true;
+      try {
+        const resp: any = await getBehaviorLogs({
+          property_id: Number(detailData.value.id),
+          record_type: recordType,
+          page: paginationRef.value.current,
+          pageSize: paginationRef.value.pageSize,
+        });
+        const data = normalizeListResp(resp);
+        const rows = (data?.items || []) as any[];
+        if (recordType === 'view' || recordType === 'showing') {
+          decorateActivityRows(rows, recordType);
+        }
+        listRef.value = rows;
+        paginationRef.value.current = Number(data?.page || paginationRef.value.current);
+        paginationRef.value.total = Number(data?.total || 0);
+        loadedRef.value = true;
+      } catch (e: any) {
+        listRef.value = [];
+        paginationRef.value.total = 0;
+        loadedRef.value = false;
+        const tip: any = { view: '加载浏览记录失败', showing: '加载带看记录失败', unlock: '加载开锁记录失败' };
+        Message.error(e?.message || tip[recordType] || '加载记录失败');
+      } finally {
+        loadingRef.value = false;
+      }
+    };
+
+    const resetBehaviorLogs = () => {
+      viewLogLoaded.value = false;
+      viewLogLoading.value = false;
+      viewLogList.value = [];
+      viewLogPagination.value.current = 1;
+      viewLogPagination.value.total = 0;
+
+      showingLogLoaded.value = false;
+      showingLogLoading.value = false;
+      showingLogList.value = [];
+      showingLogPagination.value.current = 1;
+      showingLogPagination.value.total = 0;
+
+      unlockLogLoaded.value = false;
+      unlockLogLoading.value = false;
+      unlockLogList.value = [];
+      unlockLogPagination.value.current = 1;
+      unlockLogPagination.value.total = 0;
+    };
+
+    const ensureBehaviorLoaded = async () => {
+      if (mainTabKey.value !== '5') return;
+      switch (recordTabKey.value) {
+        case 'view':
+          if (!viewLogLoaded.value) {
+            viewLogPagination.value.current = 1;
+            await fetchBehaviorLogs('view', viewLogList, viewLogPagination, viewLogLoading, viewLogLoaded);
+          }
+          break;
+        case 'showing':
+          if (!showingLogLoaded.value) {
+            showingLogPagination.value.current = 1;
+            await fetchBehaviorLogs('showing', showingLogList, showingLogPagination, showingLogLoading, showingLogLoaded);
+          }
+          break;
+        case 'unlock':
+          if (!unlockLogLoaded.value) {
+            unlockLogPagination.value.current = 1;
+            await fetchBehaviorLogs('unlock', unlockLogList, unlockLogPagination, unlockLogLoading, unlockLogLoaded);
+          }
+          break;
+      }
+    };
+
+    watch(mainTabKey, () => {
+      ensureBehaviorLoaded();
+    });
+    watch(recordTabKey, () => {
+      ensureBehaviorLoaded();
+    });
+
+    const reloadViewLogs = async () => {
+      await fetchBehaviorLogs('view', viewLogList, viewLogPagination, viewLogLoading, viewLogLoaded);
+    };
+    const handleViewLogPageChange = (p: number) => {
+      viewLogPagination.value.current = p;
+      reloadViewLogs();
+    };
+    const handleViewLogPageSizeChange = (ps: number) => {
+      viewLogPagination.value.pageSize = ps;
+      viewLogPagination.value.current = 1;
+      reloadViewLogs();
+    };
+
+    const reloadShowingLogs = async () => {
+      await fetchBehaviorLogs('showing', showingLogList, showingLogPagination, showingLogLoading, showingLogLoaded);
+    };
+    const handleShowingLogPageChange = (p: number) => {
+      showingLogPagination.value.current = p;
+      reloadShowingLogs();
+    };
+    const handleShowingLogPageSizeChange = (ps: number) => {
+      showingLogPagination.value.pageSize = ps;
+      showingLogPagination.value.current = 1;
+      reloadShowingLogs();
+    };
+
+    const getUnlockTypeLabel = (t: any) => {
+      const v = (t ?? '').toString().trim();
+      if (v === 'bluetooth') return '蓝牙开锁';
+      if (v === 'password') return '密码开锁';
+      return v || '-';
+    };
+
+    const getUnlockStatusLabel = (s: any) => {
+      const v = (s ?? '').toString().trim();
+      const map: any = {
+        pending: '待处理',
+        approved: '已通过',
+        rejected: '已拒绝',
+        completed: '已完成',
+        cancelled: '已取消',
+      };
+      return map[v] || v || '-';
+    };
+
+    const getUnlockStatusColor = (s: any) => {
+      const v = (s ?? '').toString().trim();
+      if (v === 'approved' || v === 'completed') return 'green';
+      if (v === 'rejected') return 'red';
+      if (v === 'cancelled') return 'gray';
+      return 'orange';
+    };
+
+    const reloadUnlockLogs = async () => {
+      await fetchBehaviorLogs('unlock', unlockLogList, unlockLogPagination, unlockLogLoading, unlockLogLoaded);
+    };
+    const handleUnlockLogPageChange = (p: number) => {
+      unlockLogPagination.value.current = p;
+      reloadUnlockLogs();
+    };
+    const handleUnlockLogPageSizeChange = (ps: number) => {
+      unlockLogPagination.value.pageSize = ps;
+      unlockLogPagination.value.current = 1;
+      reloadUnlockLogs();
+    };
+
     const getImageUrl = (url: string) => {
       if (!url) return 'https://p1-arco.byteimg.com/tos-cn-i-uwbnlip3yd/a8c8cdb109cb051163646151a4a5083b.png~tplv-uwbnlip3yd-webp.webp';
       return GetFullPath(url) || url;
@@ -756,6 +1211,100 @@ export default defineComponent({
       return [...new Set(list.map((it) => getImageUrl(String(it))))].filter(Boolean);
     });
 
+    type StageStatus = 'todo' | 'doing' | 'done';
+    type StageTimelineItem = {
+      stage: string;
+      status: StageStatus;
+      date: string;
+      note: string;
+      images: string[];
+    };
+
+    const normalizeStageStatus = (v: any): StageStatus => {
+      const s = String(v ?? '').trim().toLowerCase();
+      if (s === 'done' || s === 'finished' || s === 'completed') return 'done';
+      if (s === 'doing' || s === 'in_progress' || s === 'progress') return 'doing';
+      return 'todo';
+    };
+
+    const parseStageLogs = (raw: any): StageTimelineItem[] => {
+      let arr: any = raw;
+      if (typeof raw === 'string') {
+        const s = raw.trim();
+        if (s && s.startsWith('[')) {
+          try {
+            arr = JSON.parse(s);
+          } catch {
+            arr = [];
+          }
+        } else {
+          arr = [];
+        }
+      }
+      if (!Array.isArray(arr)) return [];
+      return arr
+        .map((it: any) => {
+          const stage = String(it?.stage ?? it?.stage_name ?? it?.name ?? '').trim();
+          if (!stage) return null;
+          const images = parseTags(it?.images).map((u) => getImageUrl(String(u)));
+          return {
+            stage,
+            status: normalizeStageStatus(it?.status),
+            date: String(it?.date ?? '').trim(),
+            note: String(it?.note ?? it?.notes ?? '').trim(),
+            images: [...new Set(images)].filter(Boolean),
+          } as StageTimelineItem;
+        })
+        .filter(Boolean) as StageTimelineItem[];
+    };
+
+    const fallbackStageOrder = ['设计', '拆改', '水电', '泥瓦', '木工', '油漆', '安装', '软装', '验收'];
+
+    const renovationStageTimeline = computed((): StageTimelineItem[] => {
+      const r: any = renovationData.value || {};
+      const overall = String(r.renovation_status || '').trim();
+      const currentStage = String(r.current_stage || '').trim();
+      const logs = parseStageLogs(r.stage_logs);
+      const order = logs.length ? logs.map((x) => x.stage) : fallbackStageOrder;
+      const currentIdx = currentStage ? order.findIndex((s) => s === currentStage) : -1;
+
+      return order.map((stage, idx) => {
+        const found = logs.find((x) => x.stage === stage);
+        let status: StageStatus = found?.status || 'todo';
+        let date = found?.date || '';
+        let note = found?.note || '';
+        let images = found?.images || [];
+
+        if (!found) {
+          if (overall === 'done') status = 'done';
+          else if (overall === 'none') status = 'todo';
+          else if (overall === 'in_progress' && currentIdx >= 0) {
+            if (idx < currentIdx) status = 'done';
+            else if (idx === currentIdx) status = 'doing';
+            else status = 'todo';
+          }
+        } else {
+          // 总状态兜底覆盖（避免出现“已完工但某阶段仍未开始”）
+          if (overall === 'done') status = 'done';
+          if (overall === 'none') status = 'todo';
+        }
+
+        return { stage, status, date, note, images };
+      });
+    });
+
+    const getStageStatusText = (s: StageStatus) => {
+      if (s === 'done') return '已完成';
+      if (s === 'doing') return '进行中';
+      return '未开始';
+    };
+
+    const getStageStatusColor = (s: StageStatus) => {
+      if (s === 'done') return 'green';
+      if (s === 'doing') return 'arcoblue';
+      return 'gray';
+    };
+
     const downloadUrl = async (url: string, filename: string) => {
       const href = (url || '').toString().trim();
       if (!href) return;
@@ -797,7 +1346,7 @@ export default defineComponent({
     });
 
     const getSaleStatusLabel = (s: string) => {
-       const map:any = { on_sale: '在售', sold: '已售', off_market: '下架' };
+       const map:any = { on_sale: '在售', in_sale: '预售', sold: '已售', off_market: '下架' };
        return map[s] || s;
     };
     
@@ -829,6 +1378,13 @@ export default defineComponent({
       statusLogVisible, statusLogLoading, statusLogList, statusLogPagination,
       openStatusLogs, handleStatusLogPageChange, handleStatusLogPageSizeChange, getStatusFieldLabel,
       districtText, addressDetailText, renovationImages,
+      renovationStageTimeline, getStageStatusText, getStageStatusColor,
+
+      mainTabKey, recordTabKey,
+      viewLogLoading, viewLogList, viewLogPagination, reloadViewLogs, handleViewLogPageChange, handleViewLogPageSizeChange,
+      showingLogLoading, showingLogList, showingLogPagination, reloadShowingLogs, handleShowingLogPageChange, handleShowingLogPageSizeChange,
+      unlockLogLoading, unlockLogList, unlockLogPagination, reloadUnlockLogs, handleUnlockLogPageChange, handleUnlockLogPageSizeChange,
+      getUnlockTypeLabel, getUnlockStatusLabel, getUnlockStatusColor,
     };
   },
 });
@@ -946,6 +1502,51 @@ export default defineComponent({
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
+}
+
+.records-wrapper {
+  padding: 16px 20px 20px;
+}
+
+.records-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.records-tip {
+  font-size: 12px;
+  color: var(--color-text-3);
+  line-height: 20px;
+  padding-top: 2px;
+}
+
+.user-cell {
+  .user-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .name {
+    font-weight: 600;
+    color: var(--color-text-1);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .user-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--color-text-3);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 /* Header Section */
@@ -1807,6 +2408,147 @@ export default defineComponent({
           font-weight: 400;
         }
       }
+    }
+  }
+
+  .stage-timeline {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--color-border-2);
+  }
+
+  .stage-item {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    padding: 8px 0;
+  }
+
+  .stage-rail {
+    width: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+    flex-shrink: 0;
+  }
+
+  .stage-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--color-fill-3);
+    border: 2px solid var(--color-border-3);
+    box-sizing: border-box;
+
+    &.doing {
+      background: rgb(var(--primary-6));
+      border-color: rgba(var(--primary-6), 0.35);
+      box-shadow: 0 0 0 4px rgba(var(--primary-6), 0.12);
+    }
+    &.done {
+      background: rgb(var(--success-6));
+      border-color: rgba(var(--success-6), 0.35);
+      box-shadow: 0 0 0 4px rgba(var(--success-6), 0.12);
+    }
+  }
+
+  .stage-line {
+    width: 2px;
+    flex: 1;
+    background: var(--color-border-2);
+    margin-top: 6px;
+    border-radius: 2px;
+  }
+
+  .stage-body {
+    flex: 1;
+    background: var(--color-fill-1);
+    border: 1px solid var(--color-border-2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 0;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+
+    &:hover {
+      border-color: rgba(var(--primary-6), 0.35);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.06);
+      transform: translateY(-1px);
+    }
+  }
+
+  .stage-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stage-title {
+    font-weight: 700;
+    color: var(--color-text-1);
+  }
+
+  .stage-date {
+    font-size: 12px;
+    color: var(--color-text-3);
+  }
+
+  .stage-note {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--color-text-2);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .stage-media {
+    margin-top: 10px;
+  }
+
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+
+    @media (max-width: 1400px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .stage-img {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-fill-2);
+    border: 1px solid var(--color-border-2);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      border-color: rgba(var(--primary-6), 0.55);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    :deep(.arco-image) {
+      width: 100%;
+      height: 100%;
+    }
+
+    .img-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+    }
+    .download-btn {
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
     }
   }
 }

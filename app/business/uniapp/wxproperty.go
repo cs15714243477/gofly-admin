@@ -190,6 +190,24 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		} else {
 			renovation["images"] = gf.VarNew(make([]string, 0))
 		}
+		// 工序时间线（stage_logs）：JSON 数组
+		if renovation["stage_logs"] != nil && strings.TrimSpace(renovation["stage_logs"].String()) != "" {
+			list := parseRenovationStageLogs(renovation["stage_logs"].String())
+			out := make([]gf.Map, 0, len(list))
+			for _, it := range list {
+				imgs := make([]string, 0)
+				for _, p := range wxSplitComma(gconv.String(it["images"])) {
+					if u := wxFullImgURL(p); u != "" {
+						imgs = append(imgs, u)
+					}
+				}
+				it["images"] = imgs
+				out = append(out, it)
+			}
+			renovation["stage_logs"] = gf.VarNew(out)
+		} else {
+			renovation["stage_logs"] = gf.VarNew(make([]gf.Map, 0))
+		}
 	}
 
 	// 推荐（同商户 hot_status=1 优先；不足则按 weigh）

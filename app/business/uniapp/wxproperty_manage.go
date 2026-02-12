@@ -411,6 +411,7 @@ func (api *WxProperty) GetManageRenovation(c *gf.GinCtx) {
 			"actual_finish_date":    "",
 			"materials":             make([]string, 0),
 			"images":                make([]string, 0),
+			"stage_logs":            make([]gf.Map, 0),
 			"notes":                 "",
 			"status":                0,
 		}).Regin(c)
@@ -424,6 +425,21 @@ func (api *WxProperty) GetManageRenovation(c *gf.GinCtx) {
 		}
 	}
 
+	stageLogs := make([]gf.Map, 0)
+	if row["stage_logs"] != nil && strings.TrimSpace(row["stage_logs"].String()) != "" {
+		list := parseRenovationStageLogs(row["stage_logs"].String())
+		for _, it := range list {
+			imgs := make([]string, 0)
+			for _, p := range wxSplitComma(gconv.String(it["images"])) {
+				if u := wxFullImgURL(p); u != "" {
+					imgs = append(imgs, u)
+				}
+			}
+			it["images"] = imgs
+			stageLogs = append(stageLogs, it)
+		}
+	}
+
 	gf.Success().SetMsg("获取装修信息成功").SetData(gf.Map{
 		"property_id":           propertyID,
 		"renovation_status":     row["renovation_status"].String(),
@@ -434,6 +450,7 @@ func (api *WxProperty) GetManageRenovation(c *gf.GinCtx) {
 		"actual_finish_date":    row["actual_finish_date"].String(),
 		"materials":             wxSplitComma(row["materials"].String()),
 		"images":                images,
+		"stage_logs":            stageLogs,
 		"notes":                 row["notes"].String(),
 		"status":                row["status"].Int(),
 	}).Regin(c)
@@ -470,7 +487,7 @@ func (api *WxProperty) SaveManageRenovation(c *gf.GinCtx) {
 	saveData := pickMap(param,
 		"renovation_status", "progress_percentage", "current_stage",
 		"start_date", "estimated_finish_date", "actual_finish_date",
-		"materials", "images", "notes", "status",
+		"materials", "images", "stage_logs", "notes", "status",
 	)
 	if len(saveData) == 0 {
 		gf.Failed().SetMsg("暂无可保存字段").Regin(c)
@@ -502,6 +519,9 @@ func (api *WxProperty) SaveManageRenovation(c *gf.GinCtx) {
 	if _, ok := saveData["images"]; ok {
 		saveData["images"] = normalizeTagsToString(saveData["images"])
 	}
+	if _, ok := saveData["stage_logs"]; ok {
+		saveData["stage_logs"] = normalizeRenovationStageLogsToJSON(saveData["stage_logs"])
+	}
 	if _, ok := saveData["status"]; ok {
 		v := gconv.Int(saveData["status"])
 		if v != 0 && v != 1 {
@@ -517,6 +537,10 @@ func (api *WxProperty) SaveManageRenovation(c *gf.GinCtx) {
 	if existing == nil || len(existing) == 0 {
 		saveData["property_id"] = propertyID
 		_, err := gf.Model("business_renovations").Data(saveData).InsertAndGetId()
+		if err != nil && isUnknownColumnErr(err, "stage_logs") {
+			delete(saveData, "stage_logs")
+			_, err = gf.Model("business_renovations").Data(saveData).InsertAndGetId()
+		}
 		if err != nil {
 			gf.Failed().SetMsg("添加装修信息失败").SetData(err).Regin(c)
 			return
@@ -528,6 +552,12 @@ func (api *WxProperty) SaveManageRenovation(c *gf.GinCtx) {
 	_, err := gf.Model("business_renovations").
 		Where("property_id", propertyID).
 		Update(saveData)
+	if err != nil && isUnknownColumnErr(err, "stage_logs") {
+		delete(saveData, "stage_logs")
+		_, err = gf.Model("business_renovations").
+			Where("property_id", propertyID).
+			Update(saveData)
+	}
 	if err != nil {
 		gf.Failed().SetMsg("更新装修信息失败").SetData(err).Regin(c)
 		return

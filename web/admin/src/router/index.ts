@@ -10,7 +10,7 @@ NProgress.configure({ showSpinner: false }); // NProgress Configuration
 
 const router = createRouter({
    // history: createWebHistory(),//history模式
-   history: createWebHashHistory(process.env.NODE_ENV === 'production' ? '/webbusiness/' : ''),//has模式带#号
+   history: createWebHashHistory(import.meta.env.BASE_URL),//hash模式带#号，自动适配 Vite base（如 /webadmin/）
   routes: [
     {
       path: '/',

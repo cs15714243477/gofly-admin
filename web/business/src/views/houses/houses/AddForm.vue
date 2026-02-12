@@ -560,6 +560,55 @@
                          </a-row>
                       </div>
                    </div>
+
+                   <div class="form-section" v-if="showRenovationProgress">
+                      <div class="section-header stage-logs-header">
+                         <div class="title">工序时间线（按工序分组图片）</div>
+                         <a-space size="mini" wrap>
+                            <a-button size="mini" type="outline" @click="createDefaultStageLogs(false)">生成默认工序</a-button>
+                            <a-button size="mini" type="outline" @click="syncStageLogsStatus">按当前工序自动标记</a-button>
+                            <a-button size="mini" type="outline" @click="addStageLog">新增工序</a-button>
+                            <a-button size="mini" type="text" status="danger" @click="clearStageLogs">清空</a-button>
+                         </a-space>
+                      </div>
+                      <div class="section-body">
+                         <a-empty v-if="!(renovationData.stage_logs || []).length" description="暂无工序时间线，可点击“生成默认工序”快速创建" />
+                         <div v-else class="stage-log-list">
+                            <div class="stage-log-item" v-for="(log, idx) in renovationData.stage_logs" :key="log.id">
+                               <div class="stage-log-head">
+                                 <a-space :size="10" wrap>
+                                   <a-select v-model="log.stage" placeholder="选择工序" allow-clear :style="{ width: '180px' }">
+                                     <a-option v-for="o in renovationStageOptions" :key="o.value" :value="o.value">{{ o.label }}</a-option>
+                                   </a-select>
+                                   <a-radio-group v-model="log.status" type="button" size="small">
+                                     <a-radio value="todo">未开始</a-radio>
+                                     <a-radio value="doing">进行中</a-radio>
+                                     <a-radio value="done">已完成</a-radio>
+                                   </a-radio-group>
+                                   <a-date-picker v-model="log.date" size="large" :style="{ width: '180px' }" />
+                                 </a-space>
+                                 <a-space size="mini">
+                                   <a-button size="mini" type="text" :disabled="idx === 0" @click="moveStageLog(idx, -1)"><icon-up />上移</a-button>
+                                   <a-button size="mini" type="text" :disabled="idx === (renovationData.stage_logs || []).length - 1" @click="moveStageLog(idx, 1)"><icon-down />下移</a-button>
+                                   <a-button size="mini" type="text" status="danger" @click="removeStageLog(idx)">删除</a-button>
+                                 </a-space>
+                               </div>
+                               <a-row :gutter="24">
+                                 <a-col :span="12">
+                                   <a-form-item label="备注">
+                                     <a-textarea v-model="log.note" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="记录该工序要点..." />
+                                   </a-form-item>
+                                 </a-col>
+                                 <a-col :span="12">
+                                   <a-form-item label="图片组">
+                                     <FormImagesBox v-model="log.images" placeholder="请上传该工序图片" />
+                                   </a-form-item>
+                                 </a-col>
+                               </a-row>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
             </a-form>
           </div>
         </a-tab-pane>
@@ -636,7 +685,7 @@ import type { FormInstance } from '@arco-design/web-vue';
 import useLoading from '@/hooks/loading';
 import { cloneDeep } from 'lodash-es';
 import { save, getContent, getRenovation, saveRenovation, getAreaMoreList, getFormOptions } from './api';
-import { Message } from '@arco-design/web-vue';
+import { Message, Modal } from '@arco-design/web-vue';
 import FormImageBox from '@/components/autoPlugin/Form/FormImageBox.vue';
 import FormImagesBox from '@/components/autoPlugin/Form/FormImagesBox.vue';
 import FormVideoBox from '@/components/autoPlugin/Form/FormVideoBox.vue';
@@ -713,6 +762,7 @@ export default defineComponent({
       actual_finish_date: '',
       materials: [] as string[],
       images: '',
+      stage_logs: [] as any[],
       notes: '',
       status: 0,
     };
@@ -747,6 +797,155 @@ export default defineComponent({
     const renovationStageOptions = ref<SelectOption[]>(
       ['设计', '拆改', '水电', '泥瓦', '木工', '油漆', '安装', '软装', '验收'].map((it) => ({ label: it, value: it }))
     );
+
+    // ------------------------
+    // 装修工序时间线（每工序一组图片）
+    // ------------------------
+    type StageStatus = 'todo' | 'doing' | 'done';
+    type StageLogItem = {
+      id: string;
+      stage: string;
+      status: StageStatus;
+      date: string;
+      note: string;
+      images: string; // 逗号分隔（与 FormImagesBox 一致）
+    };
+
+    const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    const normalizeStageStatus = (v: any): StageStatus => {
+      const s = String(v ?? '').trim().toLowerCase();
+      if (s === 'done' || s === 'finished' || s === 'completed') return 'done';
+      if (s === 'doing' || s === 'in_progress' || s === 'progress') return 'doing';
+      return 'todo';
+    };
+
+    const normalizeStageLogs = (raw: any): StageLogItem[] => {
+      let arr: any = raw;
+      if (typeof raw === 'string') {
+        const s = raw.trim();
+        if (s && s.startsWith('[')) {
+          try {
+            arr = JSON.parse(s);
+          } catch {
+            arr = [];
+          }
+        } else {
+          arr = [];
+        }
+      }
+      if (!Array.isArray(arr)) return [];
+      return arr
+        .map((it: any) => {
+          const stage = String(it?.stage ?? it?.stage_name ?? it?.name ?? '').trim();
+          if (!stage) return null;
+          let images = '';
+          if (typeof it?.images === 'string') images = it.images;
+          else if (Array.isArray(it?.images)) images = it.images.map((x: any) => String(x).trim()).filter(Boolean).join(',');
+          return {
+            id: String(it?.id || makeId()),
+            stage,
+            status: normalizeStageStatus(it?.status),
+            date: String(it?.date ?? '').trim(),
+            note: String(it?.note ?? it?.notes ?? '').trim(),
+            images: String(images ?? '').trim(),
+          } as StageLogItem;
+        })
+        .filter(Boolean) as StageLogItem[];
+    };
+
+    const sanitizeStageLogsForSave = (raw: any) => {
+      const list = Array.isArray(raw) ? raw : [];
+      return list
+        .map((it: any) => ({
+          stage: String(it?.stage ?? '').trim(),
+          status: normalizeStageStatus(it?.status),
+          date: String(it?.date ?? '').trim(),
+          note: String(it?.note ?? '').trim(),
+          images: String(it?.images ?? '').trim(),
+        }))
+        .filter((it: any) => it.stage);
+    };
+
+    const createDefaultStageLogs = (force = false) => {
+      const existing = Array.isArray(renovationData.value.stage_logs) ? renovationData.value.stage_logs : [];
+      if (existing.length && !force) return;
+      const stages = (renovationStageOptions.value || [])
+        .map((o) => String(o?.value ?? o?.label ?? '').trim())
+        .filter(Boolean);
+      const logs: StageLogItem[] = stages.map((s) => ({
+        id: makeId(),
+        stage: s,
+        status: 'todo',
+        date: '',
+        note: '',
+        images: '',
+      }));
+      renovationData.value.stage_logs = logs;
+      syncStageLogsStatus();
+    };
+
+    const syncStageLogsStatus = () => {
+      const status = String(renovationData.value.renovation_status || 'none');
+      const logs: StageLogItem[] = Array.isArray(renovationData.value.stage_logs) ? renovationData.value.stage_logs : [];
+      if (!logs.length) return;
+
+      if (status === 'none') {
+        renovationData.value.stage_logs = logs.map((it) => ({ ...it, status: 'todo' }));
+        return;
+      }
+      if (status === 'done') {
+        renovationData.value.stage_logs = logs.map((it) => ({ ...it, status: 'done' }));
+        return;
+      }
+
+      const cur = String(renovationData.value.current_stage || '').trim();
+      const order = (renovationStageOptions.value || [])
+        .map((o) => String(o?.value ?? o?.label ?? '').trim())
+        .filter(Boolean);
+      const idx = cur ? order.findIndex((s) => s === cur) : -1;
+      if (idx < 0) return;
+      renovationData.value.stage_logs = logs.map((it) => {
+        const i = order.findIndex((s) => s === it.stage);
+        if (i < 0) return it;
+        if (i < idx) return { ...it, status: 'done' };
+        if (i === idx) return { ...it, status: 'doing' };
+        return { ...it, status: 'todo' };
+      });
+    };
+
+    const addStageLog = () => {
+      const logs: StageLogItem[] = Array.isArray(renovationData.value.stage_logs) ? renovationData.value.stage_logs : [];
+      logs.push({ id: makeId(), stage: '', status: 'todo', date: '', note: '', images: '' });
+      renovationData.value.stage_logs = logs;
+    };
+
+    const removeStageLog = (idx: number) => {
+      const logs: StageLogItem[] = Array.isArray(renovationData.value.stage_logs) ? renovationData.value.stage_logs : [];
+      logs.splice(idx, 1);
+      renovationData.value.stage_logs = logs;
+    };
+
+    const moveStageLog = (idx: number, dir: -1 | 1) => {
+      const logs: StageLogItem[] = Array.isArray(renovationData.value.stage_logs) ? renovationData.value.stage_logs : [];
+      const next = idx + dir;
+      if (idx < 0 || next < 0 || next >= logs.length) return;
+      const tmp = logs[idx];
+      logs[idx] = logs[next];
+      logs[next] = tmp;
+      renovationData.value.stage_logs = logs;
+    };
+
+    const clearStageLogs = () => {
+      Modal.warning({
+        title: '确认清空？',
+        content: '清空后将删除所有工序时间线记录（每工序图片组/备注等），且无法恢复。',
+        hideCancel: false,
+        onOk: () => {
+          renovationData.value.stage_logs = [];
+        },
+      });
+    };
 
     const formOptionsLoaded = ref(false);
     const normalizeOptions = (arr: any): SelectOption[] =>
@@ -859,11 +1058,14 @@ export default defineComponent({
           renovationData.value.start_date = '';
           renovationData.value.estimated_finish_date = '';
           renovationData.value.actual_finish_date = '';
+          renovationData.value.stage_logs = [];
           return;
         }
         if (val === 'done') {
           renovationData.value.progress_percentage = 100;
           renovationData.value.estimated_finish_date = '';
+          createDefaultStageLogs(false);
+          syncStageLogsStatus();
           return;
         }
         // in_progress
@@ -871,6 +1073,7 @@ export default defineComponent({
         if (typeof renovationData.value.progress_percentage !== 'number') {
           renovationData.value.progress_percentage = parseInt(String(renovationData.value.progress_percentage)) || 0;
         }
+        createDefaultStageLogs(false);
       },
       { immediate: true }
     );
@@ -1171,6 +1374,7 @@ export default defineComponent({
              const rData = await getRenovation({ property_id: contentData.id });
              if (rData) {
                Object.assign(renovationData.value, rData);
+               renovationData.value.stage_logs = normalizeStageLogs((rData as any)?.stage_logs);
                // 修正进度类型
                if (typeof renovationData.value.progress_percentage !== 'number') {
                   renovationData.value.progress_percentage = parseInt(String(renovationData.value.progress_percentage || 0));
@@ -1418,6 +1622,7 @@ export default defineComponent({
         setRenovationLoading(true);
         const postData = cloneDeep(renovationData.value);
         postData.property_id = formData.value.id; // bind property_id
+        postData.stage_logs = sanitizeStageLogsForSave(postData.stage_logs);
         
         // 日期处理
         if (postData.renovation_status === 'none') {
@@ -1426,6 +1631,7 @@ export default defineComponent({
            postData.actual_finish_date = null;
            postData.current_stage = '';
            postData.progress_percentage = 0;
+           postData.stage_logs = [];
         }
         
         await saveRenovation(postData);
@@ -1483,6 +1689,13 @@ export default defineComponent({
       formError,
       // computed
       showRenovationProgress,
+      // stage logs
+      createDefaultStageLogs,
+      syncStageLogsStatus,
+      addStageLog,
+      removeStageLog,
+      moveStageLog,
+      clearStageLogs,
     };
   },
 });
@@ -1791,6 +2004,35 @@ export default defineComponent({
      // padding: 12px;
      // opacity: background/border if wanted
   }
+}
+
+.stage-logs-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stage-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stage-log-item {
+  padding: 12px 12px 2px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 10px;
+  background: var(--color-fill-1);
+}
+
+.stage-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 .pro-form {

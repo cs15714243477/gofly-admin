@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "推荐",
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "bottom-tab-bar": "../../components/BottomTabBar",
+    "top-header": "../../components/TopHeader"
+  }
+}

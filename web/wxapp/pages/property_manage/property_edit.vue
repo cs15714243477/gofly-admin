@@ -699,6 +699,186 @@
             </view>
           </view>
 
+          <!-- 工序时间线（按工序分组图片） -->
+          <view class="stage-logs">
+            <view class="stage-logs-head">
+              <text class="label">工序时间线</text>
+              <view class="stage-logs-actions">
+                <button
+                  class="mini-btn"
+                  :disabled="savingRenovation || uploading"
+                  @tap="confirmGenerateStageLogs"
+                >
+                  生成默认工序
+                </button>
+                <button
+                  class="mini-btn ghost"
+                  :disabled="savingRenovation || uploading"
+                  @tap="syncStageLogsByCurrentStage"
+                >
+                  按当前阶段同步
+                </button>
+                <button
+                  class="mini-btn ghost"
+                  :disabled="savingRenovation || uploading"
+                  @tap="addStageLog"
+                >
+                  新增工序
+                </button>
+                <button
+                  class="mini-btn danger"
+                  :disabled="savingRenovation || uploading"
+                  @tap="clearStageLogs"
+                >
+                  清空
+                </button>
+              </view>
+            </view>
+
+            <view
+              v-if="!(renovation.stage_logs || []).length"
+              class="hint small"
+            >
+              暂无工序记录，可点击“生成默认工序”快速创建；每个工序可上传一组图片（如水电/泥瓦）。
+            </view>
+
+            <view v-else class="stage-log-list">
+              <view
+                class="stage-log-item"
+                v-for="(log, idx) in renovation.stage_logs"
+                :key="'sl-' + idx"
+              >
+                <view class="stage-log-top">
+                  <view class="stage-log-title">
+                    <text class="name">{{ log.stage || "未选择工序" }}</text>
+                    <text class="tag" :class="log.status || 'todo'">{{
+                      getStageStatusText(log.status)
+                    }}</text>
+                  </view>
+                  <view class="stage-log-tools">
+                    <button
+                      class="mini-icon-btn"
+                      :disabled="idx === 0"
+                      @tap.stop="moveStageLog(idx, -1)"
+                    >
+                      上移
+                    </button>
+                    <button
+                      class="mini-icon-btn"
+                      :disabled="idx === (renovation.stage_logs || []).length - 1"
+                      @tap.stop="moveStageLog(idx, 1)"
+                    >
+                      下移
+                    </button>
+                    <button
+                      class="mini-icon-btn danger"
+                      @tap.stop="removeStageLog(idx)"
+                    >
+                      删除
+                    </button>
+                  </view>
+                </view>
+
+                <view class="grid stage-log-grid">
+                  <view class="form-row">
+                    <text class="label">工序</text>
+                    <picker
+                      mode="selector"
+                      :range="renovationStageOptions.map((o) => o.label)"
+                      :value="getStageLogStageIndex(log)"
+                      @change="(e) => onStageLogStageChange(idx, e)"
+                    >
+                      <view class="picker">
+                        <text class="picker-text">{{
+                          log.stage || "请选择"
+                        }}</text>
+                        <text class="material-symbols-outlined picker-ic"
+                          >expand_more</text
+                        >
+                      </view>
+                    </picker>
+                  </view>
+
+                  <view class="form-row">
+                    <text class="label">状态</text>
+                    <picker
+                      mode="selector"
+                      :range="stageStatusOptions.map((o) => o.label)"
+                      :value="getStageLogStatusIndex(log)"
+                      @change="(e) => onStageLogStatusChange(idx, e)"
+                    >
+                      <view class="picker">
+                        <text class="picker-text">{{
+                          stageStatusOptions[getStageLogStatusIndex(log)]
+                            ?.label || "请选择"
+                        }}</text>
+                        <text class="material-symbols-outlined picker-ic"
+                          >expand_more</text
+                        >
+                      </view>
+                    </picker>
+                  </view>
+
+                  <view class="form-row">
+                    <text class="label">日期</text>
+                    <picker
+                      mode="date"
+                      :value="log.date"
+                      @change="(e) => onStageLogDateChange(idx, e)"
+                    >
+                      <view class="picker">
+                        <text class="picker-text">{{
+                          log.date || "请选择"
+                        }}</text>
+                        <text class="material-symbols-outlined picker-ic"
+                          >calendar_month</text
+                        >
+                      </view>
+                    </picker>
+                  </view>
+
+                  <view class="form-row stage-log-note">
+                    <text class="label">备注</text>
+                    <textarea
+                      v-model="log.note"
+                      class="textarea small"
+                      maxlength="200"
+                      placeholder="可选：该工序说明"
+                      placeholder-class="placeholder"
+                    ></textarea>
+                  </view>
+                </view>
+
+                <view class="form-row">
+                  <text class="label">工序图片</text>
+                  <view class="media-grid stage-media-grid">
+                    <view
+                      v-for="(img, iidx) in ensureStageLogImages(log)"
+                      :key="'slimg-' + idx + '-' + iidx"
+                      class="media-item stage-media-item"
+                      @tap="openStageLogImageActions(idx, iidx)"
+                    >
+                      <image
+                        class="media-img"
+                        :src="toFullMediaUrl(img)"
+                        mode="aspectFill"
+                      ></image>
+                    </view>
+                    <view
+                      class="media-item add stage-media-add"
+                      @tap="pickStageLogImages(idx)"
+                    >
+                      <text class="material-symbols-outlined add-ic"
+                        >add_photo_alternate</text
+                      >
+                      <text class="add-text">添加</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+
           <view class="form-row">
             <text class="label">施工说明</text>
             <textarea
@@ -896,9 +1076,15 @@ export default {
         start_date: "",
         estimated_finish_date: "",
         actual_finish_date: "",
+        stage_logs: [],
         notes: "",
         status: 0,
       },
+      stageStatusOptions: [
+        { label: "未开始", value: "todo" },
+        { label: "进行中", value: "doing" },
+        { label: "已完成", value: "done" },
+      ],
       renovationStatusOptions: [
         { label: "未装修", value: "none" },
         { label: "装修中", value: "in_progress" },
@@ -1125,6 +1311,32 @@ export default {
           this.renovationStageOptions || []
         ).concat([{ label: stageVal, value: stageVal }]);
       }
+
+      // 兜底：工序时间线里的工序不在下拉里时，追加显示，避免 picker 显示异常
+      const logStages = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs
+            .map((it) => String((it && it.stage) || "").trim())
+            .filter(Boolean)
+        : [];
+      if (logStages.length) {
+        const exist = new Set(
+          (this.renovationStageOptions || []).map((o) =>
+            String((o && o.value) || "").trim()
+          )
+        );
+        const missing = [];
+        logStages.forEach((s) => {
+          if (!exist.has(s)) {
+            exist.add(s);
+            missing.push({ label: s, value: s });
+          }
+        });
+        if (missing.length) {
+          this.renovationStageOptions = (this.renovationStageOptions || []).concat(
+            missing
+          );
+        }
+      }
     },
     onBuildYearChange(e) {
       const idx = Number(e && e.detail && e.detail.value) || 0;
@@ -1281,6 +1493,9 @@ export default {
         ? data.materials
         : [];
       this.renovationImages = Array.isArray(data.images) ? data.images : [];
+      this.renovation.stage_logs = this.normalizeStageLogs(
+        data.stage_logs || this.renovation.stage_logs
+      );
 
       // 兜底类型修正
       if (
@@ -1380,13 +1595,338 @@ export default {
         this.renovation.start_date = "";
         this.renovation.estimated_finish_date = "";
         this.renovation.actual_finish_date = "";
+        this.renovation.stage_logs = [];
         this.renovation.notes = "";
         this.renovationMaterials = [];
         this.renovationImages = [];
       }
       if (opt.value === "done") {
         this.renovation.progress_percentage = 100;
+        if (
+          !Array.isArray(this.renovation.stage_logs) ||
+          this.renovation.stage_logs.length === 0
+        ) {
+          this.generateDefaultStageLogs({ overwrite: true });
+        }
+        this.syncStageLogsByCurrentStage({ silent: true });
       }
+      if (opt.value === "in_progress") {
+        if (
+          !Array.isArray(this.renovation.stage_logs) ||
+          this.renovation.stage_logs.length === 0
+        ) {
+          this.generateDefaultStageLogs({ overwrite: true });
+          this.syncStageLogsByCurrentStage({ silent: true });
+        }
+      }
+    },
+    normalizeRenovationStageStatus(v) {
+      const s = String(v || "").trim().toLowerCase();
+      if (s === "done" || s === "finished" || s === "completed") return "done";
+      if (s === "doing" || s === "in_progress" || s === "progress")
+        return "doing";
+      return "todo";
+    },
+    normalizeStageLogs(raw) {
+      const arr = Array.isArray(raw) ? raw : [];
+      const out = [];
+      arr.forEach((it) => {
+        if (!it) return;
+        const stage = String(it.stage || it.stage_name || it.name || "").trim();
+        if (!stage) return;
+        const status = this.normalizeRenovationStageStatus(it.status);
+        const date = String(it.date || "").trim();
+        const note = String(it.note || it.notes || "").trim();
+
+        let imgs = [];
+        if (Array.isArray(it.images)) imgs = it.images;
+        else if (typeof it.images === "string") {
+          imgs = String(it.images || "")
+            .split(",")
+            .map((x) => String(x || "").trim())
+            .filter(Boolean);
+        }
+        const normalizedImgs = imgs
+          .map((u) => String(u || "").trim())
+          .filter(Boolean);
+
+        out.push({
+          stage,
+          status,
+          date,
+          note,
+          images: Array.from(new Set(normalizedImgs)),
+        });
+      });
+      return out;
+    },
+    ensureStageLogImages(log) {
+      if (!log) return [];
+      if (Array.isArray(log.images)) return log.images;
+      if (typeof log.images === "string") {
+        return String(log.images || "")
+          .split(",")
+          .map((x) => String(x || "").trim())
+          .filter(Boolean);
+      }
+      return [];
+    },
+    getStageStatusText(v) {
+      const s = this.normalizeRenovationStageStatus(v);
+      if (s === "done") return "已完成";
+      if (s === "doing") return "进行中";
+      return "未开始";
+    },
+    getDefaultStageOrder() {
+      const list = (this.renovationStageOptions || [])
+        .map((o) => String((o && o.value) || "").trim())
+        .filter(Boolean);
+      if (list.length) return list;
+      return ["设计", "拆改", "水电", "泥瓦", "木工", "油漆", "安装", "软装", "验收"];
+    },
+    confirmGenerateStageLogs() {
+      uni.showModal({
+        title: "生成默认工序",
+        content: "将按默认工序生成时间线（会覆盖现有工序记录），是否继续？",
+        confirmText: "继续",
+        success: (res) => {
+          if (!res.confirm) return;
+          this.generateDefaultStageLogs({ overwrite: true });
+          this.syncStageLogsByCurrentStage({ silent: true });
+        },
+      });
+    },
+    generateDefaultStageLogs({ overwrite = false } = {}) {
+      const existing = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs
+        : [];
+      if (!overwrite && existing.length) return;
+      const order = this.getDefaultStageOrder();
+      this.renovation.stage_logs = order.map((stage) => ({
+        stage,
+        status: "todo",
+        date: "",
+        note: "",
+        images: [],
+      }));
+    },
+    syncStageLogsByCurrentStage(options = {}) {
+      const silent = !!(options && options.silent);
+      const overall = String(this.renovation.renovation_status || "none").trim();
+      if (overall === "none") {
+        this.renovation.stage_logs = [];
+        return;
+      }
+      let logs = Array.isArray(this.renovation.stage_logs)
+        ? this.normalizeStageLogs(this.renovation.stage_logs)
+        : [];
+      if (!logs.length) {
+        this.generateDefaultStageLogs({ overwrite: true });
+        logs = Array.isArray(this.renovation.stage_logs)
+          ? this.normalizeStageLogs(this.renovation.stage_logs)
+          : [];
+      }
+
+      if (overall === "done") {
+        this.renovation.stage_logs = logs.map((it) => ({
+          ...it,
+          status: "done",
+        }));
+        return;
+      }
+
+      const cur = String(this.renovation.current_stage || "").trim();
+      const order = logs.map((it) => it.stage);
+      const curIdx = cur ? order.findIndex((s) => s === cur) : -1;
+      if (curIdx < 0) {
+        if (!silent)
+          uni.showToast({ title: "当前阶段未选择/不在工序内", icon: "none" });
+        this.renovation.stage_logs = logs;
+        return;
+      }
+      this.renovation.stage_logs = logs.map((it, idx) => {
+        const next = { ...it };
+        if (idx < curIdx) next.status = "done";
+        else if (idx === curIdx) next.status = "doing";
+        else next.status = "todo";
+        return next;
+      });
+    },
+    addStageLog() {
+      const logs = Array.isArray(this.renovation.stage_logs)
+        ? this.normalizeStageLogs(this.renovation.stage_logs)
+        : [];
+      logs.push({
+        stage: "",
+        status: "todo",
+        date: "",
+        note: "",
+        images: [],
+      });
+      this.renovation.stage_logs = logs;
+    },
+    clearStageLogs() {
+      uni.showModal({
+        title: "清空工序时间线",
+        content: "清空后将删除所有工序记录（含工序图片），且无法恢复。",
+        confirmText: "清空",
+        confirmColor: "#ef4444",
+        success: (res) => {
+          if (!res.confirm) return;
+          this.renovation.stage_logs = [];
+        },
+      });
+    },
+    removeStageLog(idx) {
+      uni.showModal({
+        title: "删除工序",
+        content: "确定要删除该工序记录吗？",
+        confirmText: "删除",
+        confirmColor: "#ef4444",
+        success: (res) => {
+          if (!res.confirm) return;
+          const logs = Array.isArray(this.renovation.stage_logs)
+            ? this.renovation.stage_logs
+            : [];
+          this.renovation.stage_logs = logs.filter((_, i) => i !== idx);
+        },
+      });
+    },
+    moveStageLog(idx, step) {
+      const logs = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs.slice(0)
+        : [];
+      const next = idx + step;
+      if (next < 0 || next >= logs.length) return;
+      const tmp = logs[idx];
+      logs[idx] = logs[next];
+      logs[next] = tmp;
+      this.renovation.stage_logs = logs;
+    },
+    getStageLogStageIndex(log) {
+      const v = String((log && log.stage) || "").trim();
+      const idx = (this.renovationStageOptions || []).findIndex(
+        (o) => String(o.value) === v
+      );
+      return idx >= 0 ? idx : 0;
+    },
+    onStageLogStageChange(logIdx, e) {
+      const idx = Number(e && e.detail && e.detail.value) || 0;
+      const opt =
+        this.renovationStageOptions[idx] || this.renovationStageOptions[0];
+      const stage = String((opt && opt.value) || "").trim();
+      const logs = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs.slice(0)
+        : [];
+      if (!logs[logIdx]) return;
+      logs[logIdx] = { ...logs[logIdx], stage };
+      this.renovation.stage_logs = logs;
+    },
+    getStageLogStatusIndex(log) {
+      const v = this.normalizeRenovationStageStatus(
+        (log && log.status) || "todo"
+      );
+      const idx = (this.stageStatusOptions || []).findIndex(
+        (o) => String(o.value) === v
+      );
+      return idx >= 0 ? idx : 0;
+    },
+    onStageLogStatusChange(logIdx, e) {
+      const idx = Number(e && e.detail && e.detail.value) || 0;
+      const opt = this.stageStatusOptions[idx] || this.stageStatusOptions[0];
+      const status = this.normalizeRenovationStageStatus(opt && opt.value);
+      const logs = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs.slice(0)
+        : [];
+      if (!logs[logIdx]) return;
+      logs[logIdx] = { ...logs[logIdx], status };
+      this.renovation.stage_logs = logs;
+    },
+    onStageLogDateChange(logIdx, e) {
+      const date =
+        e && e.detail && typeof e.detail.value !== "undefined"
+          ? String(e.detail.value || "").trim()
+          : "";
+      const logs = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs.slice(0)
+        : [];
+      if (!logs[logIdx]) return;
+      logs[logIdx] = { ...logs[logIdx], date };
+      this.renovation.stage_logs = logs;
+    },
+    openStageLogImageActions(logIdx, imgIdx) {
+      const logs = Array.isArray(this.renovation.stage_logs)
+        ? this.renovation.stage_logs
+        : [];
+      const log = logs[logIdx];
+      if (!log) return;
+      const imgs = this.ensureStageLogImages(log);
+      const img = imgs[imgIdx];
+      if (!img) return;
+      uni.showActionSheet({
+        itemList: ["预览", "删除"],
+        success: (res) => {
+          const tap = Number(res.tapIndex);
+          if (tap === 0) {
+            const urls = imgs.map((u) => this.toFullMediaUrl(u)).filter(Boolean);
+            const current = this.toFullMediaUrl(img);
+            if (!urls.length || !current) return;
+            uni.previewImage({ current, urls });
+            return;
+          }
+          if (tap === 1) {
+            const nextImgs = imgs.filter((_, i) => i !== imgIdx);
+            const nextLogs = logs.slice(0);
+            nextLogs[logIdx] = { ...log, images: nextImgs };
+            this.renovation.stage_logs = nextLogs;
+          }
+        },
+      });
+    },
+    pickStageLogImages(logIdx) {
+      if (this.uploading) return;
+      if (!this.id) {
+        uni.showToast({ title: "请先保存房源", icon: "none" });
+        return;
+      }
+      uni.chooseImage({
+        count: 9,
+        sizeType: ["compressed"],
+        sourceType: ["album", "camera"],
+        success: async (res) => {
+          const files = (res && res.tempFilePaths) || [];
+          if (!files.length) return;
+          await this.uploadStageLogImages(files, logIdx);
+        },
+      });
+    },
+    uploadStageLogImages(filePaths = [], logIdx) {
+      if (!Array.isArray(filePaths) || filePaths.length === 0)
+        return Promise.resolve();
+      return new Promise(async (resolve) => {
+        this.uploading = true;
+        uni.showLoading({ title: "上传中", mask: true });
+        try {
+          for (let i = 0; i < filePaths.length; i++) {
+            const fp = filePaths[i];
+            const out = await this.uploadSingle(fp, "image").catch(() => null);
+            const url = out && out.code === 0 && out.data ? out.data.url : "";
+            if (!url) continue;
+            const logs = Array.isArray(this.renovation.stage_logs)
+              ? this.renovation.stage_logs.slice(0)
+              : [];
+            const log = logs[logIdx];
+            if (!log) continue;
+            const imgs = this.ensureStageLogImages(log);
+            logs[logIdx] = { ...log, images: imgs.concat([url]) };
+            this.renovation.stage_logs = logs;
+          }
+        } finally {
+          uni.hideLoading();
+          this.uploading = false;
+          resolve();
+        }
+      });
     },
     addMaterial() {
       const t = String(this.newMaterial || "").trim();
@@ -1664,6 +2204,10 @@ export default {
 
       this.savingRenovation = true;
       try {
+        let stageLogs = this.normalizeStageLogs(this.renovation.stage_logs);
+        if (status === "none") {
+          stageLogs = [];
+        }
         const payload = {
           property_id: this.id,
           renovation_status: status,
@@ -1674,6 +2218,7 @@ export default {
           actual_finish_date: this.renovation.actual_finish_date || "",
           materials: this.renovationMaterials,
           images: this.renovationImages,
+          stage_logs: stageLogs,
           notes: String(this.renovation.notes || "").trim(),
           status: Number(this.renovation.status) === 1 ? 1 : 0,
         };
@@ -1864,6 +2409,9 @@ export default {
   color: var(--pe-text-1);
   box-sizing: border-box;
 }
+.textarea.small {
+  min-height: 120rpx;
+}
 
 .placeholder {
   color: #94a3b8;
@@ -1888,6 +2436,158 @@ export default {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14rpx;
+}
+
+.stage-logs {
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1px dashed #dce6f2;
+}
+
+.stage-logs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.stage-logs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10rpx;
+}
+
+.mini-btn {
+  padding: 10rpx 14rpx;
+  border-radius: 999rpx;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-size: 22rpx;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.mini-btn.ghost {
+  border-color: rgba(100, 116, 139, 0.22);
+  background: rgba(148, 163, 184, 0.12);
+  color: #334155;
+}
+
+.mini-btn.danger {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.mini-btn[disabled] {
+  opacity: 0.6;
+}
+
+.stage-log-list {
+  margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.stage-log-item {
+  border-radius: 24rpx;
+  border: 1px solid #dde8f4;
+  background: linear-gradient(145deg, #fbfdff, #edf4fb);
+  box-shadow: 8rpx 8rpx 16rpx rgba(169, 182, 199, 0.18),
+    -6rpx -6rpx 14rpx rgba(255, 255, 255, 0.78);
+  padding: 14rpx;
+}
+
+.stage-log-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.stage-log-title {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.stage-log-title .name {
+  font-size: 26rpx;
+  font-weight: 900;
+  color: var(--pe-text-1);
+  max-width: 260rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-log-title .tag {
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 900;
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+}
+
+.stage-log-title .tag.doing {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+.stage-log-title .tag.done {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+}
+
+.stage-log-tools {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.mini-icon-btn {
+  padding: 8rpx 12rpx;
+  border-radius: 999rpx;
+  border: 1px solid rgba(100, 116, 139, 0.22);
+  background: rgba(148, 163, 184, 0.12);
+  color: #334155;
+  font-size: 22rpx;
+  font-weight: 800;
+  line-height: 1;
+}
+.mini-icon-btn.danger {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.mini-icon-btn[disabled] {
+  opacity: 0.5;
+}
+
+.stage-log-grid {
+  margin-top: 6rpx;
+}
+
+.stage-log-note {
+  grid-column: 1 / -1;
+}
+
+.media-grid.stage-media-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.media-item.stage-media-item {
+  height: 160rpx;
+}
+
+.media-item.add.stage-media-add {
+  height: 160rpx;
 }
 
 .picker {

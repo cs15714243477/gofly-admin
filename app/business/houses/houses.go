@@ -82,6 +82,150 @@ func normalizeTagsToString(v interface{}) string {
 	return normalizeCommaText(s)
 }
 
+func normalizeRenovationStageStatus(v string) string {
+	s := strings.TrimSpace(strings.ToLower(v))
+	switch s {
+	case "done", "finished", "completed":
+		return "done"
+	case "doing", "in_progress", "progress", "processing":
+		return "doing"
+	case "todo", "pending", "not_started", "none", "":
+		return "todo"
+	default:
+		// 兼容中文输入
+		if strings.Contains(v, "完成") || strings.Contains(v, "已完") {
+			return "done"
+		}
+		if strings.Contains(v, "进行") || strings.Contains(v, "施工") || strings.Contains(v, "处理中") {
+			return "doing"
+		}
+		if strings.Contains(v, "未") {
+			return "todo"
+		}
+		return "todo"
+	}
+}
+
+func normalizeRenovationStageLogList(arr []map[string]interface{}) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(arr))
+	for _, it := range arr {
+		if it == nil {
+			continue
+		}
+
+		stage := strings.TrimSpace(gconv.String(it["stage"]))
+		if stage == "" {
+			stage = strings.TrimSpace(gconv.String(it["stage_name"]))
+		}
+		if stage == "" {
+			stage = strings.TrimSpace(gconv.String(it["name"]))
+		}
+		if stage == "" {
+			continue
+		}
+
+		status := normalizeRenovationStageStatus(gconv.String(it["status"]))
+		date := strings.TrimSpace(gconv.String(it["date"]))
+		note := strings.TrimSpace(gconv.String(it["note"]))
+		if note == "" {
+			note = strings.TrimSpace(gconv.String(it["notes"]))
+		}
+
+		images := ""
+		if imgV, ok := it["images"]; ok {
+			images = normalizeCommaText(normalizeTagsToString(imgV))
+		}
+
+		out = append(out, map[string]interface{}{
+			"stage":  stage,
+			"status": status,
+			"date":   date,
+			"note":   note,
+			"images": images,
+		})
+	}
+	return out
+}
+
+func normalizeRenovationStageLogsToJSON(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+
+	// 1) 已是 JSON 字符串
+	if s, ok := v.(string); ok {
+		raw := strings.TrimSpace(s)
+		if raw == "" {
+			return ""
+		}
+		if strings.HasPrefix(raw, "[") {
+			var arr []map[string]interface{}
+			if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+				clean := normalizeRenovationStageLogList(arr)
+				if len(clean) == 0 {
+					return ""
+				}
+				b, err := json.Marshal(clean)
+				if err == nil {
+					return string(b)
+				}
+			}
+		}
+		// 非合法 JSON：不保存，避免污染数据
+		return ""
+	}
+
+	// 2) 数组结构
+	arr := make([]map[string]interface{}, 0)
+	switch val := v.(type) {
+	case []interface{}:
+		for _, it := range val {
+			if m, ok := it.(map[string]interface{}); ok {
+				arr = append(arr, m)
+			}
+		}
+	case []map[string]interface{}:
+		arr = val
+	default:
+		return ""
+	}
+
+	clean := normalizeRenovationStageLogList(arr)
+	if len(clean) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(clean)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func parseRenovationStageLogs(raw string) []gf.Map {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return make([]gf.Map, 0)
+	}
+	var arr []map[string]interface{}
+	if err := json.Unmarshal([]byte(s), &arr); err != nil {
+		return make([]gf.Map, 0)
+	}
+	clean := normalizeRenovationStageLogList(arr)
+	out := make([]gf.Map, 0, len(clean))
+	for _, it := range clean {
+		out = append(out, it)
+	}
+	return out
+}
+
+func isUnknownColumnErr(err error, col string) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Unknown column") && strings.Contains(msg, col)
+}
+
 func pickMap(param map[string]interface{}, keys ...string) gf.Map {
 	out := gf.Map{}
 	for _, k := range keys {
@@ -408,6 +552,98 @@ func (api *Houses) GetStatusLogs(c *gf.GinCtx) {
 	}).Regin(c)
 }
 
+// 获取房源的经纪人行为记录（浏览/带看/开锁）
+// 入参：
+// - property_id: 房源ID（必填）
+// - record_type: view|showing|unlock（必填）
+// - page/pageSize
+func (api *Houses) GetBehaviorLogs(c *gf.GinCtx) {
+	pageNo := gconv.Int(c.DefaultQuery("page", "1"))
+	pageSize := gconv.Int(c.DefaultQuery("pageSize", "12"))
+	if pageNo <= 0 {
+		pageNo = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 12
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+
+	propertyID := gconv.Int64(c.DefaultQuery("property_id", "0"))
+	if propertyID <= 0 {
+		gf.Failed().SetMsg("请传参数property_id").Regin(c)
+		return
+	}
+	recordType := strings.TrimSpace(c.DefaultQuery("record_type", ""))
+	if recordType == "" {
+		recordType = strings.TrimSpace(c.DefaultQuery("type", ""))
+	}
+	businessID := c.GetInt64("businessID")
+
+	// 校验房源归属
+	existProperty, _ := gf.Model("business_properties").
+		Where("business_id", businessID).
+		Where("id", propertyID).
+		Where("deletetime", nil).
+		Exist()
+	if !existProperty {
+		gf.Failed().SetMsg("房源不存在或无权限").Regin(c)
+		return
+	}
+
+	totalCount := 0
+	list := make(gform.Result, 0)
+	switch recordType {
+	case "view", "showing":
+		MDB := gf.Model("business_user_activity_logs a").
+			LeftJoin("business_user u", "u.id = a.user_id").
+			LeftJoin("business_stores s", "s.id = u.store_id AND s.deletetime IS NULL").
+			Where("a.property_id", propertyID).
+			Where("a.activity_type", recordType).
+			Where("u.business_id", businessID)
+		totalCount, _ = MDB.Clone().Count()
+		rows, err := MDB.
+			Fields("a.id,a.user_id,a.property_id,a.activity_type,a.meta_data,a.createtime,u.name as user_name,u.username as user_username,u.mobile as user_mobile,u.store_id,u.title as user_title,s.name as store_name").
+			Page(pageNo, pageSize).
+			Order("a.id desc").
+			Select()
+		if err != nil {
+			gf.Failed().SetMsg("获取记录失败：" + err.Error()).Regin(c)
+			return
+		}
+		list = rows
+	case "unlock":
+		MDB := gf.Model("business_unlock_requests r").
+			LeftJoin("business_user u", "u.id = r.user_id").
+			LeftJoin("business_stores s", "s.id = u.store_id AND s.deletetime IS NULL").
+			Where("r.property_id", propertyID).
+			Where("u.business_id", businessID)
+		totalCount, _ = MDB.Clone().Count()
+		rows, err := MDB.
+			Fields("r.id,r.user_id,r.property_id,r.request_status,r.request_type,r.request_time,r.expires_at,r.approval_remark,r.status,r.createtime,r.updatetime,u.name as user_name,u.username as user_username,u.mobile as user_mobile,u.store_id,u.title as user_title,s.name as store_name").
+			Page(pageNo, pageSize).
+			Order("r.id desc").
+			Select()
+		if err != nil {
+			gf.Failed().SetMsg("获取记录失败：" + err.Error()).Regin(c)
+			return
+		}
+		list = rows
+	default:
+		gf.Failed().SetMsg("record_type 参数无效").Regin(c)
+		return
+	}
+
+	gf.Success().SetMsg("获取记录成功").SetData(gf.Map{
+		"record_type": recordType,
+		"page":        pageNo,
+		"pageSize":    pageSize,
+		"total":       totalCount,
+		"items":       list,
+	}).Regin(c)
+}
+
 // 删除房源
 func (api *Houses) Del(c *gf.GinCtx) {
 	param, _ := gf.RequestParam(c)
@@ -453,6 +689,18 @@ func (api *Houses) GetRenovation(c *gf.GinCtx) {
 	} else if data != nil {
 		data["images"] = gf.VarNew("")
 	}
+	// 处理 stage_logs 字段：JSON 数组（用于“工序时间线”）
+	if data != nil {
+		raw := ""
+		if data["stage_logs"] != nil {
+			raw = strings.TrimSpace(data["stage_logs"].String())
+		}
+		if raw != "" {
+			data["stage_logs"] = gf.VarNew(parseRenovationStageLogs(raw))
+		} else {
+			data["stage_logs"] = gf.VarNew(make([]gf.Map, 0))
+		}
+	}
 	gf.Success().SetMsg("获取装修信息成功").SetData(data).Regin(c)
 }
 
@@ -474,7 +722,7 @@ func (api *Houses) SaveRenovation(c *gf.GinCtx) {
 	saveData := pickMap(param,
 		"renovation_status", "progress_percentage", "current_stage",
 		"start_date", "estimated_finish_date", "actual_finish_date",
-		"materials", "images", "notes", "status",
+		"materials", "images", "stage_logs", "notes", "status",
 	)
 	// 处理 materials 字段（数组转逗号分隔字符串）
 	if _, ok := saveData["materials"]; ok {
@@ -484,12 +732,20 @@ func (api *Houses) SaveRenovation(c *gf.GinCtx) {
 	if _, ok := saveData["images"]; ok {
 		saveData["images"] = normalizeCommaText(saveData["images"])
 	}
+	// 处理 stage_logs 字段（JSON 数组字符串）
+	if _, ok := saveData["stage_logs"]; ok {
+		saveData["stage_logs"] = normalizeRenovationStageLogsToJSON(saveData["stage_logs"])
+	}
 	// 查询是否已存在装修记录
 	existing, _ := gf.Model("business_renovations").Where("property_id", propertyId).Find()
 	if existing == nil || len(existing) == 0 {
 		// 新增
 		saveData["property_id"] = propertyId
 		_, err := gf.Model("business_renovations").Data(saveData).InsertAndGetId()
+		if err != nil && isUnknownColumnErr(err, "stage_logs") {
+			delete(saveData, "stage_logs")
+			_, err = gf.Model("business_renovations").Data(saveData).InsertAndGetId()
+		}
 		if err != nil {
 			gf.Failed().SetMsg("添加装修信息失败").SetData(err).Regin(c)
 		} else {
@@ -498,6 +754,10 @@ func (api *Houses) SaveRenovation(c *gf.GinCtx) {
 	} else {
 		// 更新
 		_, err := gf.Model("business_renovations").Where("property_id", propertyId).Update(saveData)
+		if err != nil && isUnknownColumnErr(err, "stage_logs") {
+			delete(saveData, "stage_logs")
+			_, err = gf.Model("business_renovations").Where("property_id", propertyId).Update(saveData)
+		}
 		if err != nil {
 			gf.Failed().SetMsg("更新装修信息失败").SetData(err).Regin(c)
 		} else {

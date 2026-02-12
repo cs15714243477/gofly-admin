@@ -135,6 +135,7 @@ CREATE TABLE `business_renovations` (
   `actual_finish_date` date NULL DEFAULT NULL COMMENT '实际完工日期',
   `materials` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '材料列表(逗号分隔)',
   `images` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '装修图片(多图,逗号分隔)',
+  `stage_logs` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '工序时间线(JSON数组)',
   `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '施工说明',
   `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '状态:0正常,1禁用',
   `createtime` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',

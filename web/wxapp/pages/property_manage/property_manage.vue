@@ -169,10 +169,12 @@ export default {
       saleStatusTabs: [
         { label: '全部', value: '' },
         { label: '在售', value: 'on_sale' },
+        { label: '预售', value: 'in_sale' },
         { label: '已售', value: 'sold' },
         { label: '下架', value: 'off_market' },
       ],
       inited: false,
+      saleStatusTabsLoading: false,
     }
   },
   onShow() {
@@ -204,6 +206,60 @@ export default {
       if (ss === 'sold') return 'disabled'
       if (ss === 'off_market') return 'primary'
       return 'warn'
+    },
+    normalizeFormOptionsList(arr) {
+      return (Array.isArray(arr) ? arr : [])
+        .map((it) => ({
+          label: String((it && it.label) || '').trim(),
+          value: String((it && it.value) || '').trim(),
+        }))
+        .filter((it) => it.label && it.value)
+    },
+    applySaleStatusTabsFromOptions(data) {
+      const sale = this.normalizeFormOptionsList(data && data.sale_status)
+      if (!sale.length) return
+      const uniq = []
+      const seen = new Set()
+      sale.forEach((it) => {
+        if (seen.has(it.value)) return
+        seen.add(it.value)
+        uniq.push(it)
+      })
+      this.saleStatusTabs = [{ label: '全部', value: '' }].concat(uniq)
+      const hit = this.saleStatusTabs.some(
+        (t) => String(t.value) === String(this.saleStatus)
+      )
+      if (!hit) {
+        const prev = this.saleStatus
+        this.saleStatus = ''
+        if (String(prev) !== String(this.saleStatus)) {
+          setTimeout(() => this.reload(), 200)
+        }
+      }
+    },
+    async loadSaleStatusTabs() {
+      if (this.saleStatusTabsLoading) return
+      this.saleStatusTabsLoading = true
+      const userStore = $store('user')
+      const businessId = Number((userStore.userInfo || {}).business_id) || 1
+      const cacheKey = `wx_property_form_options_v2_${businessId}`
+      const cached = uni.getStorageSync(cacheKey)
+      if (cached && typeof cached === 'object') {
+        this.applySaleStatusTabsFromOptions(cached)
+      }
+      try {
+        try {
+          const res = await propertyApi.getFormOptions({})
+          if (!res || res.code !== 0) return
+          const data = res.data || {}
+          this.applySaleStatusTabsFromOptions(data)
+          try {
+            uni.setStorageSync(cacheKey, data)
+          } catch (e) {}
+        } catch (e) {}
+      } finally {
+        this.saleStatusTabsLoading = false
+      }
     },
     async ensurePermissionAndLoad() {
       const userStore = $store('user')
@@ -238,6 +294,7 @@ export default {
       }
 
       if (!this.inited) this.inited = true
+      this.loadSaleStatusTabs()
       this.reload()
     },
     goBack() {

@@ -10,6 +10,7 @@ enum Api {
   upStatus = '/houses/houses/upStatus',
   del = '/houses/houses/del',
   getStatusLogs = '/houses/houses/getStatusLogs',
+  getBehaviorLogs = '/houses/houses/getBehaviorLogs',
   // 表单下拉选项（统一配置/字典兜底）
   getFormOptions = '/uniapp/wxproperty/getFormOptions',
   // 装修信息
@@ -47,6 +48,11 @@ export function upStatus(params: Record<string, any>) {
 // 获取状态变更记录
 export function getStatusLogs(params: Record<string, any>) {
   return defHttp.get({ url: Api.getStatusLogs, params }, { errorMessageMode: 'none' });
+}
+
+// 获取经纪人行为记录（浏览/带看/开锁）
+export function getBehaviorLogs(params: Record<string, any>) {
+  return defHttp.get({ url: Api.getBehaviorLogs, params }, { errorMessageMode: 'none' });
 }
 
 // 删除数据
