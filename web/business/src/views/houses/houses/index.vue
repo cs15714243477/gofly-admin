@@ -77,6 +77,7 @@
               @change="handleSearch"
             >
               <a-option value="on_sale">在售</a-option>
+              <a-option value="in_sale">预售</a-option>
               <a-option value="sold">已售</a-option>
               <a-option value="off_market">下架</a-option>
             </a-select>
@@ -144,7 +145,12 @@
                   fit="cover"
                   class="cover-img"
                 />
-                <div class="cover-overlay" v-if="record.sale_status === 'sold'">已售</div>
+                <div
+                  class="cover-overlay"
+                  v-if="['sold', 'in_sale'].includes(record.sale_status)"
+                >
+                  {{ getSaleStatusLabel(record.sale_status) }}
+                </div>
               </div>
             </template>
 
@@ -334,7 +340,7 @@ const parseTags = (tags: any) => {
 };
 
 const getSaleStatusLabel = (status: string) => {
-  const map: any = { on_sale: '在售', sold: '已售', off_market: '下架' };
+  const map: any = { on_sale: '在售', in_sale: '预售', sold: '已售', off_market: '下架' };
   return map[status] || status;
 };
 
@@ -663,6 +669,13 @@ onMounted(() => {
      .status-dot { 
        background: var(--color-text-4); 
      } 
+   }
+   &.in_sale {
+     color: rgb(var(--arcoblue-6));
+     .status-dot {
+       background: rgb(var(--arcoblue-6));
+       box-shadow: 0 0 0 2px rgba(var(--arcoblue-6), 0.2);
+     }
    }
    &.off_market { 
      color: rgb(var(--warning-6)); 

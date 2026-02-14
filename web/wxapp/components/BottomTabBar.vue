@@ -21,7 +21,7 @@
 	export default {
 		name: 'BottomTabBar',
 		props: {
-			// home | property | marketing | me
+			// home | property | presale | marketing | me
 			active: {
 				type: String,
 				default: 'home'
@@ -31,6 +31,7 @@
 			return {
 				items: [
 					{ key: 'property', label: '房源', icon: 'apartment', url: '/pages/property_list/property_list' },
+					{ key: 'presale', label: '预售', icon: 'new_releases', url: '/pages/presale_list/presale_list' },
 					{ key: 'home', label: '推荐', icon: 'home', url: '/pages/home/home' },
 					{ key: 'marketing', label: '获客', icon: 'campaign', url: '/pages/my_business_card/my_business_card' },
 					{ key: 'me', label: '我的', icon: 'person', url: '/pages/agent_workbench_home/agent_workbench_home' }

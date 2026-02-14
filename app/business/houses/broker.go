@@ -5,6 +5,8 @@ import (
 	"gofly/utils/gform"
 	"gofly/utils/tools/gconv"
 	"gofly/utils/tools/gmap"
+	"strings"
+	"time"
 )
 
 // 经纪人（business_user）管理
@@ -49,10 +51,24 @@ func (api *Broker) GetList(c *gf.GinCtx) {
 	if v, ok := param["can_manage_locks"]; ok && v != "" {
 		whereMap.Set("can_manage_locks", v)
 	}
+	if v, ok := param["audit_status"]; ok && v != "" && gf.DbHaseField("business_user", "audit_status") {
+		whereMap.Set("audit_status", v)
+	}
 
 	MDB := gf.Model("business_user").Where(whereMap)
 	totalCount, _ := MDB.Clone().Count()
-	list, err := MDB.Fields("id,business_id,username,name,nickname,remark,email,mobile,avatar,sex,role,can_manage_properties,can_manage_locks,store_id,title,introduction,status,createtime,updatetime").
+	fields := "id,business_id,username,name,nickname,remark,email,mobile,avatar,sex,role,can_manage_properties,can_manage_locks,store_id,title,introduction,status,createtime,updatetime"
+	// 兼容：手填门店与审核字段可能是增量字段
+	for _, col := range []string{
+		"store_name_text", "store_address_text",
+		"region_province", "region_city", "region_district",
+		"audit_status", "audit_reason", "apply_time", "audit_time",
+	} {
+		if gf.DbHaseField("business_user", col) {
+			fields += "," + col
+		}
+	}
+	list, err := MDB.Fields(fields).
 		Page(pageNo, pageSize).
 		Order("id desc").
 		Select()
@@ -97,6 +113,26 @@ func (api *Broker) GetList(c *gf.GinCtx) {
 				}
 			}
 		}
+		// 手填门店兜底：当 store_id 为空，或门店表缺失/已删除时可展示
+		for _, it := range list {
+			sid := gconv.Int64(it["store_id"])
+			if sid != 0 {
+				// 已有门店数据则不覆盖
+				if v, ok := it["store_name"]; ok && strings.TrimSpace(gconv.String(v)) != "" {
+					continue
+				}
+			}
+			if gf.DbHaseField("business_user", "store_name_text") {
+				if s := strings.TrimSpace(gconv.String(it["store_name_text"])); s != "" {
+					it["store_name"] = gf.VarNew(s)
+				}
+			}
+			if gf.DbHaseField("business_user", "store_address_text") {
+				if s := strings.TrimSpace(gconv.String(it["store_address_text"])); s != "" {
+					it["store_address"] = gf.VarNew(s)
+				}
+			}
+		}
 	}
 	gf.Success().SetMsg("获取经纪人列表").SetData(gf.Map{
 		"page":     pageNo,
@@ -133,6 +169,9 @@ func (api *Broker) Save(c *gf.GinCtx) {
 		"password", "salt",
 		"email", "mobile", "avatar",
 		"sex", "role", "store_id",
+		"store_name_text", "store_address_text",
+		"region_province", "region_city", "region_district",
+		"audit_status", "audit_reason",
 		"can_manage_properties",
 		"can_manage_locks",
 		"title", "introduction",
@@ -157,6 +196,55 @@ func (api *Broker) Save(c *gf.GinCtx) {
 			return
 		}
 		saveData["can_manage_locks"] = v
+	}
+
+	// 审核字段校验（新增字段：老库可不存在）
+	if v, ok := saveData["audit_status"]; ok {
+		if !gf.DbHaseField("business_user", "audit_status") {
+			delete(saveData, "audit_status")
+		} else {
+			as := strings.ToLower(strings.TrimSpace(gconv.String(v)))
+			switch as {
+			case "pending", "approved", "rejected":
+				saveData["audit_status"] = as
+			default:
+				gf.Failed().SetMsg("audit_status参数不合法").Regin(c)
+				return
+			}
+
+			// 审核时间自动写入（仅当字段存在）
+			if gf.DbHaseField("business_user", "audit_time") {
+				saveData["audit_time"] = time.Now()
+			}
+
+			// 拒绝时要求填写原因
+			if as == "rejected" {
+				reason := strings.TrimSpace(gconv.String(saveData["audit_reason"]))
+				if reason == "" {
+					gf.Failed().SetMsg("拒绝时请填写审核原因").Regin(c)
+					return
+				}
+				if gf.DbHaseField("business_user", "audit_reason") {
+					saveData["audit_reason"] = reason
+				} else {
+					delete(saveData, "audit_reason")
+				}
+			} else {
+				// 非拒绝：若原因字段存在且未传，则清空（避免残留）
+				if gf.DbHaseField("business_user", "audit_reason") {
+					if _, has := saveData["audit_reason"]; !has {
+						saveData["audit_reason"] = ""
+					}
+				} else {
+					delete(saveData, "audit_reason")
+				}
+			}
+		}
+	} else {
+		// 未传 audit_status：若 audit_reason 单独传入则丢弃（避免无意义更新）
+		if _, ok := saveData["audit_reason"]; ok && !gf.DbHaseField("business_user", "audit_reason") {
+			delete(saveData, "audit_reason")
+		}
 	}
 
 	// 固定 business_id，避免越权

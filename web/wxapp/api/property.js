@@ -14,6 +14,34 @@ export default {
       },
     }),
 
+  // 预售房源列表（Tab 专用，sale_status=in_sale）
+  getPreSaleList: (data) =>
+    request({
+      url: "/uniapp/presale/getList",
+      method: "GET",
+      data,
+      custom: {
+        showSuccess: false,
+        showLoading: true,
+        auth: true,
+        loadingMsg: "加载中",
+      },
+    }),
+
+  // 预售房源详情（Tab 专用，需 view_key）
+  getPreSaleDetail: (data) =>
+    request({
+      url: "/uniapp/presale/getDetail",
+      method: "GET",
+      data,
+      custom: {
+        showSuccess: false,
+        showLoading: true,
+        auth: true,
+        loadingMsg: "加载中",
+      },
+    }),
+
   // 房源详情（小程序，走 /uniapp/wxproperty 控制器）
   getDetail: (data) =>
     request({

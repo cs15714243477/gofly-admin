@@ -162,6 +162,7 @@ INNER JOIN business_properties p ON p.id = r.property_id
 WHERE
 	r.business_id = ? AND r.agent_id = ? AND r.status = 0
 	AND p.business_id = ? AND p.status = 0 AND p.deletetime IS NULL
+	AND p.sale_status NOT IN ('sold','off_market','in_sale')
 ORDER BY r.sort ASC, r.id ASC
 LIMIT ?
 `, businessID, agentID, businessID, limit).Select()
@@ -226,6 +227,7 @@ func querySystemRecommendedProperties(businessID int64, limit int, exclude map[i
 		Where("status", 0).
 		Where("deletetime", nil).
 		Where("hot_status", 1).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Order("weigh desc,id desc").
 		Limit(limit * 2).
 		Select()
@@ -242,6 +244,7 @@ func querySystemRecommendedProperties(businessID int64, limit int, exclude map[i
 		Where("business_id", businessID).
 		Where("status", 0).
 		Where("deletetime", nil).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Order("weigh desc,id desc").
 		Limit(limit * 3).
 		Select()
@@ -262,6 +265,7 @@ func filterAvailablePropertyIDs(businessID int64, ids []int64) ([]int64, error) 
 		Where("business_id", businessID).
 		Where("status", 0).
 		Where("deletetime", nil).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		WhereIn("id", ids).
 		Select()
 	if err != nil {
@@ -311,6 +315,7 @@ func (api *Index) GetAgentCardRecommendConfig(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("status", 0).
 		Where("deletetime", nil).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Order("hot_status desc,weigh desc,id desc").
 		Limit(200).
 		Select()

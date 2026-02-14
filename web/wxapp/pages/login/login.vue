@@ -34,8 +34,17 @@
 					</view>
 				</view>
 
-				<!-- 登录表单 -->
-				<view class="form">
+				<!-- 已登录：加载并跳转首页 -->
+				<view v-if="checkingLogin" class="loading-card">
+					<view class="loading-row">
+						<view class="loading-spinner"></view>
+						<view class="loading-text">正在加载数据中...</view>
+					</view>
+					<view class="loading-sub">即将进入首页</view>
+				</view>
+
+				<!-- 未登录：登录表单 -->
+				<view v-else class="form">
 					<!-- #ifdef MP-WEIXIN -->
 					<!-- 微信一键登录（手机号授权）——默认只显示这个 -->
 					<button class="wx-login-btn" :disabled="submitting || !agreed" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
@@ -156,12 +165,14 @@
 		onLoad() {
 			this.loadAgreementDocs()
 			this.loadAgreeState()
+			this.bootstrapIfLoggedIn()
 		},
 		data() {
 			return {
 				mobile: '',
 				captcha: '',
 				submitting: false,
+				checkingLogin: false,
 				agreed: false,
 				agreementDocs: {
 					user_agreement: { title: '用户协议', content: '', url: '' },
@@ -249,6 +260,57 @@
 				}
 				uni.navigateTo({ url })
 			},
+			async bootstrapIfLoggedIn() {
+				const token = uni.getStorageSync('token')
+				if (!token) return
+				if (this.checkingLogin) return
+
+				this.checkingLogin = true
+				const userStore = $store('user')
+				try {
+					if (!userStore.isLogin) userStore.setToken(token)
+					if (userStore.userInfo && userStore.userInfo.id) {
+						this.afterLoginSuccess()
+						return
+					}
+					await userStore.getInfo()
+					this.afterLoginSuccess()
+				} catch (e) {
+					try {
+						await userStore.logout(true)
+					} catch (e2) {}
+				} finally {
+					this.checkingLogin = false
+				}
+			},
+			handleAuditGate(res, extra = {}) {
+				const code = Number(res && res.code)
+				if (![10001, 10002, 10003].includes(code)) return false
+
+				const data = (res && res.data) ? res.data : {}
+				const exdata = (res && res.exdata) ? res.exdata : {}
+				const mobile = String(data.mobile || exdata.mobile || extra.mobile || '').trim()
+				const reason = String(data.audit_reason || '').trim()
+
+				if (mobile) {
+					try { uni.setStorageSync('hm_phone', mobile) } catch (e) {}
+				}
+				if (reason) {
+					try { uni.setStorageSync('wxapp_register_reject_reason', reason) } catch (e) {}
+				} else {
+					try { uni.removeStorageSync('wxapp_register_reject_reason') } catch (e) {}
+				}
+
+				// 登录页拿到的手机号授权 code：用于注册页提交审核（一次性）
+				if (extra && extra.phone_code) {
+					try { uni.setStorageSync('wxapp_register_phone_code', String(extra.phone_code)) } catch (e) {}
+				}
+
+				uni.navigateTo({
+					url: `/pages/registration/registration?mobile=${encodeURIComponent(mobile || '')}`
+				})
+				return true
+			},
 			async handleLogin() {
 				if (!this.ensureAgreed()) return
 				if (!this.mobile || String(this.mobile).length !== 11) {
@@ -263,7 +325,12 @@
 				this.submitting = true
 				try {
 					const res = await userApi.login({ mobile: this.mobile, captcha: this.captcha })
-					if (!res || res.code !== 0) return
+					if (!res) return
+					if (res.code !== 0) {
+						// 未注册/审核中/已拒绝：跳转注册页
+						if (this.handleAuditGate(res, { mobile: this.mobile })) return
+						return
+					}
 					// token 由后端 token 字段返回，拦截器也会自动 setToken；这里兜底一次
 					if (res.token) $store('user').setToken(res.token)
 					await $store('user').getInfo().catch(() => {})
@@ -289,7 +356,12 @@
 						try {
 							const wxCode = loginRes && loginRes.code
 							const res = await userApi.wxLogin({ wx_code: wxCode, phone_code: phoneCode })
-							if (!res || res.code !== 0) return
+							if (!res) return
+							if (res.code !== 0) {
+								// 未注册/审核中/已拒绝：跳转注册页
+								if (this.handleAuditGate(res, { phone_code: phoneCode })) return
+								return
+							}
 							if (res.token) $store('user').setToken(res.token)
 							await $store('user').getInfo().catch(() => {})
 							this.afterLoginSuccess()
@@ -424,6 +496,47 @@
 			color: #64748b;
 			font-weight: 400;
 		}
+	}
+
+	.loading-card {
+		width: 100%;
+		background: #ffffff;
+		border: 1rpx solid rgba(226, 232, 240, 0.9);
+		border-radius: 24rpx;
+		padding: 32rpx 28rpx;
+		box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.06);
+	}
+
+	.loading-row {
+		display: flex;
+		align-items: center;
+		gap: 18rpx;
+	}
+
+	.loading-spinner {
+		width: 36rpx;
+		height: 36rpx;
+		border-radius: 50%;
+		border: 4rpx solid rgba(45, 156, 240, 0.22);
+		border-top-color: #2d9cf0;
+		animation: spin 0.9s linear infinite;
+	}
+
+	.loading-text {
+		font-size: 30rpx;
+		font-weight: 600;
+		color: #0f172a;
+	}
+
+	.loading-sub {
+		margin-top: 14rpx;
+		font-size: 24rpx;
+		color: #64748b;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
 	}
 
 	.alert-box {

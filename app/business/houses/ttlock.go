@@ -68,13 +68,20 @@ func (api *Ttlock) SyncLocks(c *gf.GinCtx) {
 	pageNo := 1
 	pageSize := 50
 	totalSaved := 0
+	foundLockIDs := make(map[int64]struct{})
+	expectedTotal := 0
+	reachedEnd := false
 	for pageNo <= 10 { // 防止无限循环，最多拉 10 页
 		out, err := ttlockListLocks(cfg, accessToken, pageNo, pageSize)
 		if err != nil {
 			gf.Failed().SetMsg("同步失败：" + err.Error()).SetData(out).Regin(c)
 			return
 		}
+		if out.Total > expectedTotal {
+			expectedTotal = out.Total
+		}
 		if len(out.List) == 0 {
+			reachedEnd = true
 			break
 		}
 
@@ -83,6 +90,7 @@ func (api *Ttlock) SyncLocks(c *gf.GinCtx) {
 			if lockID == 0 {
 				continue
 			}
+			foundLockIDs[lockID] = struct{}{}
 			lockName := gconv.String(it["lockName"])
 			lockMac := gconv.String(it["lockMac"])
 			battery := gconv.Int(it["battery"])
@@ -121,12 +129,119 @@ func (api *Ttlock) SyncLocks(c *gf.GinCtx) {
 
 		// 已经拉完
 		if out.Total > 0 && pageNo*pageSize >= out.Total {
+			reachedEnd = true
 			break
 		}
 		pageNo++
 	}
 
-	gf.Success().SetMsg("同步完成").SetData(gf.Map{"saved": totalSaved}).Regin(c)
+	// 清理：云端已删除的锁，本地也需要同步删除/解绑（避免误删：仅在“确认拉完全部锁”时执行）
+	syncAt := time.Now().Unix()
+	deletedLocks := 0
+	unboundBinds := 0
+	affectedProperties := 0
+	cleanupSkipped := false
+	cleanupReason := ""
+
+	completeSync := reachedEnd && (expectedTotal == 0 || len(foundLockIDs) >= expectedTotal)
+	if !completeSync {
+		cleanupSkipped = true
+		if !reachedEnd {
+			cleanupReason = "已达到分页上限，可能未拉取完整锁列表，已跳过缺失锁清理以避免误删"
+		} else {
+			cleanupReason = "锁列表数量与预期不一致，已跳过缺失锁清理以避免误删"
+		}
+	} else {
+		// 1) 找出本地存在但云端已不存在的 lock_id
+		localRows, _ := gf.Model("business_smart_locks").
+			Fields("ttlock_lock_id").
+			Where("business_id", businessID).
+			Where("deletetime", 0).
+			Select()
+
+		missingLockIDs := make([]interface{}, 0)
+		for _, r := range localRows {
+			if r == nil {
+				continue
+			}
+			lockID := r["ttlock_lock_id"].Int64()
+			if lockID <= 0 {
+				continue
+			}
+			if _, ok := foundLockIDs[lockID]; ok {
+				continue
+			}
+			missingLockIDs = append(missingLockIDs, lockID)
+		}
+
+		if len(missingLockIDs) > 0 {
+			// 2) 解绑相关房源（bind_status=1 -> 0）
+			binds, _ := gf.Model("business_property_locks").
+				Fields("property_id").
+				Where("business_id", businessID).
+				Where("deletetime", 0).
+				Where("bind_status", 1).
+				WhereIn("ttlock_lock_id", missingLockIDs).
+				Select()
+			propertyIDs := make([]interface{}, 0)
+			seenProperty := make(map[int64]struct{})
+			for _, b := range binds {
+				if b == nil {
+					continue
+				}
+				if pid := b["property_id"].Int64(); pid > 0 {
+					if _, ok := seenProperty[pid]; ok {
+						continue
+					}
+					seenProperty[pid] = struct{}{}
+					propertyIDs = append(propertyIDs, pid)
+				}
+			}
+
+			if res, e := gf.Model("business_property_locks").
+				Where("business_id", businessID).
+				Where("deletetime", 0).
+				Where("bind_status", 1).
+				WhereIn("ttlock_lock_id", missingLockIDs).
+				Update(gf.Map{"bind_status": 0, "unbind_time": syncAt, "updatetime": syncAt}); e == nil && res != nil {
+				ra, _ := res.RowsAffected()
+				unboundBinds = int(ra)
+			}
+
+			// 3) 同步房源冗余字段 has_smart_lock
+			if len(propertyIDs) > 0 {
+				if res, e := gf.Model("business_properties").
+					Where("business_id", businessID).
+					WhereIn("id", propertyIDs).
+					Update(gf.Map{"has_smart_lock": 0, "updatetime": syncAt}); e == nil && res != nil {
+					ra, _ := res.RowsAffected()
+					affectedProperties = int(ra)
+				}
+			}
+
+			// 4) 软删除缺失锁
+			if res, e := gf.Model("business_smart_locks").
+				Where("business_id", businessID).
+				Where("deletetime", 0).
+				WhereIn("ttlock_lock_id", missingLockIDs).
+				Update(gf.Map{"deletetime": syncAt, "updatetime": syncAt}); e == nil && res != nil {
+				ra, _ := res.RowsAffected()
+				deletedLocks = int(ra)
+			}
+		}
+	}
+
+	gf.Success().SetMsg("同步完成").SetData(gf.Map{
+		"saved": totalSaved,
+		"cleanup": gf.Map{
+			"complete_sync":      completeSync,
+			"deleted_locks":      deletedLocks,
+			"unbound_binds":      unboundBinds,
+			"affected_properties": affectedProperties,
+			"skipped":            cleanupSkipped,
+			"skip_reason":        cleanupReason,
+		},
+	}).Regin(c)
 }
 
 // 锁列表（本地库）

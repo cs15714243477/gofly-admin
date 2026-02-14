@@ -38,6 +38,8 @@ func wxSaleStatusLabel(status string) string {
 	switch status {
 	case "on_sale":
 		return "在售"
+	case "in_sale":
+		return "预售"
 	case "sold":
 		return "已售"
 	case "off_market":
@@ -139,7 +141,8 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		Where("id", id).
 		Where("deletetime", nil).
 		Where("status", 0).
-		Fields("id,title,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,video_url,allow_image_download,allow_video_download,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,createtime").
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
+		Fields("id,title,custom_desc,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,video_url,allow_image_download,allow_video_download,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,createtime").
 		Find()
 	if err != nil {
 		gf.Failed().SetMsg("获取房源详情失败：" + err.Error()).Regin(c)
@@ -215,6 +218,7 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("deletetime", nil).
 		Where("status", 0).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Where("id <>", id).
 		Fields("id,title,price,price_unit,area,rooms,halls,bathrooms,cover_image,images,sale_status,weigh,createtime").
 		Order("hot_status desc, weigh desc, id desc").
@@ -292,6 +296,7 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 	property := gf.Map{
 		"id":                   row["id"].Int64(),
 		"title":                row["title"].String(),
+		"custom_desc":          gconv.String(row["custom_desc"]),
 		"price":                gconv.String(row["price"]),
 		"price_unit":           row["price_unit"].String(),
 		"area":                 gconv.String(row["area"]),
@@ -390,6 +395,7 @@ func (api *WxProperty) ToggleFollow(c *gf.GinCtx) {
 		Where("id", id).
 		Where("deletetime", nil).
 		Where("status", 0).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Fields("id").
 		Find()
 	if exists == nil || len(exists) == 0 {

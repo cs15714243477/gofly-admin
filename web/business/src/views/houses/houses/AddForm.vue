@@ -79,6 +79,18 @@
                             </a-input>
                           </a-form-item>
                         </a-col>
+                        <a-col :span="24">
+                          <a-form-item field="custom_desc" label="房源描述（自定义）">
+                            <a-textarea
+                              v-model="formData.custom_desc"
+                              :auto-size="{ minRows: 3, maxRows: 6 }"
+                              placeholder="可填写房源亮点、周边配套、交通、学区等（纯文本）"
+                              :max-length="1000"
+                              show-word-limit
+                              size="large"
+                            />
+                          </a-form-item>
+                        </a-col>
                         <a-col :span="12">
                            <a-row :gutter="12">
                               <a-col :span="16">
@@ -713,6 +725,7 @@ export default defineComponent({
     const baseData: any = {
       id: 0,
       title: '',
+      custom_desc: '',
       price: 0,
       price_unit: '万',
       area: 0,

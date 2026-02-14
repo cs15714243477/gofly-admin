@@ -41,6 +41,11 @@
               <a-option :value="1">可管理</a-option>
               <a-option :value="0">不可管理</a-option>
             </a-select>
+            <a-select style="width: 140px" v-model="formModel.audit_status" placeholder="审核状态" allow-clear>
+              <a-option value="pending">待审核</a-option>
+              <a-option value="approved">已通过</a-option>
+              <a-option value="rejected">已拒绝</a-option>
+            </a-select>
             <a-select style="width: 140px" v-model="formModel.status" placeholder="状态" allow-clear>
               <a-option :value="0">启用</a-option>
               <a-option :value="1">禁用</a-option>
@@ -76,6 +81,12 @@
             <template #canLock="{ record }">
               <a-tag v-if="Number(record.can_manage_locks) === 1" color="arcoblue">可管理</a-tag>
               <a-tag v-else color="gray">不可管理</a-tag>
+            </template>
+            <template #auditStatus="{ record }">
+              <a-tag v-if="String(record.audit_status) === 'approved'" color="green">已通过</a-tag>
+              <a-tag v-else-if="String(record.audit_status) === 'pending'" color="orange">待审核</a-tag>
+              <a-tag v-else-if="String(record.audit_status) === 'rejected'" color="red">已拒绝</a-tag>
+              <a-tag v-else color="gray">-</a-tag>
             </template>
             <template #action="{ record }">
               <a-space>
@@ -147,6 +158,7 @@ const formModel = ref({
   name: '',
   mobile: '',
   username: '',
+  audit_status: '',
   status: '',
   can_manage_properties: '',
   can_manage_locks: '',
@@ -161,6 +173,7 @@ const columns = [
   { title: '昵称', dataIndex: 'nickname', width: 120, ellipsis: true },
   { title: '手机号', dataIndex: 'mobile', width: 140, ellipsis: true },
   { title: '邮箱', dataIndex: 'email', minWidth: 220, ellipsis: true },
+  { title: '审核状态', dataIndex: 'audit_status', width: 120, align: 'center', slotName: 'auditStatus' },
   { title: '门店名称', dataIndex: 'store_name', minWidth: 180, ellipsis: true },
   { title: '门店地址', dataIndex: 'store_address', minWidth: 260, ellipsis: true },
   { title: '门店电话', dataIndex: 'store_contact_phone', width: 140, ellipsis: true },
@@ -212,7 +225,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   pagination.current = 1;
-  formModel.value = { name: '', mobile: '', username: '', status: '', can_manage_properties: '', can_manage_locks: '' };
+  formModel.value = { name: '', mobile: '', username: '', audit_status: '', status: '', can_manage_properties: '', can_manage_locks: '' };
   fetchData();
 };
 

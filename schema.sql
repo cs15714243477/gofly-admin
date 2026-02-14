@@ -31,6 +31,15 @@ CREATE TABLE `business_user` (
   `can_manage_properties` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否可维护房源:0否,1是',
   `can_manage_locks` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否可管理智能锁:0否,1是',
   `store_id` int(11) NOT NULL DEFAULT 0 COMMENT '所属门店ID',
+  `store_name_text` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '手填门店名称',
+  `store_address_text` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '手填门店地址',
+  `region_province` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '所在省',
+  `region_city` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '所在市',
+  `region_district` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '所在区',
+  `audit_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'approved' COMMENT '审核状态:pending待审核,approved已通过,rejected已拒绝',
+  `audit_reason` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '审核备注/拒绝原因',
+  `apply_time` datetime(0) NULL DEFAULT NULL COMMENT '提交审核时间',
+  `audit_time` datetime(0) NULL DEFAULT NULL COMMENT '审核时间',
   `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '头衔',
   `introduction` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '自我介绍',
   `openid` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '微信OpenID',
@@ -43,7 +52,8 @@ CREATE TABLE `business_user` (
   INDEX `idx_username` (`username`) USING BTREE,
   INDEX `idx_email` (`email`) USING BTREE,
   INDEX `idx_mobile` (`mobile`) USING BTREE,
-  INDEX `idx_openid` (`openid`) USING BTREE
+  INDEX `idx_openid` (`openid`) USING BTREE,
+  INDEX `idx_audit_status` (`audit_status`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 110 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '经纪人表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -74,6 +84,7 @@ CREATE TABLE `business_properties` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `business_id` int(11) NOT NULL DEFAULT 0 COMMENT '业务主账号id',
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '房源标题',
+  `custom_desc` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '自定义房源描述',
   `price` decimal(12, 2) NOT NULL DEFAULT 0.00 COMMENT '价格',
   `price_unit` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '万' COMMENT '价格单位',
   `area` decimal(10, 2) NOT NULL DEFAULT 0.00 COMMENT '面积(平米)',

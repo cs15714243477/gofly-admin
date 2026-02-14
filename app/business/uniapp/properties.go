@@ -130,6 +130,8 @@ func (api *Properties) GetList(c *gf.GinCtx) {
 		Where("deletetime", nil).
 		Where("status", 0).
 		Where("business_id", businessID)
+	// 小程序端：已售/下架房源完全不可见（即使前端传 sale_status 也只能得到空结果）
+	MDB = wxApplyPropertyVisibility(MDB)
 
 	// 分类
 	switch category {
@@ -234,7 +236,7 @@ func (api *Properties) GetList(c *gf.GinCtx) {
 
 	// 销售状态
 	if saleStatus != "" {
-		if saleStatus != "on_sale" && saleStatus != "sold" && saleStatus != "off_market" {
+		if saleStatus != "on_sale" && saleStatus != "in_sale" && saleStatus != "sold" && saleStatus != "off_market" {
 			gf.Failed().SetMsg("sale_status参数不合法").Regin(c)
 			return
 		}
@@ -389,6 +391,8 @@ func (api *Properties) GetFilterOptions(c *gf.GinCtx) {
 		Where("deletetime", nil).
 		Where("status", 0).
 		Where("business_id", businessID)
+	// 小程序端：已售/下架房源完全不可见
+	MDB = wxApplyPropertyVisibility(MDB)
 
 	// 分类（与列表一致，便于筛选项联动）
 	switch category {

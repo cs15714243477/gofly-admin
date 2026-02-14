@@ -194,7 +194,18 @@
                              <div class="stat-value">{{ detailData.orientation || '暂无' }}</div>
                              <div class="stat-label">朝向</div>
                            </div>
-                         </div>
+                       </div>
+                      </div>
+                     </div>
+                     <!-- Custom Description -->
+                     <div class="detail-card">
+                       <div class="card-header">
+                         <icon-file class="card-icon" />
+                         <span class="card-title">房源描述</span>
+                       </div>
+                       <div class="card-body">
+                         <div v-if="customDescText" class="desc-text">{{ customDescText }}</div>
+                         <a-empty v-else description="暂无描述" />
                        </div>
                      </div>
                    </div>
@@ -541,7 +552,7 @@
                       </a-button>
                       <a-tag bordered size="small">共 {{ unlockLogPagination.total || 0 }} 条</a-tag>
                     </a-space>
-                    <div class="records-tip">说明：开锁记录为开锁申请/结果记录（来自业务开锁记录表）。</div>
+                     <div class="records-tip">说明：开锁记录来自小程序开锁流程日志（business_user_activity_logs，activity_type=unlock）。</div>
                   </div>
 
                   <a-spin :loading="unlockLogLoading" style="width: 100%">
@@ -554,9 +565,7 @@
                       @page-change="handleUnlockLogPageChange"
                       @page-size-change="handleUnlockLogPageSizeChange"
                     >
-                      <a-table-column title="时间" :width="170">
-                        <template #cell="{ record }">{{ record.updatetime || record.request_time || record.createtime || '-' }}</template>
-                      </a-table-column>
+                      <a-table-column title="时间" data-index="createtime" :width="170" />
                       <a-table-column title="经纪人" :width="220">
                         <template #cell="{ record }">
                           <div class="user-cell">
@@ -568,18 +577,21 @@
                           </div>
                         </template>
                       </a-table-column>
-                      <a-table-column title="方式" :width="110">
-                        <template #cell="{ record }">{{ getUnlockTypeLabel(record.request_type) }}</template>
+                      <a-table-column title="阶段" :width="200">
+                        <template #cell="{ record }">{{ getUnlockStageLabel(record._stage) }}</template>
                       </a-table-column>
-                      <a-table-column title="状态" :width="110">
+                      <a-table-column title="结果" :width="90">
                         <template #cell="{ record }">
-                          <a-tag :color="getUnlockStatusColor(record.request_status)" size="small">
-                            {{ getUnlockStatusLabel(record.request_status) }}
-                          </a-tag>
+                          <a-tag v-if="record._success === true" color="green" size="small">成功</a-tag>
+                          <a-tag v-else-if="record._success === false" color="red" size="small">失败</a-tag>
+                          <span v-else>-</span>
                         </template>
                       </a-table-column>
-                      <a-table-column title="备注">
-                        <template #cell="{ record }">{{ record.approval_remark || '-' }}</template>
+                      <a-table-column title="页面/备注">
+                        <template #cell="{ record }">
+                          <div>{{ record._page || '-' }}</div>
+                          <div class="records-sub" v-if="record._err_msg">{{ record._err_msg }}</div>
+                        </template>
                       </a-table-column>
                     </a-table>
                   </a-spin>
@@ -659,13 +671,13 @@
 import { defineComponent, h, ref, computed, watch } from 'vue';
 import { BasicModal, useModal, useModalInner } from '/@/components/Modal';
 import useLoading from '@/hooks/loading';
-import { Message, Modal } from '@arco-design/web-vue';
-import { getContent, getRenovation, getStatusLogs, getBehaviorLogs } from './api';
-import { GetFullPath } from '@/utils/tool';
-import BindLockModal from '../ttlock/modal/BindLockModal.vue';
-import { getLockDetail, getPropertyLock, remoteUnlock, unbindProperty } from '../ttlock/api';
-import dayjs from 'dayjs';
-import { useClipboard } from '@vueuse/core';
+ import { Message, Modal } from '@arco-design/web-vue';
+ import { getContent, getRenovation, getStatusLogs, getBehaviorLogs } from './api';
+ import { GetFullPath } from '@/utils/tool';
+ import BindLockModal from '../ttlock/modal/BindLockModal.vue';
+ import { getLockDetail, getPropertyLock, remoteUnlock, unbindProperty } from '../ttlock/api';
+ import dayjs from 'dayjs';
+ import { useClipboard } from '@vueuse/core';
 
 export default defineComponent({
   name: 'HousesDetailView',
@@ -873,14 +885,14 @@ export default defineComponent({
       }
     };
 
-    const formatTime = (sec: any) => {
-       if(!sec) return '-';
-       return dayjs(Number(sec) * 1000).format('MM-DD HH:mm');
-     }
-
-    const formatMoney = (v: any) => {
-      if (v === null || v === undefined || v === '') return '-';
-      const n = Number(v);
+     const formatTime = (sec: any) => {
+        if(!sec) return '-';
+        return dayjs(Number(sec) * 1000).format('MM-DD HH:mm');
+      }
+ 
+     const formatMoney = (v: any) => {
+       if (v === null || v === undefined || v === '') return '-';
+       const n = Number(v);
       if (Number.isNaN(n)) return '-';
       return `¥${n.toFixed(2)}`;
     };
@@ -990,7 +1002,76 @@ export default defineComponent({
       }
     };
 
-    const normalizeListResp = (resp: any) => resp?.items ? resp : (resp?.data?.items ? resp.data : (resp?.data ?? resp));
+    const getUnlockStageLabel = (raw: any) => {
+      const s = String(raw || '').trim();
+      const map: any = {
+        ble_init_start: '蓝牙初始化',
+        ble_init_ok: '蓝牙初始化成功',
+        ble_init_fail: '蓝牙初始化失败',
+        ble_unlock_start: '蓝牙开锁开始',
+        ble_unlock_finish: '蓝牙开锁结束',
+      };
+      return map[s] || s || '-';
+    };
+
+    const decorateUnlockRows = (rows: any[]) => {
+      for (const r of rows) {
+        const meta = safeParseMeta(r?.meta_data);
+        r._page = metaString(meta, 'page') || metaString(meta, 'path', 'route', 'url');
+        r._stage = metaString(meta, 'stage');
+
+        const successRaw = metaGetValue(meta, 'success');
+        if (successRaw === true || successRaw === 1 || successRaw === '1' || successRaw === 'true') {
+          r._success = true;
+        } else if (successRaw === false || successRaw === 0 || successRaw === '0' || successRaw === 'false') {
+          r._success = false;
+        } else if (String(r._stage || '').includes('fail')) {
+          r._success = false;
+        } else {
+          r._success = undefined;
+        }
+
+        r._request_id = metaInt(meta, 'request_id');
+        r._err_msg = metaString(meta, 'err_msg', 'error', 'message');
+      }
+    };
+
+    const normalizeListResp = (resp: any) => {
+      if (!resp) return resp;
+      // defHttp 默认会把 {code,data,message} 解包成 data；但为了兼容部分场景，这里做一次兜底
+      if (typeof resp === 'object' && resp !== null && 'data' in resp && (resp as any).data !== undefined) {
+        return (resp as any).data ?? resp;
+      }
+      return resp;
+    };
+
+    const normalizeListItems = (raw: any) => {
+      if (Array.isArray(raw)) return raw;
+      if (!raw || typeof raw !== 'object') return [];
+      if (Array.isArray((raw as any).items)) return (raw as any).items;
+      if (Array.isArray((raw as any).list)) return (raw as any).list;
+      if (Array.isArray((raw as any).rows)) return (raw as any).rows;
+      if (Array.isArray((raw as any).data)) return (raw as any).data;
+      return [];
+    };
+
+    const normalizeListTotal = (raw: any, items: any[]) => {
+      const n = Number((raw as any)?.total ?? (raw as any)?.count ?? (raw as any)?.totalCount ?? (raw as any)?.total_count ?? 0);
+      if (Number.isFinite(n) && n >= 0) return Math.trunc(n);
+      return items.length;
+    };
+
+    const normalizeListPage = (raw: any, fallback: number) => {
+      const n = Number((raw as any)?.page ?? (raw as any)?.current ?? (raw as any)?.pageNo ?? (raw as any)?.page_no ?? fallback);
+      if (Number.isFinite(n) && n > 0) return Math.trunc(n);
+      return fallback;
+    };
+
+    const normalizeListPageSize = (raw: any, fallback: number) => {
+      const n = Number((raw as any)?.pageSize ?? (raw as any)?.page_size ?? (raw as any)?.limit ?? fallback);
+      if (Number.isFinite(n) && n > 0) return Math.trunc(n);
+      return fallback;
+    };
 
     const fetchBehaviorLogs = async (
       recordType: 'view' | 'showing' | 'unlock',
@@ -1010,13 +1091,16 @@ export default defineComponent({
           pageSize: paginationRef.value.pageSize,
         });
         const data = normalizeListResp(resp);
-        const rows = (data?.items || []) as any[];
+        const rows = normalizeListItems(data) as any[];
         if (recordType === 'view' || recordType === 'showing') {
           decorateActivityRows(rows, recordType);
+        } else if (recordType === 'unlock') {
+          decorateUnlockRows(rows);
         }
         listRef.value = rows;
-        paginationRef.value.current = Number(data?.page || paginationRef.value.current);
-        paginationRef.value.total = Number(data?.total || 0);
+        paginationRef.value.current = normalizeListPage(data, paginationRef.value.current);
+        paginationRef.value.pageSize = normalizeListPageSize(data, paginationRef.value.pageSize);
+        paginationRef.value.total = normalizeListTotal(data, rows);
         loadedRef.value = true;
       } catch (e: any) {
         listRef.value = [];
@@ -1050,7 +1134,7 @@ export default defineComponent({
     };
 
     const ensureBehaviorLoaded = async () => {
-      if (mainTabKey.value !== '5') return;
+      if (String(mainTabKey.value) !== '5') return;
       switch (recordTabKey.value) {
         case 'view':
           if (!viewLogLoaded.value) {
@@ -1106,33 +1190,6 @@ export default defineComponent({
       reloadShowingLogs();
     };
 
-    const getUnlockTypeLabel = (t: any) => {
-      const v = (t ?? '').toString().trim();
-      if (v === 'bluetooth') return '蓝牙开锁';
-      if (v === 'password') return '密码开锁';
-      return v || '-';
-    };
-
-    const getUnlockStatusLabel = (s: any) => {
-      const v = (s ?? '').toString().trim();
-      const map: any = {
-        pending: '待处理',
-        approved: '已通过',
-        rejected: '已拒绝',
-        completed: '已完成',
-        cancelled: '已取消',
-      };
-      return map[v] || v || '-';
-    };
-
-    const getUnlockStatusColor = (s: any) => {
-      const v = (s ?? '').toString().trim();
-      if (v === 'approved' || v === 'completed') return 'green';
-      if (v === 'rejected') return 'red';
-      if (v === 'cancelled') return 'gray';
-      return 'orange';
-    };
-
     const reloadUnlockLogs = async () => {
       await fetchBehaviorLogs('unlock', unlockLogList, unlockLogPagination, unlockLogLoading, unlockLogLoaded);
     };
@@ -1159,6 +1216,7 @@ export default defineComponent({
     };
 
     const tagList = computed(() => parseTags(detailData.value?.tags));
+    const customDescText = computed(() => (detailData.value?.custom_desc ?? '').toString().trim());
 
     const districtText = computed(() => {
       const d = (detailData.value?.district || '').toString().trim();
@@ -1369,7 +1427,7 @@ export default defineComponent({
 
     return {
       registerModal, loading, detailData, renovationData, modelHeight, onHeightChange,
-      windHeight, getImageUrl, parseTags, tagList, galleryImages, allowImageDownload, allowVideoDownload, videoSrc, downloadUrl,
+      windHeight, getImageUrl, parseTags, tagList, customDescText, galleryImages, allowImageDownload, allowVideoDownload, videoSrc, downloadUrl,
       priceAmountText, pricePerSquareText, getSaleStatusLabel,
       getRenovationStatusLabel, getBatteryClass, lockLoading, lockInfo, openBindLock,
       handleUnbind, handleRemoteUnlock, openCloudDetail, reloadLockInfo, formatTime,
@@ -1384,7 +1442,7 @@ export default defineComponent({
       viewLogLoading, viewLogList, viewLogPagination, reloadViewLogs, handleViewLogPageChange, handleViewLogPageSizeChange,
       showingLogLoading, showingLogList, showingLogPagination, reloadShowingLogs, handleShowingLogPageChange, handleShowingLogPageSizeChange,
       unlockLogLoading, unlockLogList, unlockLogPagination, reloadUnlockLogs, handleUnlockLogPageChange, handleUnlockLogPageSizeChange,
-      getUnlockTypeLabel, getUnlockStatusLabel, getUnlockStatusColor,
+      getUnlockStageLabel,
     };
   },
 });
@@ -1521,6 +1579,17 @@ export default defineComponent({
   color: var(--color-text-3);
   line-height: 20px;
   padding-top: 2px;
+}
+
+.records-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-3);
+  line-height: 18px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-cell {
@@ -2106,6 +2175,13 @@ export default defineComponent({
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.desc-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+  color: var(--color-text-1);
 }
 
 /* Smart Lock Widget (脱离 detail-grid，兼容右侧栏展示) */

@@ -335,7 +335,7 @@ func (api *Houses) Save(c *gf.GinCtx) {
 	var f_id = gf.GetEditId(param["id"])
 	// 仅允许写入的字段（避免前端传入任意字段更新）
 	saveData := pickMap(param,
-		"title", "price", "price_unit", "area",
+		"title", "custom_desc", "price", "price_unit", "area",
 		"rooms", "halls", "bathrooms",
 		"floor_level", "total_floors", "orientation", "build_year",
 		"property_type", "decoration_type",
@@ -362,6 +362,9 @@ func (api *Houses) Save(c *gf.GinCtx) {
 	}
 	if _, ok := saveData["video_url"]; ok {
 		saveData["video_url"] = strings.TrimSpace(gconv.String(saveData["video_url"]))
+	}
+	if _, ok := saveData["custom_desc"]; ok {
+		saveData["custom_desc"] = strings.TrimSpace(gconv.String(saveData["custom_desc"]))
 	}
 	if _, ok := saveData["allow_image_download"]; ok {
 		aid := gconv.Int(saveData["allow_image_download"])
@@ -595,35 +598,19 @@ func (api *Houses) GetBehaviorLogs(c *gf.GinCtx) {
 	totalCount := 0
 	list := make(gform.Result, 0)
 	switch recordType {
-	case "view", "showing":
+	case "view", "showing", "unlock":
 		MDB := gf.Model("business_user_activity_logs a").
 			LeftJoin("business_user u", "u.id = a.user_id").
 			LeftJoin("business_stores s", "s.id = u.store_id AND s.deletetime IS NULL").
 			Where("a.property_id", propertyID).
 			Where("a.activity_type", recordType).
-			Where("u.business_id", businessID)
+			Where("u.business_id", businessID).
+			Where("u.deletetime", nil)
 		totalCount, _ = MDB.Clone().Count()
 		rows, err := MDB.
 			Fields("a.id,a.user_id,a.property_id,a.activity_type,a.meta_data,a.createtime,u.name as user_name,u.username as user_username,u.mobile as user_mobile,u.store_id,u.title as user_title,s.name as store_name").
 			Page(pageNo, pageSize).
 			Order("a.id desc").
-			Select()
-		if err != nil {
-			gf.Failed().SetMsg("获取记录失败：" + err.Error()).Regin(c)
-			return
-		}
-		list = rows
-	case "unlock":
-		MDB := gf.Model("business_unlock_requests r").
-			LeftJoin("business_user u", "u.id = r.user_id").
-			LeftJoin("business_stores s", "s.id = u.store_id AND s.deletetime IS NULL").
-			Where("r.property_id", propertyID).
-			Where("u.business_id", businessID)
-		totalCount, _ = MDB.Clone().Count()
-		rows, err := MDB.
-			Fields("r.id,r.user_id,r.property_id,r.request_status,r.request_type,r.request_time,r.expires_at,r.approval_remark,r.status,r.createtime,r.updatetime,u.name as user_name,u.username as user_username,u.mobile as user_mobile,u.store_id,u.title as user_title,s.name as store_name").
-			Page(pageNo, pageSize).
-			Order("r.id desc").
 			Select()
 		if err != nil {
 			gf.Failed().SetMsg("获取记录失败：" + err.Error()).Regin(c)

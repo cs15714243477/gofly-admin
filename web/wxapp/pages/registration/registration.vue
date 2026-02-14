@@ -26,6 +26,22 @@
 						</view>
 					</view>
 
+					<!-- 审核状态提示 -->
+					<view v-if="audit.status" class="audit-card" :class="audit.status">
+						<view class="audit-top">
+							<text class="material-symbols-outlined audit-icon">{{ auditIcon }}</text>
+							<view class="audit-texts">
+								<view class="audit-title">{{ auditTitle }}</view>
+								<view class="audit-desc">{{ auditDesc }}</view>
+							</view>
+						</view>
+						<view v-if="audit.status === 'rejected' && audit.reason" class="audit-reason">原因：{{ audit.reason }}</view>
+						<view class="audit-actions">
+							<button v-if="audit.status === 'pending'" class="audit-btn" @click="fetchAuditStatus(true)">刷新状态</button>
+							<button v-if="audit.status === 'approved'" class="audit-btn primary" @click="goLogin">去登录</button>
+						</view>
+					</view>
+
 					<!-- 表单卡片（加留白，避免内容过满） -->
 					<view class="form-card">
 						<view class="form">
@@ -46,7 +62,7 @@
 								<view class="label">真实姓名</view>
 								<view class="input-wrapper">
 									<text class="material-symbols-outlined input-icon">person</text>
-									<input v-model="form.name" class="input" type="text" placeholder="请输入姓名" placeholder-class="placeholder" />
+									<input v-model="form.name" class="input" type="text" placeholder="请输入姓名" placeholder-class="placeholder" :disabled="formLocked" />
 								</view>
 							</view>
 
@@ -62,10 +78,31 @@
 							<!-- 所属门店/公司 -->
 							<view class="form-item">
 								<view class="label">所属门店/公司</view>
-								<view class="input-wrapper" @click="selectStore">
-									<text class="material-symbols-outlined input-icon">storefront</text>
-									<input class="input readonly-input" type="text" placeholder="请选择或搜索门店" readonly :value="form.store" />
-									<text class="material-symbols-outlined search-icon">search</text>
+								<view class="store-mode">
+									<view class="mode-item" :class="{ active: storeMode === 'select' }" @click="setStoreMode('select')">选择门店</view>
+									<view class="mode-item" :class="{ active: storeMode === 'manual' }" @click="setStoreMode('manual')">手动填写</view>
+								</view>
+
+								<view v-if="storeMode === 'select'">
+									<picker :range="storeOptions" range-key="name" :value="storeIndex" @change="onStorePick" :disabled="formLocked">
+										<view class="picker-wrapper">
+											<text class="material-symbols-outlined icon-fill">storefront</text>
+											<text class="picker-text">{{ storeDisplay }}</text>
+											<text class="material-symbols-outlined arrow-icon">expand_more</text>
+										</view>
+									</picker>
+									<view class="store-addr-tip" v-if="storeSelected && storeSelected.address">{{ storeSelected.address }}</view>
+								</view>
+
+								<view v-else>
+									<view class="input-wrapper">
+										<text class="material-symbols-outlined input-icon">storefront</text>
+										<input v-model="form.store_name_text" class="input" type="text" placeholder="请输入门店名称" placeholder-class="placeholder" :disabled="formLocked" />
+									</view>
+									<view class="input-wrapper mt">
+										<text class="material-symbols-outlined input-icon">pin_drop</text>
+										<input v-model="form.store_address_text" class="input" type="text" placeholder="门店地址（可选）" placeholder-class="placeholder" :disabled="formLocked" />
+									</view>
 								</view>
 							</view>
 
@@ -87,7 +124,7 @@
 
 			<!-- 底部固定按钮（避免撑高页面出现滚动） -->
 			<view class="footer">
-				<button class="register-btn" @click="handleSubmit">{{ submitText }}</button>
+				<button class="register-btn" :disabled="submitting" @click="handleSubmit">{{ submitText }}</button>
 			</view>
 		</view>
 	</view>
@@ -95,60 +132,215 @@
 
 <script>
 	import TopHeader from '@/components/TopHeader.vue'
+	import userApi from '@/api/user'
 
 	export default {
 		components: { TopHeader },
 		onLoad(options) {
 			this.mode = (options && options.mode) || 'complete'
-			// 取登录页保存的手机号（占位/或后端回填的真实号）
+			const mobile = options && options.mobile ? String(options.mobile).trim() : ''
+			if (mobile) this.form.phone = mobile
+			// 取登录页保存的手机号（兜底）
 			const cachedPhone = uni.getStorageSync('hm_phone')
-			if (cachedPhone) this.form.phone = cachedPhone
+			if (!this.form.phone && cachedPhone) this.form.phone = cachedPhone
+
+			this.fetchStores()
+			this.fetchAuditStatus(false)
 		},
 		data() {
 			return {
 				agreed: true,
 				mode: 'complete', // complete | register（预留）
+				submitting: false,
 				region: ['北京市', '北京市', '朝阳区'],
+				storeMode: 'select', // select | manual
+				storeOptions: [],
+				storeIndex: -1,
+				audit: {
+					status: '', // pending | approved | rejected | ''
+					reason: '',
+				},
 				form: {
 					name: '',
 					phone: '',
-					store: '链家地产 (朝阳大悦城店)'
+					store_id: 0,
+					store_name_text: '',
+					store_address_text: ''
 				}
 			}
 		},
 		computed: {
 			pageTitle() {
-				return this.mode === 'complete' ? '完善信息' : '注册'
+				return '注册申请'
 			},
 			headerTitle() {
-				return this.mode === 'complete' ? '完善资料' : '欢迎加入经纪人'
+				if (this.audit.status === 'pending') return '资料审核中'
+				if (this.audit.status === 'approved') return '审核已通过'
+				if (this.audit.status === 'rejected') return '审核未通过'
+				return '提交资料'
 			},
 			headerSubtitle() {
-				return this.mode === 'complete' ? '首次登录请先补全信息，完成后进入系统' : '请填写以下信息以完成注册'
+				if (this.audit.status === 'pending') return '我们将在 1 个工作日内完成审核，请耐心等待'
+				if (this.audit.status === 'approved') return '请返回登录页进行登录'
+				if (this.audit.status === 'rejected') return '请修改资料后重新提交审核'
+				return '首次登录请先填写资料并提交审核，通过后才可登录'
 			},
 			submitText() {
-				return this.mode === 'complete' ? '完成并进入' : '新用户注册'
+				if (this.audit.status === 'pending') return '审核中'
+				if (this.audit.status === 'approved') return '去登录'
+				return '提交审核'
 			},
 			regionText() {
 				const r = Array.isArray(this.region) ? this.region : []
 				return r.filter(Boolean).join(' ')
+			},
+			formLocked() {
+				return this.audit.status === 'pending' || this.audit.status === 'approved'
+			},
+			storeSelected() {
+				if (this.storeIndex < 0) return null
+				return this.storeOptions && this.storeOptions[this.storeIndex] ? this.storeOptions[this.storeIndex] : null
+			},
+			storeDisplay() {
+				if (this.form.store_id && this.storeSelected) return this.storeSelected.name || '请选择门店'
+				if (this.form.store_id) return '已选择门店'
+				return '请选择门店'
+			},
+			auditIcon() {
+				if (this.audit.status === 'pending') return 'hourglass_top'
+				if (this.audit.status === 'approved') return 'check_circle'
+				if (this.audit.status === 'rejected') return 'cancel'
+				return 'info'
+			},
+			auditTitle() {
+				if (this.audit.status === 'pending') return '资料审核中'
+				if (this.audit.status === 'approved') return '审核已通过'
+				if (this.audit.status === 'rejected') return '审核未通过'
+				return ''
+			},
+			auditDesc() {
+				if (this.audit.status === 'pending') return '提交成功，请等待管理员审核'
+				if (this.audit.status === 'approved') return '你已通过审核，现在可以登录'
+				if (this.audit.status === 'rejected') return '请根据原因修改后重新提交'
+				return ''
 			}
 		},
 		methods: {
 			goBack() {
 				uni.navigateBack()
 			},
+			goLogin() {
+				uni.reLaunch({ url: '/pages/login/login' })
+			},
 			agreementChange(e) {
 				this.agreed = e.detail.value.length > 0
 			},
 			onRegionChange(e) {
+				if (this.formLocked) return
 				const value = e && e.detail && e.detail.value
 				if (Array.isArray(value) && value.length) this.region = value
 			},
-			selectStore() {
-				console.log('选择门店')
+			setStoreMode(mode) {
+				if (this.formLocked) return
+				const m = String(mode || '').trim()
+				if (m !== 'select' && m !== 'manual') return
+				this.storeMode = m
+				if (m === 'select') {
+					this.form.store_name_text = ''
+					this.form.store_address_text = ''
+				} else {
+					this.form.store_id = 0
+					this.storeIndex = -1
+				}
 			},
-			handleSubmit() {
+			onStorePick(e) {
+				if (this.formLocked) return
+				const idx = e && e.detail ? Number(e.detail.value) : -1
+				if (!Number.isFinite(idx) || idx < 0 || idx >= (this.storeOptions || []).length) {
+					this.storeIndex = -1
+					this.form.store_id = 0
+					return
+				}
+				this.storeIndex = idx
+				const it = this.storeOptions[idx]
+				this.form.store_id = it && it.id ? Number(it.id) : 0
+			},
+			async fetchStores() {
+				try {
+					const res = await userApi.getRegisterStores(false)
+					if (!res || res.code !== 0) return
+					const list = Array.isArray(res.data) ? res.data : []
+					this.storeOptions = list.map((it) => ({
+						id: Number(it.id || 0) || 0,
+						name: it.name || '',
+						address: it.address || '',
+					})).filter((it) => it.id > 0 && it.name)
+					// 若已有 store_id，尝试回显 index
+					if (this.form.store_id) {
+						const idx = this.storeOptions.findIndex((x) => Number(x.id) === Number(this.form.store_id))
+						if (idx >= 0) this.storeIndex = idx
+					}
+				} catch (e) {}
+			},
+			async fetchAuditStatus(showLoading = false) {
+				const mobile = String(this.form.phone || '').trim()
+				if (!mobile) {
+					this.audit = { status: '', reason: '' }
+					return
+				}
+				try {
+					const res = await userApi.getRegisterStatus({ mobile }, showLoading)
+					if (!res) return
+					if (res.code !== 0) {
+						// 未注册：允许填写资料
+						const rejectReason = uni.getStorageSync('wxapp_register_reject_reason')
+						this.audit = { status: '', reason: rejectReason ? String(rejectReason) : '' }
+						return
+					}
+					const data = res.data || {}
+					const status = String(data.audit_status || '').trim()
+					const reason = String(data.audit_reason || '').trim()
+					this.audit = { status, reason }
+
+					// 回显：姓名/门店信息（仅在未锁定时回显，避免覆盖用户输入）
+					if (status !== 'pending' && status !== 'approved') {
+						if (!this.form.name && data.name) this.form.name = String(data.name)
+
+						const storeId = Number(data.store_id || 0) || 0
+						if (storeId > 0) {
+							this.storeMode = 'select'
+							this.form.store_id = storeId
+							const idx = this.storeOptions.findIndex((x) => Number(x.id) === storeId)
+							if (idx >= 0) this.storeIndex = idx
+						} else if (data.store_name) {
+							this.storeMode = 'manual'
+							this.form.store_id = 0
+							this.storeIndex = -1
+							this.form.store_name_text = String(data.store_name || '').trim()
+							this.form.store_address_text = String(data.store_address || '').trim()
+						}
+					}
+
+					// 记住拒绝原因（方便从登录页跳转时展示）
+					if (reason) {
+						try { uni.setStorageSync('wxapp_register_reject_reason', reason) } catch (e) {}
+					} else {
+						try { uni.removeStorageSync('wxapp_register_reject_reason') } catch (e) {}
+					}
+				} catch (e) {}
+			},
+			async handleSubmit() {
+				if (this.submitting) return
+
+				if (this.audit.status === 'pending') {
+					uni.showToast({ title: '资料审核中，请耐心等待', icon: 'none' })
+					return
+				}
+				if (this.audit.status === 'approved') {
+					this.goLogin()
+					return
+				}
+
 				if (!this.agreed) {
 					uni.showToast({
 						title: '请先同意协议',
@@ -164,11 +356,42 @@
 					uni.showToast({ title: '请先在登录页授权手机号', icon: 'none' })
 					return
 				}
-				// 标记已完成首次资料
-				uni.setStorageSync('hm_profile_completed', true)
-				uni.reLaunch({
-					url: '/pages/home/home'
-				})
+
+				const storeId = Number(this.form.store_id || 0) || 0
+				const storeNameText = String(this.form.store_name_text || '').trim()
+				if (storeId <= 0 && !storeNameText) {
+					uni.showToast({ title: '请选择门店或填写门店名称', icon: 'none' })
+					return
+				}
+
+				const phoneCode = uni.getStorageSync('wxapp_register_phone_code')
+				if (!phoneCode) {
+					uni.showToast({ title: '请返回登录页授权手机号后再提交', icon: 'none' })
+					return
+				}
+
+				this.submitting = true
+				try {
+					const payload = {
+						phone_code: String(phoneCode),
+						name: String(this.form.name).trim(),
+						region_province: this.region && this.region[0] ? String(this.region[0]) : '',
+						region_city: this.region && this.region[1] ? String(this.region[1]) : '',
+						region_district: this.region && this.region[2] ? String(this.region[2]) : '',
+						store_id: storeId,
+						store_name_text: this.storeMode === 'manual' ? storeNameText : '',
+						store_address_text: this.storeMode === 'manual' ? String(this.form.store_address_text || '').trim() : '',
+					}
+					const res = await userApi.registerApply(payload)
+					if (!res) return
+					if (res.code !== 0) return
+					uni.showToast({ title: '提交成功，请等待审核', icon: 'none' })
+					try { uni.setStorageSync('hm_phone', String(this.form.phone)) } catch (e) {}
+					try { uni.removeStorageSync('wxapp_register_phone_code') } catch (e) {}
+					await this.fetchAuditStatus(false)
+				} finally {
+					this.submitting = false
+				}
 			}
 		}
 	}
@@ -279,6 +502,50 @@
 		}
 	}
 
+	/* 审核状态卡片 */
+	.audit-card {
+		border-radius: 24rpx;
+		padding: 22rpx 22rpx;
+		border: 1rpx solid rgba(226, 232, 240, 0.9);
+		background: #fff;
+		box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.06);
+		margin-bottom: 18rpx;
+	}
+	.audit-card.pending { border-color: rgba(245, 158, 11, 0.26); background: rgba(245, 158, 11, 0.06); }
+	.audit-card.approved { border-color: rgba(34, 197, 94, 0.26); background: rgba(34, 197, 94, 0.06); }
+	.audit-card.rejected { border-color: rgba(239, 68, 68, 0.26); background: rgba(239, 68, 68, 0.06); }
+
+	.audit-top {
+		display: flex;
+		align-items: flex-start;
+		gap: 16rpx;
+	}
+	.audit-icon {
+		font-size: 44rpx;
+		color: #0f172a;
+		opacity: 0.9;
+	}
+	.audit-texts { flex: 1; }
+	.audit-title { font-size: 30rpx; font-weight: 700; color: #0f172a; }
+	.audit-desc { margin-top: 8rpx; font-size: 24rpx; color: #475569; line-height: 1.6; }
+	.audit-reason { margin-top: 12rpx; font-size: 24rpx; color: #b91c1c; line-height: 1.6; }
+	.audit-actions { margin-top: 14rpx; display: flex; gap: 12rpx; }
+	.audit-btn {
+		height: 64rpx;
+		line-height: 64rpx;
+		padding: 0 20rpx;
+		border-radius: 16rpx;
+		border: 1rpx solid rgba(15, 23, 42, 0.12);
+		background: rgba(255, 255, 255, 0.78);
+		font-size: 26rpx;
+		color: #0f172a;
+	}
+	.audit-btn.primary {
+		border-color: rgba(45, 156, 240, 0.28);
+		background: rgba(45, 156, 240, 0.12);
+		color: #1a7ab5;
+	}
+
 	/* 表单卡片：让内容“不贴边、不拥挤” */
 	.form-card {
 		background-color: rgba(255, 255, 255, 0.96);
@@ -383,6 +650,37 @@
 					font-size: 36rpx;
 				}
 			}
+
+			/* 门店选择方式 */
+			.store-mode {
+				display: flex;
+				gap: 12rpx;
+				margin-bottom: 14rpx;
+			}
+			.mode-item {
+				flex: 1;
+				height: 64rpx;
+				border-radius: 18rpx;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 26rpx;
+				color: #64748b;
+				border: 1rpx solid rgba(226, 232, 240, 0.9);
+				background: rgba(248, 250, 252, 0.9);
+			}
+			.mode-item.active {
+				color: #1a7ab5;
+				border-color: rgba(45, 156, 240, 0.28);
+				background: rgba(45, 156, 240, 0.10);
+			}
+			.store-addr-tip {
+				margin-top: 10rpx;
+				font-size: 24rpx;
+				color: #64748b;
+				line-height: 1.5;
+			}
+			.mt { margin-top: 14rpx; }
 		}
 		
 		.agreement-row {

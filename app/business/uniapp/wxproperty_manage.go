@@ -217,7 +217,19 @@ func (api *WxProperty) GetManageList(c *gf.GinCtx) {
 		whereMap.Set("sale_status", saleStatus)
 	}
 
-	MDB := gf.Model("business_properties").Where(whereMap)
+	// 小程序端：已售/下架房源完全不可见
+	// 若前端主动筛 sold/off_market/in_sale，这里直接返回空数据，避免侧信道判断房源存在
+	if saleStatus == "sold" || saleStatus == "off_market" || saleStatus == "in_sale" {
+		gf.Success().SetMsg("获取房源列表").SetData(gf.Map{
+			"page":     pageNo,
+			"pageSize": pageSize,
+			"total":    0,
+			"items":    make([]gf.Map, 0),
+		}).Regin(c)
+		return
+	}
+
+	MDB := wxApplyPropertyVisibility(gf.Model("business_properties").Where(whereMap))
 	totalCount, _ := MDB.Clone().Count()
 	rows, err := MDB.
 		Fields("id,title,price,price_unit,area,rooms,halls,bathrooms,orientation,community_name,address,tags,cover_image,images,video_url,allow_image_download,allow_video_download,sale_status,status,view_count,follow_count,showing_count,createtime,updatetime").
@@ -300,6 +312,7 @@ func (api *WxProperty) GetManageContent(c *gf.GinCtx) {
 		Where("id", id).
 		Where("agent_id", userID).
 		Where("deletetime", nil).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Find()
 	if err != nil {
 		gf.Failed().SetMsg("获取房源失败：" + err.Error()).Regin(c)
@@ -320,6 +333,7 @@ func (api *WxProperty) GetManageContent(c *gf.GinCtx) {
 	out := gf.Map{
 		"id":                   row["id"].Int64(),
 		"title":                row["title"].String(),
+		"custom_desc":          gconv.String(row["custom_desc"]),
 		"price":                gconv.String(row["price"]),
 		"price_unit":           row["price_unit"].String(),
 		"area":                 gconv.String(row["area"]),
@@ -385,6 +399,7 @@ func (api *WxProperty) GetManageRenovation(c *gf.GinCtx) {
 		Where("id", propertyID).
 		Where("agent_id", userID).
 		Where("deletetime", nil).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Find()
 	if exists == nil || len(exists) == 0 {
 		gf.Failed().SetCode(403).SetMsg("房源不存在或无权限").Regin(c)
@@ -478,6 +493,7 @@ func (api *WxProperty) SaveManageRenovation(c *gf.GinCtx) {
 		Where("id", propertyID).
 		Where("agent_id", userID).
 		Where("deletetime", nil).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Find()
 	if exists == nil || len(exists) == 0 {
 		gf.Failed().SetCode(403).SetMsg("房源不存在或无权限").Regin(c)
@@ -580,7 +596,7 @@ func (api *WxProperty) SaveManage(c *gf.GinCtx) {
 	editID := gf.GetEditId(param["id"])
 
 	saveData := pickMap(param,
-		"title", "price", "price_unit", "area",
+		"title", "custom_desc", "price", "price_unit", "area",
 		"rooms", "halls", "bathrooms",
 		"floor_level", "total_floors", "orientation", "build_year",
 		"property_type", "decoration_type",
@@ -612,6 +628,9 @@ func (api *WxProperty) SaveManage(c *gf.GinCtx) {
 	if _, ok := saveData["video_url"]; ok {
 		saveData["video_url"] = strings.TrimSpace(gconv.String(saveData["video_url"]))
 	}
+	if _, ok := saveData["custom_desc"]; ok {
+		saveData["custom_desc"] = strings.TrimSpace(gconv.String(saveData["custom_desc"]))
+	}
 	if _, ok := saveData["allow_image_download"]; ok {
 		v := gconv.Int(saveData["allow_image_download"])
 		if v != 0 && v != 1 {
@@ -638,7 +657,7 @@ func (api *WxProperty) SaveManage(c *gf.GinCtx) {
 	}
 	if _, ok := saveData["sale_status"]; ok {
 		ss := strings.TrimSpace(gconv.String(saveData["sale_status"]))
-		if ss != "" && ss != "on_sale" && ss != "sold" && ss != "off_market" {
+		if ss != "" && ss != "on_sale" && ss != "in_sale" && ss != "sold" && ss != "off_market" {
 			gf.Failed().SetMsg("sale_status参数不合法").Regin(c)
 			return
 		}
@@ -720,6 +739,7 @@ func (api *WxProperty) SaveManage(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("id", editID).
 		Where("agent_id", userID).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Update(saveData)
 	if err != nil {
 		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
@@ -756,6 +776,7 @@ func (api *WxProperty) DelManage(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("id", id).
 		Where("agent_id", userID).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Delete()
 	if err != nil {
 		gf.Failed().SetMsg("删除失败").SetData(err).Regin(c)
@@ -785,6 +806,7 @@ func (api *WxProperty) GetFormOptions(c *gf.GinCtx) {
 	out := gf.Map{
 		"sale_status": []gf.Map{
 			{"label": "在售", "value": "on_sale"},
+			{"label": "预售", "value": "in_sale"},
 			{"label": "已售", "value": "sold"},
 			{"label": "下架", "value": "off_market"},
 		},

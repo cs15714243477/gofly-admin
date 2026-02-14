@@ -262,7 +262,7 @@ func (api *Index) GetWorkbenchRecords(c *gf.GinCtx) {
 	switch recordType {
 	case wxRecordTypeFollow:
 		mdb := gf.Model("business_favorites f").
-			LeftJoin("business_properties p", "p.id=f.property_id AND p.deletetime IS NULL").
+			LeftJoin("business_properties p", "p.id=f.property_id AND p.deletetime IS NULL AND p.sale_status NOT IN ('sold','off_market','in_sale')").
 			Fields("f.id,f.property_id,f.createtime,p.business_id,p.title,p.community_name,p.cover_image,p.images,p.area,p.rooms,p.halls,p.bathrooms").
 			Where("f.user_id", userID)
 		total, _ = mdb.Clone().Count()
@@ -308,7 +308,7 @@ func (api *Index) GetWorkbenchRecords(c *gf.GinCtx) {
 		}
 	case wxRecordTypeUnlock:
 		mdb := gf.Model("business_unlock_requests u").
-			LeftJoin("business_properties p", "p.id=u.property_id AND p.deletetime IS NULL").
+			LeftJoin("business_properties p", "p.id=u.property_id AND p.deletetime IS NULL AND p.sale_status NOT IN ('sold','off_market','in_sale')").
 			Fields("u.id,u.property_id,u.request_status,u.request_type,u.request_time,u.updatetime,p.business_id,p.title,p.community_name,p.cover_image,p.images").
 			Where("u.user_id", userID)
 		total, _ = mdb.Clone().Count()
@@ -348,7 +348,7 @@ func (api *Index) GetWorkbenchRecords(c *gf.GinCtx) {
 		}
 	case wxRecordTypeShowing, wxRecordTypeView, wxRecordTypeShare, wxRecordTypeCall:
 		mdb := gf.Model("business_user_activity_logs a").
-			LeftJoin("business_properties p", "p.id=a.property_id AND p.deletetime IS NULL").
+			LeftJoin("business_properties p", "p.id=a.property_id AND p.deletetime IS NULL AND p.sale_status NOT IN ('sold','off_market','in_sale')").
 			Fields("a.id,a.property_id,a.meta_data,a.createtime,p.business_id,p.title,p.community_name,p.cover_image,p.images").
 			Where("a.user_id", userID).
 			Where("a.activity_type", recordType)
@@ -434,6 +434,7 @@ func (api *Index) GetWorkbenchRecords(c *gf.GinCtx) {
 				Where("agent_id", userID).
 				Where("deletetime", nil).
 				Where("status", 0).
+				WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 				Where(countField+" > ?", 0)
 			total, _ = fallbackMDB.Clone().Count()
 			fallbackRows, ferr := fallbackMDB.Page(pageNo, pageSize).Order(countField + " desc,id desc").Select()

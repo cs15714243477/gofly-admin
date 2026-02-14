@@ -6,7 +6,6 @@ import (
 	"errors"
 	"gofly/utils/gf"
 	"gofly/utils/tools/gcfg"
-	"gofly/utils/tools/grand"
 	"gofly/utils/tools/gtime"
 	"gofly/utils/tools/gvar"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 /*
@@ -27,41 +27,35 @@ type Index struct {
 }
 
 const (
-	uniappAutoNameMaxLen = 4
-	uniappDefaultTitle   = "金牌经纪人"
+	uniappDefaultTitle = "金牌经纪人"
+
+	// 小程序端登录/注册相关自定义错误码（保持 HTTP 200，code 非 0 便于前端分流处理）
+	wxappCodeNotRegistered = 10001 // 未注册/未提交审核资料
+	wxappCodeAuditPending  = 10002 // 审核中
+	wxappCodeAuditRejected = 10003 // 审核拒绝
+
+	// business_user.audit_status 值
+	userAuditStatusApproved = "approved"
+	userAuditStatusPending  = "pending"
+	userAuditStatusRejected = "rejected"
 )
 
-var (
-	uniappSurnames  = []rune("赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜戚谢邹喻柏水窦章云苏潘葛范彭郎鲁韦昌马苗凤花方俞任袁柳鲍史唐费廉岑薛雷贺倪汤")
-	uniappNameRunes = []rune("子轩浩然宇辰梓涵思远若溪一诺沐阳嘉宁佳怡欣妍诗雨清妍语彤皓轩志远晨曦天佑泽宇可馨依诺奕凡景行墨言书瑶安琪凌薇")
-)
-
-// randomChineseName 生成随机中文姓名，长度不超过 maxLen（按中文字符计数）。
-func randomChineseName(maxLen int) string {
-	if maxLen < 2 {
-		maxLen = 2
+func normalizeUserAuditStatus(v string) string {
+	s := strings.ToLower(strings.TrimSpace(v))
+	switch s {
+	case "", "ok", "pass", "passed", userAuditStatusApproved:
+		return userAuditStatusApproved
+	case "review", "todo", userAuditStatusPending:
+		return userAuditStatusPending
+	case "reject", "fail", "denied", userAuditStatusRejected:
+		return userAuditStatusRejected
+	default:
+		return s
 	}
-	surname := []rune{uniappSurnames[grand.N(0, len(uniappSurnames)-1)]}
-	remain := maxLen - len(surname)
-	if remain <= 0 {
-		return string(surname)
-	}
-	givenLen := 2
-	if remain == 1 || grand.N(0, 1) == 0 {
-		givenLen = 1
-	}
-	if givenLen > remain {
-		givenLen = remain
-	}
-	nameRunes := append([]rune{}, surname...)
-	for i := 0; i < givenLen; i++ {
-		nameRunes = append(nameRunes, uniappNameRunes[grand.N(0, len(uniappNameRunes)-1)])
-	}
-	return string(nameRunes)
 }
 
 func init() {
-	fpath := Index{NoNeedLogin: []string{"login", "wxLogin", "logout", "getAgentCard", "getLoginDocs"}, NoNeedAuths: []string{"*"}}
+	fpath := Index{NoNeedLogin: []string{"login", "wxLogin", "registerApply", "getRegisterStatus", "getRegisterStores", "logout", "getAgentCard", "getLoginDocs"}, NoNeedAuths: []string{"*"}}
 	gf.Register(&fpath, fpath)
 }
 
@@ -81,8 +75,8 @@ func (api *Index) Login(c *gf.GinCtx) {
 		return
 	}
 
-	// business_id：可由前端传 business_id；未传则使用默认 1（兼容单商户场景）
-	businessID := int64(1)
+	// business_id：可由前端传 business_id；未传则使用请求头 Businessid（再兜底 1）
+	businessID := wxBusinessID(c)
 	if v, ok := param["business_id"]; ok {
 		if vv := gf.Int64(v); vv > 0 {
 			businessID = vv
@@ -90,39 +84,57 @@ func (api *Index) Login(c *gf.GinCtx) {
 	}
 
 	// 查找用户（手机号即账号）
+	fields := "id,business_id,status,logintime"
+	if gf.DbHaseField("business_user", "audit_status") {
+		fields += ",audit_status"
+	}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		fields += ",audit_reason"
+	}
 	user, err := gf.Model("business_user").
-		Fields("id,business_id,status,logintime").
+		Fields(fields).
 		Where("mobile", mobile).
 		Where("deletetime", nil).
 		Find()
-	// 未绑定则自动创建（避免再次出现“手机号未绑定账号”）
 	if err != nil || user == nil {
-		defaultName := randomChineseName(uniappAutoNameMaxLen)
-		addID, addErr := gf.Model("business_user").Data(gf.Map{
-			"business_id": businessID,
-			"username":    mobile,
-			"name":        defaultName,
-			"nickname":    mobile,
+		gf.Failed().SetCode(wxappCodeNotRegistered).SetMsg("账号未注册，请先完善资料提交审核").SetData(gf.Map{
 			"mobile":      mobile,
-			"avatar":      "resource/uploads/static/avatar.png",
-			"sex":         0,
-			"role":        "user",
-			"title":       uniappDefaultTitle,
-			"status":      0,
-			"loginip":     gf.GetIp(c),
-			"prevtime":    0,
-			"logintime":   gtime.Timestamp(),
-		}).InsertAndGetId()
-		if addErr != nil || addID == 0 {
-			gf.Failed().SetMsg("创建用户失败").SetData(addErr).Regin(c)
-			return
-		}
-		user, _ = gf.Model("business_user").Fields("id,business_id,status,logintime").Where("id", addID).Find()
+			"business_id": businessID,
+		}).Regin(c)
+		return
 	}
 
 	if user["status"].Int() == 1 {
 		gf.Failed().SetMsg("账号被禁用了").Regin(c)
 		return
+	}
+
+	// 审核状态校验：未通过审核不允许登录
+	if gf.DbHaseField("business_user", "audit_status") {
+		auditStatus := normalizeUserAuditStatus(gf.String(user["audit_status"]))
+		auditReason := ""
+		if gf.DbHaseField("business_user", "audit_reason") {
+			auditReason = strings.TrimSpace(gf.String(user["audit_reason"]))
+		}
+		switch auditStatus {
+		case userAuditStatusPending:
+			gf.Failed().SetCode(wxappCodeAuditPending).SetMsg("资料审核中，请等待管理员审核").SetData(gf.Map{
+				"mobile":       mobile,
+				"audit_status": auditStatus,
+			}).Regin(c)
+			return
+		case userAuditStatusRejected:
+			msg := "审核未通过，请重新提交资料"
+			if auditReason != "" {
+				msg = msg + "：" + auditReason
+			}
+			gf.Failed().SetCode(wxappCodeAuditRejected).SetMsg(msg).SetData(gf.Map{
+				"mobile":       mobile,
+				"audit_status": auditStatus,
+				"audit_reason": auditReason,
+			}).Regin(c)
+			return
+		}
 	}
 	token, err := gf.CreateToken(gf.Map{
 		"ID":          user["id"].Int64(),
@@ -176,49 +188,65 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 		return
 	}
 
-	// business_id：可由前端传 business_id；未传则使用默认 1（兼容单商户场景）
-	businessID := int64(1)
+	// business_id：可由前端传 business_id；未传则使用请求头 Businessid（再兜底 1）
+	businessID := wxBusinessID(c)
 	if v, ok := param["business_id"]; ok {
 		if vv := gf.Int64(v); vv > 0 {
 			businessID = vv
 		}
 	}
 
+	fields := "id,business_id,status,logintime"
+	if gf.DbHaseField("business_user", "audit_status") {
+		fields += ",audit_status"
+	}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		fields += ",audit_reason"
+	}
 	user, err := gf.Model("business_user").
-		Fields("id,business_id,status,logintime").
+		Fields(fields).
 		Where("mobile", phone).
 		Where("deletetime", nil).
 		Find()
-	// 未绑定则自动创建
 	if err != nil || user == nil {
-		defaultName := randomChineseName(uniappAutoNameMaxLen)
-		addID, addErr := gf.Model("business_user").Data(gf.Map{
-			"business_id": businessID,
-			"username":    phone,
-			"name":        defaultName,
-			"nickname":    phone,
+		gf.Failed().SetCode(wxappCodeNotRegistered).SetMsg("账号未注册，请先完善资料提交审核").SetData(gf.Map{
 			"mobile":      phone,
-			"avatar":      "resource/uploads/static/avatar.png",
-			"sex":         0,
-			"role":        "user",
-			"title":       uniappDefaultTitle,
-			"openid":      "",
-			"unionid":     "",
-			"status":      0,
-			"loginip":     gf.GetIp(c),
-			"prevtime":    0,
-			"logintime":   gtime.Timestamp(),
-		}).InsertAndGetId()
-		if addErr != nil || addID == 0 {
-			gf.Failed().SetMsg("创建用户失败").SetData(addErr).Regin(c)
-			return
-		}
-		user, _ = gf.Model("business_user").Fields("id,business_id,status,logintime").Where("id", addID).Find()
+			"business_id": businessID,
+		}).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
+		return
 	}
 
 	if user["status"].Int() == 1 {
 		gf.Failed().SetMsg("账号被禁用了").Regin(c)
 		return
+	}
+
+	// 审核状态校验：未通过审核不允许登录
+	if gf.DbHaseField("business_user", "audit_status") {
+		auditStatus := normalizeUserAuditStatus(gf.String(user["audit_status"]))
+		auditReason := ""
+		if gf.DbHaseField("business_user", "audit_reason") {
+			auditReason = strings.TrimSpace(gf.String(user["audit_reason"]))
+		}
+		switch auditStatus {
+		case userAuditStatusPending:
+			gf.Failed().SetCode(wxappCodeAuditPending).SetMsg("资料审核中，请等待管理员审核").SetData(gf.Map{
+				"mobile":       phone,
+				"audit_status": auditStatus,
+			}).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
+			return
+		case userAuditStatusRejected:
+			msg := "审核未通过，请重新提交资料"
+			if auditReason != "" {
+				msg = msg + "：" + auditReason
+			}
+			gf.Failed().SetCode(wxappCodeAuditRejected).SetMsg(msg).SetData(gf.Map{
+				"mobile":       phone,
+				"audit_status": auditStatus,
+				"audit_reason": auditReason,
+			}).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
+			return
+		}
 	}
 
 	token, err := gf.CreateToken(gf.Map{
@@ -240,10 +268,381 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 	gf.Success().SetMsg("登录成功！").SetData(token).SetToken(gf.String(token)).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
 }
 
+// 《提交注册/完善资料申请》（无需登录，审核通过后才可登录）
+// POST /uniapp/registerApply
+// 入参：
+// - phone_code: getPhoneNumber 返回的 e.detail.code（推荐）
+// - mobile + captcha: 备用（非小程序环境）
+// - name: 真实姓名（必填）
+// - store_id: 选择门店ID（可选）
+// - store_name_text/store_address_text: 手填门店信息（store_id 为空时必填 store_name_text）
+// - region_province/region_city/region_district: 所在地区（可选）
+func (api *Index) RegisterApply(c *gf.GinCtx) {
+	param, _ := gf.RequestParam(c)
+
+	name := strings.TrimSpace(gf.String(param["name"]))
+	if name == "" {
+		gf.Failed().SetMsg("请填写真实姓名").Regin(c)
+		return
+	}
+
+	// business_id：可由前端传 business_id；未传则使用请求头 Businessid（再兜底 1）
+	businessID := wxBusinessID(c)
+	if v, ok := param["business_id"]; ok {
+		if vv := gf.Int64(v); vv > 0 {
+			businessID = vv
+		}
+	}
+
+	phoneCode := strings.TrimSpace(gf.String(param["phone_code"]))
+	mobile := strings.TrimSpace(gf.String(param["mobile"]))
+	if phoneCode != "" {
+		appid, secretkey := getWxappAppidSecret(c)
+		if appid == "" || secretkey == "" {
+			gf.Failed().SetMsg("未配置微信小程序 appid/secretkey，无法提交审核").Regin(c)
+			return
+		}
+		accessToken, err := wxGetAccessToken(appid, secretkey)
+		if err != nil {
+			gf.Failed().SetMsg("获取微信 access_token 失败：" + err.Error()).Regin(c)
+			return
+		}
+		phone, err := wxGetPhoneNumber(accessToken, phoneCode)
+		if err != nil {
+			gf.Failed().SetMsg("获取手机号失败：" + err.Error()).Regin(c)
+			return
+		}
+		mobile = strings.TrimSpace(phone)
+	}
+	if mobile == "" {
+		gf.Failed().SetMsg("请先授权手机号或填写手机号").Regin(c)
+		return
+	}
+	// 非小程序环境下的验证码校验（可选）
+	if phoneCode == "" {
+		code, emerr := gf.GetVerifyCode(mobile)
+		if emerr != nil || code != gf.Int(param["captcha"]) {
+			gf.Failed().SetMsg("验证码无效").SetData(emerr).Regin(c)
+			return
+		}
+	}
+
+	storeID := gf.Int64(param["store_id"])
+	storeNameText := strings.TrimSpace(gf.String(param["store_name_text"]))
+	if storeNameText == "" {
+		storeNameText = strings.TrimSpace(gf.String(param["store_name"]))
+	}
+	storeAddrText := strings.TrimSpace(gf.String(param["store_address_text"]))
+	if storeAddrText == "" {
+		storeAddrText = strings.TrimSpace(gf.String(param["store_address"]))
+	}
+
+	if storeID <= 0 && storeNameText == "" {
+		gf.Failed().SetMsg("请选择门店或填写门店名称").Regin(c)
+		return
+	}
+
+	// 若选择门店，校验门店有效性
+	if storeID > 0 {
+		store, serr := gf.Model("business_stores").
+			Fields("id,status").
+			Where("id", storeID).
+			Where("business_id", businessID).
+			Where("deletetime", nil).
+			Find()
+		if serr != nil {
+			gf.Failed().SetMsg("校验门店失败：" + serr.Error()).Regin(c)
+			return
+		}
+		if store == nil {
+			gf.Failed().SetMsg("门店不存在").Regin(c)
+			return
+		}
+		if store["status"].Int() != 0 {
+			gf.Failed().SetMsg("门店不可用").Regin(c)
+			return
+		}
+	}
+
+	province := strings.TrimSpace(gf.String(param["region_province"]))
+	city := strings.TrimSpace(gf.String(param["region_city"]))
+	district := strings.TrimSpace(gf.String(param["region_district"]))
+
+	now := time.Now()
+
+	// 查找用户（手机号即账号）
+	findFields := "id,business_id,status"
+	if gf.DbHaseField("business_user", "audit_status") {
+		findFields += ",audit_status"
+	}
+	user, err := gf.Model("business_user").
+		Fields(findFields).
+		Where("mobile", mobile).
+		Where("deletetime", nil).
+		Find()
+	if err != nil {
+		gf.Failed().SetMsg("查找用户失败：" + err.Error()).Regin(c)
+		return
+	}
+
+	// 仅在字段存在时写入，避免老库缺字段直接报错
+	buildAuditPending := func(m gf.Map) {
+		if gf.DbHaseField("business_user", "audit_status") {
+			m["audit_status"] = userAuditStatusPending
+		}
+		if gf.DbHaseField("business_user", "audit_reason") {
+			m["audit_reason"] = ""
+		}
+		if gf.DbHaseField("business_user", "apply_time") {
+			m["apply_time"] = now
+		}
+		if gf.DbHaseField("business_user", "audit_time") {
+			m["audit_time"] = nil
+		}
+	}
+
+	if user == nil {
+		data := gf.Map{
+			"business_id": businessID,
+			"username":    mobile,
+			"name":        name,
+			"nickname":    mobile,
+			"mobile":      mobile,
+			"avatar":      "resource/uploads/static/avatar.png",
+			"sex":         0,
+			"role":        "user",
+			"title":       uniappDefaultTitle,
+			"status":      0,
+		}
+		// 门店与地区（可选）
+		data["store_id"] = storeID
+		if gf.DbHaseField("business_user", "store_name_text") {
+			data["store_name_text"] = storeNameText
+		}
+		if gf.DbHaseField("business_user", "store_address_text") {
+			data["store_address_text"] = storeAddrText
+		}
+		if gf.DbHaseField("business_user", "region_province") {
+			data["region_province"] = province
+		}
+		if gf.DbHaseField("business_user", "region_city") {
+			data["region_city"] = city
+		}
+		if gf.DbHaseField("business_user", "region_district") {
+			data["region_district"] = district
+		}
+		buildAuditPending(data)
+
+		addID, addErr := gf.Model("business_user").Data(data).InsertAndGetId()
+		if addErr != nil || addID == 0 {
+			gf.Failed().SetMsg("提交失败，请稍后再试").SetData(addErr).Regin(c)
+			return
+		}
+		gf.Success().SetMsg("提交成功，请等待审核").SetData(gf.Map{
+			"id":           addID,
+			"mobile":       mobile,
+			"audit_status": userAuditStatusPending,
+		}).Regin(c)
+		return
+	}
+
+	// 已存在用户：若未通过审核，则重置为 pending；若已通过审核，仅更新资料
+	update := gf.Map{
+		"name":     name,
+		"store_id": storeID,
+	}
+	if gf.DbHaseField("business_user", "store_name_text") {
+		update["store_name_text"] = storeNameText
+	}
+	if gf.DbHaseField("business_user", "store_address_text") {
+		update["store_address_text"] = storeAddrText
+	}
+	if gf.DbHaseField("business_user", "region_province") {
+		update["region_province"] = province
+	}
+	if gf.DbHaseField("business_user", "region_city") {
+		update["region_city"] = city
+	}
+	if gf.DbHaseField("business_user", "region_district") {
+		update["region_district"] = district
+	}
+
+	needPending := true
+	if gf.DbHaseField("business_user", "audit_status") {
+		cur := normalizeUserAuditStatus(gf.String(user["audit_status"]))
+		needPending = cur != userAuditStatusApproved
+	}
+	if needPending {
+		buildAuditPending(update)
+	}
+
+	if _, uerr := gf.Model("business_user").Where("id", user["id"]).Update(update); uerr != nil {
+		gf.Failed().SetMsg("提交失败：" + uerr.Error()).Regin(c)
+		return
+	}
+
+	// 返回最新审核状态
+	auditStatus := userAuditStatusPending
+	if gf.DbHaseField("business_user", "audit_status") {
+		auditStatus = userAuditStatusPending
+		if !needPending {
+			auditStatus = userAuditStatusApproved
+		}
+	}
+	gf.Success().SetMsg("提交成功，请等待审核").SetData(gf.Map{
+		"id":           user["id"].Int64(),
+		"mobile":       mobile,
+		"audit_status": auditStatus,
+	}).Regin(c)
+}
+
+// 《获取注册/审核状态》（无需登录）
+// GET /uniapp/getRegisterStatus
+// 入参：mobile 或 phone_code
+func (api *Index) GetRegisterStatus(c *gf.GinCtx) {
+	param, _ := gf.RequestParam(c)
+
+	phoneCode := strings.TrimSpace(gf.String(param["phone_code"]))
+	mobile := strings.TrimSpace(gf.String(param["mobile"]))
+	if phoneCode != "" {
+		appid, secretkey := getWxappAppidSecret(c)
+		if appid == "" || secretkey == "" {
+			gf.Failed().SetMsg("未配置微信小程序 appid/secretkey，无法查询审核状态").Regin(c)
+			return
+		}
+		accessToken, err := wxGetAccessToken(appid, secretkey)
+		if err != nil {
+			gf.Failed().SetMsg("获取微信 access_token 失败：" + err.Error()).Regin(c)
+			return
+		}
+		phone, err := wxGetPhoneNumber(accessToken, phoneCode)
+		if err != nil {
+			gf.Failed().SetMsg("获取手机号失败：" + err.Error()).Regin(c)
+			return
+		}
+		mobile = strings.TrimSpace(phone)
+	}
+	if mobile == "" {
+		gf.Failed().SetMsg("请提交手机号").Regin(c)
+		return
+	}
+
+	fields := "id,business_id,name,mobile,store_id,status"
+	if gf.DbHaseField("business_user", "audit_status") {
+		fields += ",audit_status"
+	}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		fields += ",audit_reason"
+	}
+	if gf.DbHaseField("business_user", "apply_time") {
+		fields += ",apply_time"
+	}
+	if gf.DbHaseField("business_user", "audit_time") {
+		fields += ",audit_time"
+	}
+	if gf.DbHaseField("business_user", "store_name_text") {
+		fields += ",store_name_text"
+	}
+	if gf.DbHaseField("business_user", "store_address_text") {
+		fields += ",store_address_text"
+	}
+
+	user, err := gf.Model("business_user").
+		Fields(fields).
+		Where("mobile", mobile).
+		Where("deletetime", nil).
+		Find()
+	if err != nil {
+		gf.Failed().SetMsg("获取审核状态失败：" + err.Error()).Regin(c)
+		return
+	}
+	if user == nil {
+		gf.Failed().SetCode(wxappCodeNotRegistered).SetMsg("账号未注册").SetData(gf.Map{"mobile": mobile}).Regin(c)
+		return
+	}
+
+	// 门店信息：优先 store_id，其次手填字段
+	storeName := "未绑定"
+	storeAddr := ""
+	if user["store_id"].Int64() > 0 {
+		store, serr := gf.Model("business_stores").
+			Fields("id,name,address").
+			Where("id", user["store_id"].Int64()).
+			Where("business_id", user["business_id"].Int64()).
+			Where("deletetime", nil).
+			Find()
+		if serr == nil && store != nil {
+			if store["name"].String() != "" {
+				storeName = store["name"].String()
+			}
+			storeAddr = store["address"].String()
+		}
+	} else {
+		if gf.DbHaseField("business_user", "store_name_text") {
+			if s := strings.TrimSpace(gf.String(user["store_name_text"])); s != "" {
+				storeName = s
+			}
+		}
+		if gf.DbHaseField("business_user", "store_address_text") {
+			storeAddr = strings.TrimSpace(gf.String(user["store_address_text"]))
+		}
+	}
+
+	auditStatus := userAuditStatusApproved
+	if gf.DbHaseField("business_user", "audit_status") {
+		auditStatus = normalizeUserAuditStatus(gf.String(user["audit_status"]))
+	}
+	auditReason := ""
+	if gf.DbHaseField("business_user", "audit_reason") {
+		auditReason = strings.TrimSpace(gf.String(user["audit_reason"]))
+	}
+
+	gf.Success().SetMsg("获取审核状态").SetData(gf.Map{
+		"id":           user["id"].Int64(),
+		"business_id":   user["business_id"].Int64(),
+		"name":         user["name"].String(),
+		"mobile":       mobile,
+		"store_id":     user["store_id"].Int64(),
+		"store_name":   storeName,
+		"store_address": storeAddr,
+		"status":       user["status"].Int(),
+		"audit_status": auditStatus,
+		"audit_reason": auditReason,
+		"apply_time":   user["apply_time"],
+		"audit_time":   user["audit_time"],
+		"can_login":    auditStatus == userAuditStatusApproved && user["status"].Int() == 0,
+	}).Regin(c)
+}
+
+// 《注册页门店列表》（无需登录）
+// GET /uniapp/getRegisterStores
+func (api *Index) GetRegisterStores(c *gf.GinCtx) {
+	businessID := wxBusinessID(c)
+	list, err := gf.Model("business_stores").
+		Fields("id,name,address").
+		Where("business_id", businessID).
+		Where("deletetime", nil).
+		Where("status", 0).
+		Order("weigh desc,id desc").
+		Select()
+	if err != nil {
+		gf.Failed().SetMsg("获取门店失败：" + err.Error()).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("获取门店列表").SetData(list).Regin(c)
+}
+
 // 《获取用户信息》
 func (api *Index) GetUserinfo(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
-	userdata, err := gf.Model("business_user").Fields("id,business_id,username,name,nickname,mobile,email,avatar,sex,role,store_id,title,can_manage_properties,can_manage_locks,status,createtime,updatetime").Where("id", userID).Where("deletetime", nil).Find()
+	fields := "id,business_id,username,name,nickname,mobile,email,avatar,sex,role,store_id,title,can_manage_properties,can_manage_locks,status,createtime,updatetime"
+	if gf.DbHaseField("business_user", "store_name_text") {
+		fields += ",store_name_text"
+	}
+	if gf.DbHaseField("business_user", "store_address_text") {
+		fields += ",store_address_text"
+	}
+	userdata, err := gf.Model("business_user").Fields(fields).Where("id", userID).Where("deletetime", nil).Find()
 	if err != nil {
 		gf.Failed().SetMsg("查找用户数据错误：" + err.Error()).Regin(c)
 		return
@@ -262,6 +661,16 @@ func (api *Index) GetUserinfo(c *gf.GinCtx) {
 				storeName = store["name"].String()
 			}
 			storeAddr = store["address"].String()
+		}
+	} else {
+		// 手填门店兜底
+		if gf.DbHaseField("business_user", "store_name_text") {
+			if s := strings.TrimSpace(gf.String(userdata["store_name_text"])); s != "" {
+				storeName = s
+			}
+		}
+		if gf.DbHaseField("business_user", "store_address_text") {
+			storeAddr = strings.TrimSpace(gf.String(userdata["store_address_text"]))
 		}
 	}
 	userdata["store_name"] = gf.VarNew(storeName)
@@ -283,8 +692,15 @@ func (api *Index) GetUserinfo(c *gf.GinCtx) {
 // 《获取我的名片资料》（不脱敏，用于名片预览/编辑）
 func (api *Index) GetCardProfile(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
+	fields := "id,business_id,username,name,nickname,mobile,email,avatar,role,store_id,title,introduction,status,createtime,updatetime"
+	if gf.DbHaseField("business_user", "store_name_text") {
+		fields += ",store_name_text"
+	}
+	if gf.DbHaseField("business_user", "store_address_text") {
+		fields += ",store_address_text"
+	}
 	userdata, err := gf.Model("business_user").
-		Fields("id,business_id,username,name,nickname,mobile,email,avatar,role,store_id,title,introduction,status,createtime,updatetime").
+		Fields(fields).
 		Where("id", userID).
 		Where("deletetime", nil).
 		Find()
@@ -312,6 +728,16 @@ func (api *Index) GetCardProfile(c *gf.GinCtx) {
 				storeName = store["name"].String()
 			}
 			storeAddr = store["address"].String()
+		}
+	} else {
+		// 手填门店兜底
+		if gf.DbHaseField("business_user", "store_name_text") {
+			if s := strings.TrimSpace(gf.String(userdata["store_name_text"])); s != "" {
+				storeName = s
+			}
+		}
+		if gf.DbHaseField("business_user", "store_address_text") {
+			storeAddr = strings.TrimSpace(gf.String(userdata["store_address_text"]))
 		}
 	}
 	userdata["store_name"] = gf.VarNew(storeName)

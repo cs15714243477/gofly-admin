@@ -118,6 +118,22 @@
         </view>
       </view>
 
+      <!-- 房源描述 -->
+      <view class="card">
+        <view class="card-title">房源描述</view>
+        <view class="form-row">
+          <text class="label">自定义描述</text>
+          <textarea
+            v-model="form.custom_desc"
+            class="textarea"
+            placeholder="可填写房源亮点、周边配套、交通、学区等（纯文本）"
+            placeholder-class="placeholder"
+            maxlength="1000"
+            auto-height
+          ></textarea>
+        </view>
+      </view>
+
       <!-- 房源参数 -->
       <view class="card">
         <view class="card-title">房源参数</view>
@@ -988,6 +1004,7 @@ export default {
       uploading: false,
       form: {
         title: "",
+        custom_desc: "",
         price: "",
         price_unit: "万",
         area: "",
@@ -2116,6 +2133,7 @@ export default {
         const payload = {
           ...(this.id ? { id: this.id } : {}),
           title,
+          custom_desc: String(this.form.custom_desc || ""),
           sale_status: this.form.sale_status,
           price: this.form.price,
           price_unit: this.form.price_unit,

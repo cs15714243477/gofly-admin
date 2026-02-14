@@ -93,6 +93,8 @@ func saleStatusLabel(status string) string {
 	switch status {
 	case "on_sale":
 		return "在售"
+	case "in_sale":
+		return "预售"
 	case "sold":
 		return "已售"
 	case "off_market":
@@ -177,6 +179,7 @@ func (api *Home) GetList(c *gf.GinCtx) {
 				Where("business_id", businessID).
 				Where("status", 0).
 				Where("deletetime", nil).
+				WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 				WhereIn("id", propIDs).
 				Order("weigh desc, id desc").
 				Select()
@@ -230,6 +233,7 @@ func (api *Home) GetList(c *gf.GinCtx) {
 		Where("hot_status", 1).
 		Where("status", 0).
 		Where("deletetime", nil)
+	recMDB = wxApplyPropertyVisibility(recMDB)
 
 	// 关键词搜索：标题/小区/地址
 	if keyword != "" {

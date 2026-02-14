@@ -32,6 +32,7 @@ func (api *Index) GetPropertyUrlLink(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("deletetime", nil).
 		Where("status", 0).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Find()
 	if err != nil || prop == nil || prop["id"].Int64() <= 0 {
 		gf.Failed().SetMsg("房源不存在或已下架").Regin(c)
@@ -71,4 +72,3 @@ func (api *Index) GetPropertyUrlLink(c *gf.GinCtx) {
 		"url_link":    urlLink,
 	}).Regin(c)
 }
-

@@ -40,6 +40,7 @@ func wxEnsurePropertyOwned(c *gf.GinCtx, businessID, propertyID int64) bool {
 		Where("id", propertyID).
 		Where("deletetime", nil).
 		Where("status", 0).
+		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
 		Exist()
 	if !existProperty {
 		gf.Failed().SetMsg("房源不存在或已下架").Regin(c)

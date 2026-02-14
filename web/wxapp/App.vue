@@ -58,13 +58,8 @@
 					return
 				}
 
-				const pages = getCurrentPages ? getCurrentPages() : []
-				const cur = pages && pages.length ? pages[pages.length - 1] : null
-				const route = cur && cur.route ? cur.route : ''
-				// 仅在“启动落到登录页”时自动跳首页，避免干扰用户在其它页面的操作
-				if (route === 'pages/login/login') {
-					uni.reLaunch({ url: '/pages/property_list/property_list' })
-				}
+				// 不在 App 层做强制跳转：由登录页统一显示“加载中…”并跳转首页
+				// 这样能避免白屏/闪跳，并便于后续扩展“未注册/审核中/已拒绝”的分流逻辑
 			}
 		},
 		onLaunch: function() {

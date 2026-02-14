@@ -109,6 +109,14 @@
               {{ t }}
             </text>
           </view>
+          <view v-if="!isPublicView" class="commission-line">
+            <text class="material-symbols-outlined commission-ic"
+              >currency_yen</text
+            >
+            <text class="commission-text">{{
+              getCommissionText(property)
+            }}</text>
+          </view>
           <view class="status-row" v-if="canEditThisProperty">
             <view
               class="status-chip"
@@ -155,22 +163,6 @@
           </view>
         </view>
 
-        <!-- 佣金横幅 -->
-        <view v-if="!isPublicView" class="commission-banner">
-          <view class="banner-bg-decor"></view>
-          <view class="banner-main">
-            <view class="icon-box">
-              <text class="material-symbols-outlined">currency_yen</text>
-            </view>
-            <view class="banner-info">
-              <text class="banner-title">{{
-                getCommissionText(property)
-              }}</text>
-              <text class="banner-tip">签约后7个工作日内结算</text>
-            </view>
-          </view>
-        </view>
-
         <!-- 浏览数据 -->
         <view class="data-row">
           <view class="data-group">
@@ -208,6 +200,15 @@
               <text class="attr-val">{{ attr.value }}</text>
             </view>
           </view>
+        </view>
+
+        <!-- 房源描述 -->
+        <view class="section">
+          <view class="section-title">房源描述</view>
+          <view v-if="property && property.custom_desc" class="desc-card">
+            <view class="desc-text">{{ property.custom_desc }}</view>
+          </view>
+          <view v-else class="desc-empty">暂无描述</view>
         </view>
 
         <!-- 房主与收房（与后台表单字段一致） -->
@@ -783,6 +784,9 @@ export default {
       shareSheetOpen: false,
       showingSheetOpen: false,
       showingSaving: false,
+      // 预售 Tab 详情模式：仅允许从预售列表进入（需 view_key）
+      isPreSaleView: false,
+      preSaleViewKey: "",
       showingForm: {
         client_name: "",
         client_phone: "",
@@ -830,6 +834,22 @@ export default {
       .toLowerCase();
     this.isPublicView =
       publicRaw === "1" || publicRaw === "true" || publicRaw === "yes";
+
+    const presaleRaw = String(
+      (options && (options.presale || options.pre_sale || options.is_presale)) ||
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    this.isPreSaleView =
+      presaleRaw === "1" || presaleRaw === "true" || presaleRaw === "yes";
+    this.preSaleViewKey = String(
+      (options && (options.view_key || options.viewKey)) || "",
+    ).trim();
+    if (this.isPreSaleView) {
+      // 预售详情按“公开详情”样式展示，隐藏底部操作栏/分享等入口
+      this.isPublicView = true;
+    }
     this.publicFromAgentId =
       Number(options && (options.from_agent_id || options.agent_id || 0)) || 0;
     this.publicFromStyle = Number(options && options.from_style) || 0;
@@ -1158,13 +1178,23 @@ export default {
       this.loading = true;
       let res;
       try {
-        res = await propertyApi.getDetail({
-          id: this.propertyId,
-          public: this.isPublicView ? 1 : 0,
-        });
+        if (this.isPreSaleView) {
+          res = await propertyApi.getPreSaleDetail({
+            id: this.propertyId,
+            view_key: this.preSaleViewKey,
+          });
+        } else {
+          res = await propertyApi.getDetail({
+            id: this.propertyId,
+            public: this.isPublicView ? 1 : 0,
+          });
+        }
       } catch (e) {
         this.loading = false;
-        if (!this.isPublicView && !uni.getStorageSync("token")) {
+        if (
+          (this.isPreSaleView || !this.isPublicView) &&
+          !uni.getStorageSync("token")
+        ) {
           uni.reLaunch({ url: "/pages/login/login" });
         }
         return false;
@@ -1172,7 +1202,10 @@ export default {
       this.loading = false;
       if (!res || res.code !== 0) {
         const msg = String((res && (res.message || res.msg)) || "").trim();
-        if (!this.isPublicView && /登录|token|认证/i.test(msg)) {
+        if (
+          (this.isPreSaleView || !this.isPublicView) &&
+          /登录|token|认证/i.test(msg)
+        ) {
           uni.reLaunch({ url: "/pages/login/login" });
           return false;
         }
@@ -1928,6 +1961,34 @@ export default {
     }
   }
 
+  .commission-line {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    padding: 8rpx 12rpx;
+    border-radius: 14rpx;
+    background: rgba(249, 115, 22, 0.08);
+    border: 1rpx solid rgba(249, 115, 22, 0.14);
+    color: #9a3412;
+    font-size: 22rpx;
+    font-weight: 800;
+    line-height: 1;
+
+    .commission-ic {
+      font-size: 26rpx;
+      flex-shrink: 0;
+      color: #f97316;
+    }
+
+    .commission-text {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
   .status-row {
     display: flex;
     flex-wrap: wrap;
@@ -2081,67 +2142,6 @@ export default {
   }
 }
 
-.commission-banner {
-  background: linear-gradient(to right, #f97316, #ea580c);
-  border-radius: 24rpx;
-  padding: 32rpx;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 10rpx 20rpx rgba(249, 115, 22, 0.2);
-
-  .banner-bg-decor {
-    position: absolute;
-    right: -48rpx;
-    top: -48rpx;
-    width: 192rpx;
-    height: 192rpx;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    filter: blur(40rpx);
-  }
-
-  .banner-main {
-    display: flex;
-    align-items: center;
-    gap: 24rpx;
-    position: relative;
-    z-index: 10;
-
-    .icon-box {
-      width: 80rpx;
-      height: 80rpx;
-      background-color: rgba(255, 255, 255, 0.2);
-      backdrop-filter: blur(10rpx);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-
-      .material-symbols-outlined {
-        font-size: 48rpx;
-      }
-    }
-
-    .banner-info {
-      display: flex;
-      flex-direction: column;
-      gap: 4rpx;
-
-      .banner-title {
-        font-size: 32rpx;
-        font-weight: bold;
-        color: #ffffff;
-      }
-
-      .banner-tip {
-        font-size: 22rpx;
-        color: rgba(255, 255, 255, 0.8);
-      }
-    }
-  }
-}
-
 .data-row {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
@@ -2251,6 +2251,28 @@ export default {
       font-weight: 500;
     }
   }
+}
+
+.desc-card {
+  background-color: #f8fafc;
+  padding: 32rpx;
+  border-radius: 24rpx;
+}
+
+.desc-text {
+  font-size: 28rpx;
+  color: #0f172a;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.desc-empty {
+  font-size: 26rpx;
+  color: #94a3b8;
+  background-color: #f8fafc;
+  padding: 24rpx 32rpx;
+  border-radius: 24rpx;
 }
 
 /* 装修状态 */

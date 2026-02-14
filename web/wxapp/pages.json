@@ -36,6 +36,13 @@
 			}
 		},
 		{
+			"path": "pages/presale_list/presale_list",
+			"style": {
+				"navigationBarTitleText": "预售房源",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/property_detail/property_detail",
 			"style": {
 				"navigationBarTitleText": "房源详情",

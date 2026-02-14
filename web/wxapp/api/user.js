@@ -22,6 +22,39 @@ export default {
         loadingMsg: "登录中",
       },
     }),
+  // 提交注册/完善资料申请（无需登录，审核通过后才可登录）
+  registerApply: (data) =>
+    request({
+      url: "/uniapp/registerApply",
+      method: "POST",
+      data,
+      custom: {
+        showSuccess: true,
+        loadingMsg: "提交中",
+        auth: false,
+      },
+    }),
+  // 获取注册/审核状态（无需登录）
+  getRegisterStatus: (data, showLoading = false) =>
+    request({
+      url: "/uniapp/getRegisterStatus",
+      method: "GET",
+      data,
+      custom: {
+        showLoading,
+        auth: false,
+      },
+    }),
+  // 注册页门店列表（无需登录）
+  getRegisterStores: (showLoading = true) =>
+    request({
+      url: "/uniapp/getRegisterStores",
+      method: "GET",
+      custom: {
+        showLoading,
+        auth: false,
+      },
+    }),
   // 获取用户信息
   getuserinfo: () =>
     request({

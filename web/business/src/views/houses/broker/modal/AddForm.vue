@@ -62,9 +62,44 @@
               </a-select>
             </a-form-item>
           </a-col>
+
+          <a-col :span="12" v-if="!Number(formData.store_id)">
+            <a-form-item
+              field="store_name_text"
+              label="手填门店名称"
+              :rules="[{ required: true, message: '未选择门店时请填写门店名称' }]"
+            >
+              <a-input v-model="formData.store_name_text" placeholder="请输入门店名称" allow-clear />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12" v-if="!Number(formData.store_id)">
+            <a-form-item field="store_address_text" label="手填门店地址">
+              <a-input v-model="formData.store_address_text" placeholder="门店地址（可选）" allow-clear />
+            </a-form-item>
+          </a-col>
+
           <a-col :span="12">
             <a-form-item field="title" label="头衔">
               <a-input v-model="formData.title" placeholder="例如：金牌经纪人" allow-clear />
+            </a-form-item>
+          </a-col>
+
+          <a-col :span="12">
+            <a-form-item field="audit_status" label="审核状态">
+              <a-select v-model="formData.audit_status" placeholder="请选择审核状态" allow-clear>
+                <a-option value="pending">待审核</a-option>
+                <a-option value="approved">已通过</a-option>
+                <a-option value="rejected">已拒绝</a-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item
+              field="audit_reason"
+              label="审核备注/原因"
+              :rules="formData.audit_status === 'rejected' ? [{ required: true, message: '请填写拒绝原因' }] : []"
+            >
+              <a-input v-model="formData.audit_reason" placeholder="拒绝原因/备注（可选）" allow-clear />
             </a-form-item>
           </a-col>
 
@@ -152,8 +187,14 @@ export default defineComponent({
       // 默认不可管理智能锁
       can_manage_locks: 0,
       store_id: undefined as any,
+      // 手填门店信息（当未选择门店时使用）
+      store_name_text: '',
+      store_address_text: '',
       title: '',
       introduction: '',
+      // 审核字段
+      audit_status: 'approved',
+      audit_reason: '',
       status: 0,
     };
 
@@ -274,6 +315,8 @@ export default defineComponent({
         formData.value.role = 1;
         // select 可能回传 string，统一转成 number
         formData.value.store_id = Number(formData.value.store_id) || 0;
+        formData.value.audit_status = String(formData.value.audit_status || '').trim() || 'approved';
+        formData.value.audit_reason = String(formData.value.audit_reason || '').trim();
         formData.value.can_manage_properties = Number(formData.value.can_manage_properties) || 0;
         formData.value.can_manage_locks = Number(formData.value.can_manage_locks) || 0;
         await save(cloneDeep(unref(formData)));
