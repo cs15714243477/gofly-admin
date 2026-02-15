@@ -240,6 +240,7 @@ export default {
   display: flex;
   flex-direction: column;
   background: #f8fafc;
+  overflow: hidden;
 }
 
 .header {
@@ -278,6 +279,8 @@ export default {
 
 .main-list {
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .list-content {
@@ -482,4 +485,3 @@ export default {
   height: 140rpx;
 }
 </style>
-

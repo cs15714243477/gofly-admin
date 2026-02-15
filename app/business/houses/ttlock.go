@@ -13,6 +13,28 @@ import (
 	"gofly/utils/tools/gvar"
 )
 
+// 从锁 raw_json 中解析云端别名 lockAlias
+func ttlockParseLockAlias(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil || m == nil {
+		return ""
+	}
+	keys := []string{"lockAlias", "lock_alias", "alias", "lockalias"}
+	for _, k := range keys {
+		if v, ok := m[k]; ok {
+			s := strings.TrimSpace(gconv.String(v))
+			if s != "" && s != "null" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
 // 通通锁（TTLock）后台管理接口
 type Ttlock struct {
 	NoNeedAuths  []string
@@ -234,12 +256,12 @@ func (api *Ttlock) SyncLocks(c *gf.GinCtx) {
 	gf.Success().SetMsg("同步完成").SetData(gf.Map{
 		"saved": totalSaved,
 		"cleanup": gf.Map{
-			"complete_sync":      completeSync,
-			"deleted_locks":      deletedLocks,
-			"unbound_binds":      unboundBinds,
+			"complete_sync":       completeSync,
+			"deleted_locks":       deletedLocks,
+			"unbound_binds":       unboundBinds,
 			"affected_properties": affectedProperties,
-			"skipped":            cleanupSkipped,
-			"skip_reason":        cleanupReason,
+			"skipped":             cleanupSkipped,
+			"skip_reason":         cleanupReason,
 		},
 	}).Regin(c)
 }
@@ -265,6 +287,17 @@ func (api *Ttlock) GetLockList(c *gf.GinCtx) {
 		Page(pageNo, pageSize).
 		Order("id desc").
 		Select()
+
+	// 解析 lockAlias（用于列表/详情展示）
+	for _, r := range list {
+		if r == nil {
+			continue
+		}
+		alias := ttlockParseLockAlias(r["raw_json"].String())
+		if alias != "" {
+			r["lock_alias"] = gvar.New(alias)
+		}
+	}
 
 	// Enrich list with bind info (one lock -> one property).
 	if len(list) > 0 {
@@ -550,11 +583,19 @@ func (api *Ttlock) GetPropertyLock(c *gf.GinCtx) {
 		return
 	}
 	lock, _ := gf.Model("business_smart_locks").
-		Fields("ttlock_lock_id,lock_name,lock_mac,battery,model_num,last_sync_at").
+		Fields("ttlock_lock_id,lock_name,lock_mac,battery,model_num,raw_json,last_sync_at").
 		Where("business_id", businessID).
 		Where("ttlock_lock_id", bind["ttlock_lock_id"].Int64()).
 		Where("deletetime", 0).
 		Find()
+
+	if lock != nil {
+		alias := ttlockParseLockAlias(lock["raw_json"].String())
+		if alias != "" {
+			lock["lock_alias"] = gvar.New(alias)
+		}
+		delete(lock, "raw_json")
+	}
 
 	gf.Success().SetMsg("房源锁信息").SetData(gf.Map{
 		"bind": bind,
@@ -642,6 +683,29 @@ func (api *Ttlock) RemoteUnlock(c *gf.GinCtx) {
 		return
 	}
 
+	// 同步写入开锁申请记录（密码方式）：用于“房源详情-开锁记录”展示
+	// 说明：仅在明确携带 property_id 时写入，避免后台仅用 lock_id 调用时无法归属房源。
+	unlockRequestID := int64(0)
+	if userID > 0 && propertyID > 0 {
+		now := time.Now()
+		var expiresAt any = nil
+		if end > 0 {
+			expiresAt = time.UnixMilli(end).In(now.Location())
+		}
+		id, _ := gf.Model("business_unlock_requests").Data(gf.Map{
+			"user_id":        userID,
+			"property_id":    propertyID,
+			"request_status": "pending",
+			"request_type":   "password",
+			"request_time":   now,
+			"expires_at":     expiresAt,
+			"status":         0,
+			"createtime":     now,
+			"updatetime":     now,
+		}).InsertAndGetId()
+		unlockRequestID = id
+	}
+
 	// 优先从本地锁 raw_json 解析 keyboardPwdVersion
 	if keyboardPwdVersion <= 0 {
 		lockRow, _ := gf.Model("business_smart_locks").
@@ -681,6 +745,36 @@ func (api *Ttlock) RemoteUnlock(c *gf.GinCtx) {
 		"end_date":             end,
 		"response":             out,
 	})
+
+	// 回写申请结果
+	if unlockRequestID > 0 && userID > 0 && propertyID > 0 {
+		now := time.Now()
+		requestStatus := "completed"
+		remark := "密码已生成"
+		if callErr != nil {
+			requestStatus = "rejected"
+			if strings.TrimSpace(errMsg) != "" {
+				remark = errMsg
+			} else {
+				remark = "获取密码失败"
+			}
+		}
+		remark = ttlockLimitLen(remark, 255)
+		updateData := gf.Map{
+			"request_status":  requestStatus,
+			"approval_remark": remark,
+			"updatetime":      now,
+		}
+		if end > 0 {
+			updateData["expires_at"] = time.UnixMilli(end).In(now.Location())
+		}
+		_, _ = gf.Model("business_unlock_requests").
+			Where("id", unlockRequestID).
+			Where("user_id", userID).
+			Where("property_id", propertyID).
+			Data(updateData).
+			Update()
+	}
 	if callErr != nil {
 		gf.Failed().SetMsg("获取密码失败：" + errMsg).SetData(out).Regin(c)
 		return
@@ -699,6 +793,21 @@ func (api *Ttlock) RemoteUnlock(c *gf.GinCtx) {
 	out["keyboardPwdType"] = keyboardPwdType
 
 	gf.Success().SetMsg("开锁密码已生成").SetData(out).Regin(c)
+}
+
+func ttlockLimitLen(s string, max int) string {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return ""
+	}
+	if max <= 0 {
+		return ""
+	}
+	rs := []rune(raw)
+	if len(rs) <= max {
+		return raw
+	}
+	return string(rs[:max])
 }
 
 // AddKeyboardPwd 通过网关下发临时密码（TTLock Cloud /v3/keyboardPwd/add, addType=2）

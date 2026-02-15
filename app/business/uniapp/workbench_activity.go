@@ -68,7 +68,7 @@ func wxBuildActivityMeta(param map[string]interface{}) map[string]any {
 //
 // 说明：
 // - follow/unlock 走各自表/接口，不在这里写
-// - 对 view 做 10 分钟去重：同一用户同一房源 10 分钟内只记 1 条
+// - 对 view 不做后端去重：每次进入详情页写 1 条（由小程序端控制“同一次进入只记一次”）
 func (api *Index) AddWorkbenchActivityLog(c *gf.GinCtx) {
 	userID := c.GetInt64("userID")
 	if userID <= 0 {
@@ -95,24 +95,6 @@ func (api *Index) AddWorkbenchActivityLog(c *gf.GinCtx) {
 		}
 	}
 
-	// 去重：10分钟内同一用户同一房源浏览只记一次
-	if activityType == wxRecordTypeView && propertyID > 0 {
-		since := time.Now().Add(-10 * time.Minute)
-		exists, _ := gf.Model("business_user_activity_logs").
-			Where("user_id", userID).
-			Where("property_id", propertyID).
-			Where("activity_type", activityType).
-			Where("createtime >= ?", since).
-			Exist()
-		if exists {
-			gf.Success().SetMsg("ok").SetData(gf.Map{
-				"skipped": true,
-				"reason":  "10分钟内已记录",
-			}).Regin(c)
-			return
-		}
-	}
-
 	meta := wxBuildActivityMeta(param)
 	metaText := wxMarshalMeta(meta)
 
@@ -130,9 +112,8 @@ func (api *Index) AddWorkbenchActivityLog(c *gf.GinCtx) {
 	}
 
 	gf.Success().SetMsg("记录成功").SetData(gf.Map{
-		"id":           id,
+		"id":            id,
 		"activity_type": activityType,
-		"property_id":  propertyID,
+		"property_id":   propertyID,
 	}).Regin(c)
 }
-

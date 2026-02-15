@@ -247,7 +247,7 @@
                              <icon-robot />
                            </div>
                            <div class="device-text">
-                             <div class="d-name">{{ lockInfo.lock.lock_name }}</div>
+                             <div class="d-name">{{ lockInfo.lock.lock_alias || lockInfo.lock.lock_name }}</div>
                              <div class="d-mac">{{ lockInfo.lock.lock_mac }}</div>
                            </div>
                          </div>
@@ -451,7 +451,7 @@
                       </a-button>
                       <a-tag bordered size="small">共 {{ viewLogPagination.total || 0 }} 条</a-tag>
                     </a-space>
-                    <div class="records-tip">说明：浏览记录来源于小程序/业务端的行为日志。</div>
+                    <div class="records-tip">说明：每次进入房源详情记录 1 条（不去重），数据来自小程序/业务端的行为日志。</div>
                   </div>
 
                   <a-spin :loading="viewLogLoading" style="width: 100%">
@@ -464,26 +464,29 @@
                       @page-change="handleViewLogPageChange"
                       @page-size-change="handleViewLogPageSizeChange"
                     >
-                      <a-table-column title="时间" data-index="createtime" :width="170" />
-                      <a-table-column title="经纪人" :width="220">
-                        <template #cell="{ record }">
-                          <div class="user-cell">
-                            <div class="user-main">
-                              <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
-                              <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                      <template #columns>
+                        <a-table-column title="时间" data-index="createtime" :width="170" />
+                        <a-table-column title="经纪人" :width="220">
+                          <template #cell="{ record }">
+                            <div class="user-cell">
+                              <div class="user-main">
+                                <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                                <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                              </div>
+                              <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
                             </div>
-                            <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
-                          </div>
-                        </template>
-                      </a-table-column>
-                      <a-table-column title="次数" :width="90">
-                        <template #cell="{ record }">{{ record._count || 1 }}</template>
-                      </a-table-column>
-                      <a-table-column title="页面/备注">
-                        <template #cell="{ record }">
-                          <span>{{ record._page || '-' }}</span>
-                        </template>
-                      </a-table-column>
+                          </template>
+                        </a-table-column>
+                        <a-table-column title="次数" :width="90">
+                          <template #cell="{ record }">{{ record._count || 1 }}</template>
+                        </a-table-column>
+                        <a-table-column title="页面/备注">
+                          <template #cell="{ record }">
+                            <div>{{ record._page || '-' }}</div>
+                            <div class="records-sub" v-if="record._channel">渠道：{{ record._channel }}</div>
+                          </template>
+                        </a-table-column>
+                      </template>
                     </a-table>
                   </a-spin>
                 </a-tab-pane>
@@ -514,27 +517,29 @@
                       @page-change="handleShowingLogPageChange"
                       @page-size-change="handleShowingLogPageSizeChange"
                     >
-                      <a-table-column title="时间" data-index="createtime" :width="170" />
-                      <a-table-column title="经纪人" :width="220">
-                        <template #cell="{ record }">
-                          <div class="user-cell">
-                            <div class="user-main">
-                              <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
-                              <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                      <template #columns>
+                        <a-table-column title="时间" data-index="createtime" :width="170" />
+                        <a-table-column title="经纪人" :width="220">
+                          <template #cell="{ record }">
+                            <div class="user-cell">
+                              <div class="user-main">
+                                <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                                <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                              </div>
+                              <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
                             </div>
-                            <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
-                          </div>
-                        </template>
-                      </a-table-column>
-                      <a-table-column title="客户" :width="140">
-                        <template #cell="{ record }">{{ record._client || '-' }}</template>
-                      </a-table-column>
-                      <a-table-column title="电话" :width="150">
-                        <template #cell="{ record }">{{ record._phone || '-' }}</template>
-                      </a-table-column>
-                      <a-table-column title="页面/备注">
-                        <template #cell="{ record }">{{ record._page || '-' }}</template>
-                      </a-table-column>
+                          </template>
+                        </a-table-column>
+                        <a-table-column title="客户" :width="140">
+                          <template #cell="{ record }">{{ record._client || '-' }}</template>
+                        </a-table-column>
+                        <a-table-column title="电话" :width="150">
+                          <template #cell="{ record }">{{ record._phone || '-' }}</template>
+                        </a-table-column>
+                        <a-table-column title="页面/备注">
+                          <template #cell="{ record }">{{ record._page || '-' }}</template>
+                        </a-table-column>
+                      </template>
                     </a-table>
                   </a-spin>
                 </a-tab-pane>
@@ -544,57 +549,139 @@
                     <icon-unlock /> 开锁记录
                   </template>
 
-                  <div class="records-toolbar">
-                    <a-space size="mini" wrap>
-                      <a-button size="mini" type="primary" :loading="unlockLogLoading" @click="reloadUnlockLogs">
-                        <template #icon><icon-refresh /></template>
-                        刷新
-                      </a-button>
-                      <a-tag bordered size="small">共 {{ unlockLogPagination.total || 0 }} 条</a-tag>
-                    </a-space>
-                     <div class="records-tip">说明：开锁记录来自小程序开锁流程日志（business_user_activity_logs，activity_type=unlock）。</div>
-                  </div>
+                  <a-tabs v-model:active-key="unlockSubTabKey" type="card-gutter" size="small">
+                    <a-tab-pane key="requests">
+                      <template #title>申请记录</template>
 
-                  <a-spin :loading="unlockLogLoading" style="width: 100%">
-                    <a-table
-                      row-key="id"
-                      :data="unlockLogList"
-                      :pagination="unlockLogPagination"
-                      :bordered="false"
-                      size="mini"
-                      @page-change="handleUnlockLogPageChange"
-                      @page-size-change="handleUnlockLogPageSizeChange"
-                    >
-                      <a-table-column title="时间" data-index="createtime" :width="170" />
-                      <a-table-column title="经纪人" :width="220">
-                        <template #cell="{ record }">
-                          <div class="user-cell">
-                            <div class="user-main">
-                              <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
-                              <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
-                            </div>
-                            <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
-                          </div>
-                        </template>
-                      </a-table-column>
-                      <a-table-column title="阶段" :width="200">
-                        <template #cell="{ record }">{{ getUnlockStageLabel(record._stage) }}</template>
-                      </a-table-column>
-                      <a-table-column title="结果" :width="90">
-                        <template #cell="{ record }">
-                          <a-tag v-if="record._success === true" color="green" size="small">成功</a-tag>
-                          <a-tag v-else-if="record._success === false" color="red" size="small">失败</a-tag>
-                          <span v-else>-</span>
-                        </template>
-                      </a-table-column>
-                      <a-table-column title="页面/备注">
-                        <template #cell="{ record }">
-                          <div>{{ record._page || '-' }}</div>
-                          <div class="records-sub" v-if="record._err_msg">{{ record._err_msg }}</div>
-                        </template>
-                      </a-table-column>
-                    </a-table>
-                  </a-spin>
+                      <div class="records-toolbar">
+                        <a-space size="mini" wrap>
+                          <a-button size="mini" type="primary" :loading="unlockReqLoading" @click="reloadUnlockReqs">
+                            <template #icon><icon-refresh /></template>
+                            刷新
+                          </a-button>
+                          <a-tag bordered size="small">共 {{ unlockReqPagination.total || 0 }} 条</a-tag>
+                        </a-space>
+                        <div class="records-tip">说明：开锁申请记录来自 business_unlock_requests（蓝牙/密码）。如暂无申请记录，可切换到“过程日志”查看历史数据。</div>
+                      </div>
+
+                      <a-spin :loading="unlockReqLoading" style="width: 100%">
+                        <a-table
+                          v-if="unlockReqList && unlockReqList.length"
+                          row-key="id"
+                          :data="unlockReqList"
+                          :pagination="unlockReqPagination"
+                          :bordered="false"
+                          size="mini"
+                          @page-change="handleUnlockReqPageChange"
+                          @page-size-change="handleUnlockReqPageSizeChange"
+                        >
+                          <template #columns>
+                            <a-table-column title="申请时间" :width="170">
+                              <template #cell="{ record }">{{ record.request_time || record.createtime || '-' }}</template>
+                            </a-table-column>
+                            <a-table-column title="经纪人" :width="220">
+                              <template #cell="{ record }">
+                                <div class="user-cell">
+                                  <div class="user-main">
+                                    <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                                    <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                                  </div>
+                                  <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
+                                </div>
+                              </template>
+                            </a-table-column>
+                            <a-table-column title="方式" :width="90">
+                              <template #cell="{ record }">{{ getUnlockRequestTypeLabel(record.request_type) }}</template>
+                            </a-table-column>
+                            <a-table-column title="状态" :width="110">
+                              <template #cell="{ record }">
+                                <a-tag :color="getUnlockRequestStatusColor(record.request_status)" size="small">
+                                  {{ getUnlockRequestStatusLabel(record.request_status) }}
+                                </a-tag>
+                              </template>
+                            </a-table-column>
+                            <a-table-column title="完成时间" :width="170">
+                              <template #cell="{ record }">{{ getUnlockRequestFinishTime(record) }}</template>
+                            </a-table-column>
+                            <a-table-column title="备注/过期">
+                              <template #cell="{ record }">
+                                <div>{{ record.approval_remark || '-' }}</div>
+                                <div class="records-sub" v-if="record.expires_at">过期：{{ record.expires_at }}</div>
+                              </template>
+                            </a-table-column>
+                          </template>
+                        </a-table>
+
+                        <a-empty
+                          v-else
+                          description="暂无申请记录，可切换到“过程日志”查看历史记录"
+                          style="padding: 20px 0"
+                        >
+                          <template #extra>
+                            <a-button size="mini" type="primary" @click="switchUnlockSubTab('logs')">查看过程日志</a-button>
+                          </template>
+                        </a-empty>
+                      </a-spin>
+                    </a-tab-pane>
+
+                    <a-tab-pane key="logs">
+                      <template #title>过程日志</template>
+
+                      <div class="records-toolbar">
+                        <a-space size="mini" wrap>
+                          <a-button size="mini" type="primary" :loading="unlockLogLoading" @click="reloadUnlockLogs">
+                            <template #icon><icon-refresh /></template>
+                            刷新
+                          </a-button>
+                          <a-tag bordered size="small">共 {{ unlockLogPagination.total || 0 }} 条</a-tag>
+                        </a-space>
+                        <div class="records-tip">说明：过程日志来自小程序开锁流程日志（business_user_activity_logs，activity_type=unlock）。</div>
+                      </div>
+
+                      <a-spin :loading="unlockLogLoading" style="width: 100%">
+                        <a-table
+                          row-key="id"
+                          :data="unlockLogList"
+                          :pagination="unlockLogPagination"
+                          :bordered="false"
+                          size="mini"
+                          @page-change="handleUnlockLogPageChange"
+                          @page-size-change="handleUnlockLogPageSizeChange"
+                        >
+                          <template #columns>
+                            <a-table-column title="时间" data-index="createtime" :width="170" />
+                            <a-table-column title="经纪人" :width="220">
+                              <template #cell="{ record }">
+                                <div class="user-cell">
+                                  <div class="user-main">
+                                    <span class="name">{{ record.user_name || record.user_username || '-' }}</span>
+                                    <a-tag v-if="record.user_title" size="small" bordered>{{ record.user_title }}</a-tag>
+                                  </div>
+                                  <div class="user-sub">{{ record.store_name || '-' }} · {{ record.user_mobile || '-' }}</div>
+                                </div>
+                              </template>
+                            </a-table-column>
+                            <a-table-column title="阶段" :width="200">
+                              <template #cell="{ record }">{{ getUnlockStageLabel(record._stage) }}</template>
+                            </a-table-column>
+                            <a-table-column title="结果" :width="90">
+                              <template #cell="{ record }">
+                                <a-tag v-if="record._success === true" color="green" size="small">成功</a-tag>
+                                <a-tag v-else-if="record._success === false" color="red" size="small">失败</a-tag>
+                                <span v-else>-</span>
+                              </template>
+                            </a-table-column>
+                            <a-table-column title="页面/备注">
+                              <template #cell="{ record }">
+                                <div>{{ record._page || '-' }}</div>
+                                <div class="records-sub" v-if="record._err_msg">{{ record._err_msg }}</div>
+                              </template>
+                            </a-table-column>
+                          </template>
+                        </a-table>
+                      </a-spin>
+                    </a-tab-pane>
+                  </a-tabs>
                 </a-tab-pane>
               </a-tabs>
             </div>
@@ -612,7 +699,7 @@
        <div v-if="cloudDetail" class="cloud-detail-box">
          <div class="cd-hero">
             <div class="icon-circle"><icon-cloud /></div>
-            <div class="cd-title">{{ cloudDetail.lockName }}</div>
+            <div class="cd-title">{{ cloudDetail.lockAlias || cloudDetail.lockName }}</div>
             <div class="cd-sub">{{ cloudDetail.lockMac }}</div>
          </div>
          <div class="cd-list">
@@ -645,23 +732,25 @@
          @page-change="handleStatusLogPageChange"
          @page-size-change="handleStatusLogPageSizeChange"
        >
-         <a-table-column title="时间" data-index="createtime" :width="160" />
-         <a-table-column title="字段" :width="110">
-           <template #cell="{ record }">{{ getStatusFieldLabel(record.field) }}</template>
-         </a-table-column>
-         <a-table-column title="变更" :width="180">
-           <template #cell="{ record }">
-             <span class="log-before">{{ record.before_value || '-' }}</span>
-             <span class="log-arrow">→</span>
-             <span class="log-after">{{ record.after_value || '-' }}</span>
-           </template>
-         </a-table-column>
-         <a-table-column title="操作人" :width="120">
-           <template #cell="{ record }">{{ record.user_name || record.user_username || '-' }}</template>
-         </a-table-column>
-         <a-table-column title="备注">
-           <template #cell="{ record }">{{ record.remark || '-' }}</template>
-         </a-table-column>
+         <template #columns>
+           <a-table-column title="时间" data-index="createtime" :width="160" />
+           <a-table-column title="字段" :width="110">
+             <template #cell="{ record }">{{ getStatusFieldLabel(record.field) }}</template>
+           </a-table-column>
+           <a-table-column title="变更" :width="180">
+             <template #cell="{ record }">
+               <span class="log-before">{{ record.before_value || '-' }}</span>
+               <span class="log-arrow">→</span>
+               <span class="log-after">{{ record.after_value || '-' }}</span>
+             </template>
+           </a-table-column>
+           <a-table-column title="操作人" :width="120">
+             <template #cell="{ record }">{{ record.user_name || record.user_username || '-' }}</template>
+           </a-table-column>
+           <a-table-column title="备注">
+             <template #cell="{ record }">{{ record.remark || '-' }}</template>
+           </a-table-column>
+         </template>
        </a-table>
      </a-spin>
    </a-drawer>
@@ -672,7 +761,7 @@ import { defineComponent, h, ref, computed, watch } from 'vue';
 import { BasicModal, useModal, useModalInner } from '/@/components/Modal';
 import useLoading from '@/hooks/loading';
  import { Message, Modal } from '@arco-design/web-vue';
- import { getContent, getRenovation, getStatusLogs, getBehaviorLogs } from './api';
+ import { getContent, getRenovation, getStatusLogs, getBehaviorLogs, getUnlockRequests } from './api';
  import { GetFullPath } from '@/utils/tool';
  import BindLockModal from '../ttlock/modal/BindLockModal.vue';
  import { getLockDetail, getPropertyLock, remoteUnlock, unbindProperty } from '../ttlock/api';
@@ -706,6 +795,7 @@ export default defineComponent({
 
     const mainTabKey = ref('1');
     const recordTabKey = ref<'view' | 'showing' | 'unlock'>('view');
+    const unlockSubTabKey = ref<'requests' | 'logs'>('requests');
 
     const viewLogLoading = ref(false);
     const viewLogLoaded = ref(false);
@@ -722,6 +812,17 @@ export default defineComponent({
     const showingLogLoaded = ref(false);
     const showingLogList = ref<any[]>([]);
     const showingLogPagination = ref<any>({
+      current: 1,
+      pageSize: 10,
+      total: 0,
+      showTotal: true,
+      showPageSize: true,
+    });
+
+    const unlockReqLoading = ref(false);
+    const unlockReqLoaded = ref(false);
+    const unlockReqList = ref<any[]>([]);
+    const unlockReqPagination = ref<any>({
       current: 1,
       pageSize: 10,
       total: 0,
@@ -747,10 +848,11 @@ export default defineComponent({
       setModalProps({ confirmLoading: false });
       detailData.value = {};
       renovationData.value = {};
-      lockInfo.value = null;
-      mainTabKey.value = '1';
-      recordTabKey.value = 'view';
-      resetBehaviorLogs();
+       lockInfo.value = null;
+       mainTabKey.value = '1';
+       recordTabKey.value = 'view';
+       unlockSubTabKey.value = 'requests';
+       resetBehaviorLogs();
 
       if (data?.record?.id) {
         setLoading(true);
@@ -990,8 +1092,10 @@ export default defineComponent({
 
     const decorateActivityRows = (rows: any[], recordType: 'view' | 'showing') => {
       for (const r of rows) {
+        if (!r || typeof r !== 'object') continue;
         const meta = safeParseMeta(r?.meta_data);
         r._page = metaString(meta, 'page') || metaString(meta, 'path', 'route', 'url');
+        r._channel = metaString(meta, 'channel', 'source', 'from', 'scene');
         if (recordType === 'view') {
           const cnt = metaInt(meta, 'count', 'view_count', 'times');
           r._count = cnt > 0 ? cnt : 1;
@@ -1016,6 +1120,7 @@ export default defineComponent({
 
     const decorateUnlockRows = (rows: any[]) => {
       for (const r of rows) {
+        if (!r || typeof r !== 'object') continue;
         const meta = safeParseMeta(r?.meta_data);
         r._page = metaString(meta, 'page') || metaString(meta, 'path', 'route', 'url');
         r._stage = metaString(meta, 'stage');
@@ -1034,6 +1139,42 @@ export default defineComponent({
         r._request_id = metaInt(meta, 'request_id');
         r._err_msg = metaString(meta, 'err_msg', 'error', 'message');
       }
+    };
+
+    const getUnlockRequestTypeLabel = (raw: any) => {
+      const s = String(raw || '').trim();
+      const map: any = { bluetooth: '蓝牙', password: '密码' };
+      return map[s] || s || '-';
+    };
+
+    const getUnlockRequestStatusLabel = (raw: any) => {
+      const s = String(raw || '').trim();
+      const map: any = {
+        pending: '待审核',
+        approved: '已通过',
+        rejected: '已拒绝',
+        completed: '已完成',
+        cancelled: '已取消',
+      };
+      return map[s] || s || '-';
+    };
+
+    const getUnlockRequestStatusColor = (raw: any) => {
+      const s = String(raw || '').trim();
+      const map: any = {
+        pending: 'orange',
+        approved: 'green',
+        completed: 'green',
+        rejected: 'red',
+        cancelled: 'gray',
+      };
+      return map[s] || '';
+    };
+
+    const getUnlockRequestFinishTime = (record: any) => {
+      const status = String(record?.request_status || '').trim();
+      if (!status || status === 'pending') return '-';
+      return record?.updatetime || '-';
     };
 
     const normalizeListResp = (resp: any) => {
@@ -1091,7 +1232,7 @@ export default defineComponent({
           pageSize: paginationRef.value.pageSize,
         });
         const data = normalizeListResp(resp);
-        const rows = normalizeListItems(data) as any[];
+        const rows = (normalizeListItems(data) as any[]).filter((it) => it && typeof it === 'object') as any[];
         if (recordType === 'view' || recordType === 'showing') {
           decorateActivityRows(rows, recordType);
         } else if (recordType === 'unlock') {
@@ -1113,6 +1254,33 @@ export default defineComponent({
       }
     };
 
+    const fetchUnlockReqs = async (listRef: any, paginationRef: any, loadingRef: any, loadedRef: any) => {
+      if (!detailData.value?.id) return;
+      if (loadingRef.value) return;
+      loadingRef.value = true;
+      try {
+        const resp: any = await getUnlockRequests({
+          property_id: Number(detailData.value.id),
+          page: paginationRef.value.current,
+          pageSize: paginationRef.value.pageSize,
+        });
+        const data = normalizeListResp(resp);
+        const rows = (normalizeListItems(data) as any[]).filter((it) => it && typeof it === 'object') as any[];
+        listRef.value = rows;
+        paginationRef.value.current = normalizeListPage(data, paginationRef.value.current);
+        paginationRef.value.pageSize = normalizeListPageSize(data, paginationRef.value.pageSize);
+        paginationRef.value.total = normalizeListTotal(data, rows);
+        loadedRef.value = true;
+      } catch (e: any) {
+        listRef.value = [];
+        paginationRef.value.total = 0;
+        loadedRef.value = false;
+        Message.error(e?.message || '加载开锁申请记录失败');
+      } finally {
+        loadingRef.value = false;
+      }
+    };
+
     const resetBehaviorLogs = () => {
       viewLogLoaded.value = false;
       viewLogLoading.value = false;
@@ -1125,6 +1293,12 @@ export default defineComponent({
       showingLogList.value = [];
       showingLogPagination.value.current = 1;
       showingLogPagination.value.total = 0;
+
+      unlockReqLoaded.value = false;
+      unlockReqLoading.value = false;
+      unlockReqList.value = [];
+      unlockReqPagination.value.current = 1;
+      unlockReqPagination.value.total = 0;
 
       unlockLogLoaded.value = false;
       unlockLogLoading.value = false;
@@ -1149,9 +1323,16 @@ export default defineComponent({
           }
           break;
         case 'unlock':
-          if (!unlockLogLoaded.value) {
-            unlockLogPagination.value.current = 1;
-            await fetchBehaviorLogs('unlock', unlockLogList, unlockLogPagination, unlockLogLoading, unlockLogLoaded);
+          if (unlockSubTabKey.value === 'requests') {
+            if (!unlockReqLoaded.value) {
+              unlockReqPagination.value.current = 1;
+              await fetchUnlockReqs(unlockReqList, unlockReqPagination, unlockReqLoading, unlockReqLoaded);
+            }
+          } else {
+            if (!unlockLogLoaded.value) {
+              unlockLogPagination.value.current = 1;
+              await fetchBehaviorLogs('unlock', unlockLogList, unlockLogPagination, unlockLogLoading, unlockLogLoaded);
+            }
           }
           break;
       }
@@ -1163,6 +1344,13 @@ export default defineComponent({
     watch(recordTabKey, () => {
       ensureBehaviorLoaded();
     });
+    watch(unlockSubTabKey, () => {
+      ensureBehaviorLoaded();
+    });
+
+    const switchUnlockSubTab = (key: 'requests' | 'logs') => {
+      unlockSubTabKey.value = key;
+    };
 
     const reloadViewLogs = async () => {
       await fetchBehaviorLogs('view', viewLogList, viewLogPagination, viewLogLoading, viewLogLoaded);
@@ -1188,6 +1376,19 @@ export default defineComponent({
       showingLogPagination.value.pageSize = ps;
       showingLogPagination.value.current = 1;
       reloadShowingLogs();
+    };
+
+    const reloadUnlockReqs = async () => {
+      await fetchUnlockReqs(unlockReqList, unlockReqPagination, unlockReqLoading, unlockReqLoaded);
+    };
+    const handleUnlockReqPageChange = (p: number) => {
+      unlockReqPagination.value.current = p;
+      reloadUnlockReqs();
+    };
+    const handleUnlockReqPageSizeChange = (ps: number) => {
+      unlockReqPagination.value.pageSize = ps;
+      unlockReqPagination.value.current = 1;
+      reloadUnlockReqs();
     };
 
     const reloadUnlockLogs = async () => {
@@ -1438,11 +1639,13 @@ export default defineComponent({
       districtText, addressDetailText, renovationImages,
       renovationStageTimeline, getStageStatusText, getStageStatusColor,
 
-      mainTabKey, recordTabKey,
+      mainTabKey, recordTabKey, unlockSubTabKey, switchUnlockSubTab,
       viewLogLoading, viewLogList, viewLogPagination, reloadViewLogs, handleViewLogPageChange, handleViewLogPageSizeChange,
       showingLogLoading, showingLogList, showingLogPagination, reloadShowingLogs, handleShowingLogPageChange, handleShowingLogPageSizeChange,
+      unlockReqLoading, unlockReqList, unlockReqPagination, reloadUnlockReqs, handleUnlockReqPageChange, handleUnlockReqPageSizeChange,
       unlockLogLoading, unlockLogList, unlockLogPagination, reloadUnlockLogs, handleUnlockLogPageChange, handleUnlockLogPageSizeChange,
       getUnlockStageLabel,
+      getUnlockRequestTypeLabel, getUnlockRequestStatusLabel, getUnlockRequestStatusColor, getUnlockRequestFinishTime,
     };
   },
 });

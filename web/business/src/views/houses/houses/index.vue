@@ -4,7 +4,7 @@
       <!-- 头部状态区：采用横向卡片布局，突出关键指标 -->
       <div class="dashboard-header">
         <a-row :gutter="24">
-          <a-col :span="8">
+          <a-col :xs="24" :sm="12" :md="6">
             <div class="stat-card">
               <div class="stat-icon-wrapper house-bg">
                 <icon-home class="stat-icon" />
@@ -12,14 +12,14 @@
               <div class="stat-info">
                 <div class="stat-label">房源总数</div>
                 <div class="stat-value-row">
-                  <span class="stat-value">{{ pagination.total || 0 }}</span>
+                  <span class="stat-value">{{ statusStats.total || 0 }}</span>
                   <div class="status-dot bg-success"></div>
                 </div>
                 <div class="stat-sub">已录入房产信息</div>
               </div>
             </div>
           </a-col>
-          <a-col :span="8">
+          <a-col :xs="24" :sm="12" :md="6">
             <div class="stat-card">
               <div class="stat-icon-wrapper sale-bg">
                 <icon-check-circle class="stat-icon" />
@@ -34,7 +34,22 @@
               </div>
             </div>
           </a-col>
-          <a-col :span="8">
+          <a-col :xs="24" :sm="12" :md="6">
+            <div class="stat-card">
+              <div class="stat-icon-wrapper presale-bg">
+                <icon-clock-circle class="stat-icon" />
+              </div>
+              <div class="stat-info">
+                <div class="stat-label">预售房源</div>
+                <div class="stat-value-row">
+                  <span class="stat-value">{{ getStatusCount('in_sale') }}</span>
+                  <div class="status-dot bg-warning"></div>
+                </div>
+                <div class="stat-sub">待正式开售</div>
+              </div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="6">
             <div class="stat-card info-card">
               <div class="stat-icon-wrapper sold-bg">
                 <icon-trophy class="stat-icon" />
@@ -242,7 +257,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import useLoading from '@/hooks/loading';
 import { Message } from '@arco-design/web-vue';
 import { Pagination } from '@/types/global';
@@ -251,13 +266,21 @@ import { useModal } from '/@/components/Modal';
 import { GetFullPath } from '@/utils/tool';
 import AddForm from './AddForm.vue';
 import DetailView from './DetailView.vue';
-import { getList, upStatus, del } from './api';
+import { del, getList, getSaleStatusStats, upStatus } from './api';
 
 const { loading, setLoading } = useLoading(true);
 const isFullscreen = ref(false);
 
+const statusStats = reactive({
+  total: 0,
+  on_sale: 0,
+  in_sale: 0,
+  sold: 0,
+  off_market: 0,
+});
+
 const getStatusCount = (status: string) => {
-  return renderData.value.filter(item => item.sale_status === status).length;
+  return Number((statusStats as any)[status] || 0);
 };
 const size = ref<SizeProps>('large');
 
@@ -289,21 +312,56 @@ const columns = [
 
 const renderData = ref<any[]>([]);
 
+const normalizeRespData = (resp: any) => {
+  if (!resp) return {};
+  if (typeof resp === 'object' && resp !== null && 'data' in resp && (resp as any).data !== undefined) {
+    return (resp as any).data ?? {};
+  }
+  return resp;
+};
+
+const applyStatusStats = (data: any) => {
+  if (!data || typeof data !== 'object') return;
+  statusStats.total = Number((data as any).total || 0) || 0;
+  statusStats.on_sale = Number((data as any).on_sale || 0) || 0;
+  statusStats.in_sale = Number((data as any).in_sale || 0) || 0;
+  statusStats.sold = Number((data as any).sold || 0) || 0;
+  statusStats.off_market = Number((data as any).off_market || 0) || 0;
+};
+
 const fetchData = async () => {
   setLoading(true);
   try {
-    const params = {
+    const listParams = {
       page: pagination.current,
       pageSize: pagination.pageSize,
       title: formModel.keyword,
       sale_status: formModel.sale_status,
     };
-    const resp: any = await getList(params);
-    const data = resp?.items ? resp : (resp?.data?.items ? resp.data : resp?.data ?? resp);
-    
-    renderData.value = (data?.items || []) as any[];
-    pagination.current = Number(data?.page || pagination.current);
-    pagination.total = Number(data?.total || 0);
+    const statsParams = {
+      title: formModel.keyword,
+    };
+
+    const [listRes, statsRes] = await Promise.allSettled([getList(listParams), getSaleStatusStats(statsParams)]);
+
+    if (listRes.status === 'fulfilled') {
+      const resp: any = listRes.value;
+      const data = resp?.items ? resp : (resp?.data?.items ? resp.data : resp?.data ?? resp);
+      renderData.value = (data?.items || []) as any[];
+      pagination.current = Number(data?.page || pagination.current);
+      pagination.total = Number(data?.total || 0);
+    } else {
+      renderData.value = [];
+      pagination.total = 0;
+      Message.error(listRes.reason?.message || '加载列表失败');
+    }
+
+    if (statsRes.status === 'fulfilled') {
+      const statsData = normalizeRespData(statsRes.value);
+      applyStatusStats(statsData);
+    } else {
+      Message.error(statsRes.reason?.message || '加载顶部统计失败');
+    }
   } catch (e: any) {
     renderData.value = [];
     Message.error(e?.message || '加载列表失败');
@@ -405,6 +463,10 @@ onMounted(() => {
 // Header Stats Cards
 .dashboard-header {
   margin-bottom: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: var(--color-fill-1);
 }
 
 .stat-card {
@@ -439,6 +501,7 @@ onMounted(() => {
     
     &.house-bg { background-color: rgba(var(--primary-6), 0.1); color: rgb(var(--primary-6)); }
     &.sale-bg { background-color: rgba(var(--success-6), 0.1); color: rgb(var(--success-6)); }
+    &.presale-bg { background-color: rgba(var(--warning-6), 0.1); color: rgb(var(--warning-6)); }
     &.sold-bg { background-color: rgba(var(--arcoblue-6), 0.1); color: rgb(var(--arcoblue-6)); }
     
     .stat-icon {

@@ -68,7 +68,7 @@
                 <text class="material-symbols-outlined">smart_lock</text>
               </view>
               <view class="head-texts">
-                <text class="lock-name">{{ it.lock_name || "未命名锁" }}</text>
+                <text class="lock-name">{{ it.lock_alias || it.lock_name || "未命名锁" }}</text>
                 <text class="lock-sub"
                   >ID: {{ it.ttlock_lock_id }} · {{ it.lock_mac || "-" }}</text
                 >
@@ -243,7 +243,7 @@ export default {
       const items = Array.isArray(this.list) ? this.list : [];
       if (!kw) return items;
       return items.filter((it) => {
-        const name = String(it && it.lock_name).toLowerCase();
+        const name = String(it && (it.lock_alias || it.lock_name)).toLowerCase();
         const mac = String(it && it.lock_mac).toLowerCase();
         const id = String(it && it.ttlock_lock_id);
         return name.includes(kw) || mac.includes(kw) || id.includes(kw);
@@ -251,7 +251,7 @@ export default {
     },
     bindLockDisplay() {
       const l = this.bindLock || {};
-      const name = l.lock_name || "未命名锁";
+      const name = l.lock_alias || l.lock_name || "未命名锁";
       const mac = l.lock_mac ? ` · ${l.lock_mac}` : "";
       return `${name}（${l.ttlock_lock_id || "-"}）${mac}`;
     },

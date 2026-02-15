@@ -32,9 +32,9 @@
             v-for="it in lockOptions"
             :key="it.ttlock_lock_id"
             :value="it.ttlock_lock_id"
-            :label="`${it.lock_name || '未命名锁'}（${it.ttlock_lock_id}）`"
+            :label="`${it.lock_alias || it.lock_name || '未命名锁'}（${it.ttlock_lock_id}）`"
           >
-            <div class="opt-title">{{ it.lock_name || '未命名锁' }}</div>
+            <div class="opt-title">{{ it.lock_alias || it.lock_name || '未命名锁' }}</div>
             <div class="opt-sub">{{ it.ttlock_lock_id }} · {{ it.lock_mac || '-' }} · 电量{{ it.battery ?? 0 }}%</div>
           </a-option>
         </a-select>
@@ -55,6 +55,7 @@ const emit = defineEmits<{
 
 type LockRow = {
   ttlock_lock_id: number;
+  lock_alias?: string;
   lock_name?: string;
   lock_mac?: string;
   battery?: number;

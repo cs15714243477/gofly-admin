@@ -19,3 +19,13 @@ func wxApplyPropertyVisibility(m *gform.Model) *gform.Model {
 	}
 	return m.WhereNotIn("sale_status", wxHiddenSaleStatuses())
 }
+
+// wxManageHiddenSaleStatuses 小程序端“可维护房源”需要隐藏的销售状态。
+//
+// 说明：
+// - 预售(in_sale) 允许维护者编辑，因此不在此隐藏范围内。
+// - 下架(off_market) 允许维护者重新上架/编辑，因此不在此隐藏范围内。
+// - 已售(sold) 作为终态，在小程序维护入口中保持只读（不允许编辑/删除）。
+func wxManageHiddenSaleStatuses() []string {
+	return []string{"sold"}
+}

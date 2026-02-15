@@ -11,28 +11,45 @@
 
 		<view class="body">
 			<view class="main">
-				<!-- Logo -->
-				<view class="logo-box">
-					<view class="logo-icon">
-						<text class="material-symbols-outlined logo-symbol">real_estate_agent</text>
+				<view class="login-card">
+					<!-- Logo -->
+					<view class="logo-box">
+						<view class="logo-icon">
+							<text class="material-symbols-outlined logo-symbol">real_estate_agent</text>
+						</view>
 					</view>
-				</view>
 
-				<!-- 标题 -->
-				<view class="header">
-					<view class="title">极速房 欢迎你</view>
-					<view class="subtitle">高效管理房源 · 智能门锁一键通</view>
-				</view>
+					<!-- 标题 -->
+					<view class="header">
+						<view class="title">快销房 欢迎你</view>
+						<view class="subtitle">高效管理房源 · 智能门锁一键通</view>
+					</view>
+
+					<!-- 亮点（简洁三条） -->
+					<view class="feature-list">
+						<view class="feature-item">
+							<view class="feature-dot"></view>
+							<text class="feature-text">房源管理更高效</text>
+						</view>
+						<view class="feature-item">
+							<view class="feature-dot"></view>
+							<text class="feature-text">智能门锁一键开锁</text>
+						</view>
+						<view class="feature-item">
+							<view class="feature-dot"></view>
+							<text class="feature-text">记录可追溯更安心</text>
+						</view>
+					</view>
 
 				<!-- 特别提示 -->
-				<view class="alert-box">
-					<view class="alert-icon">
-						<text class="material-symbols-outlined warning-icon">warning</text>
-					</view>
-					<view class="alert-text">
-						特别提示：使用本系统用户能够通过手机获得房源智能门锁开启权限，账号仅限经纪人本人使用，严禁外借他用。
-					</view>
-				</view>
+<!--				<view class="alert-box">-->
+<!--					<view class="alert-icon">-->
+<!--						<text class="material-symbols-outlined warning-icon">warning</text>-->
+<!--					</view>-->
+<!--					<view class="alert-text">-->
+<!--						特别提示：使用本系统用户能够通过手机获得房源智能门锁开启权限，账号仅限经纪人本人使用，严禁外借他用。-->
+<!--					</view>-->
+<!--				</view>-->
 
 				<!-- 已登录：加载并跳转首页 -->
 				<view v-if="checkingLogin" class="loading-card">
@@ -143,6 +160,7 @@
 						<text class="link-text" @click="goToRegister">完善信息</text>
 					</view>
 					<!-- #endif -->
+				</view>
 				</view>
 			</view>
 
@@ -387,7 +405,11 @@
 <style lang="scss">
 	.login-container {
 		height: 100vh;
-		background-color: #f6f7f8;
+		position: relative;
+		background: linear-gradient(180deg, #f0fdfa 0%, #ecfeff 46%, #f8fafc 100%);
+		background-image:
+			radial-gradient(circle at 18% 12%, rgba(20, 184, 166, 0.18), transparent 56%),
+			radial-gradient(circle at 84% 0%, rgba(3, 105, 161, 0.14), transparent 52%);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -438,34 +460,50 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		padding: 140rpx 48rpx 0;
-		max-width: 960rpx;
+		padding: calc(env(safe-area-inset-top) + 96rpx) 48rpx 0;
+		max-width: 920rpx;
 		margin: 0 auto;
 		width: 100%;
 		box-sizing: border-box;
+		position: relative;
+		z-index: 1;
 	}
 
 	.main {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: stretch;
 		justify-content: center;
 		min-height: 0;
 	}
 
+	.login-card {
+		width: 100%;
+		padding: 56rpx 44rpx 44rpx;
+		border-radius: 32rpx;
+		background: rgba(255, 255, 255, 0.72);
+		border: 1rpx solid rgba(255, 255, 255, 0.9);
+		box-shadow: 0 26rpx 70rpx rgba(15, 118, 110, 0.14);
+		backdrop-filter: blur(18px);
+		-webkit-backdrop-filter: blur(18px);
+		box-sizing: border-box;
+	}
+
 	.logo-box {
-		margin-bottom: 48rpx;
+		display: flex;
+		justify-content: center;
+		margin-bottom: 36rpx;
 
 		.logo-icon {
-			width: 160rpx;
-			height: 160rpx;
-			background: linear-gradient(135deg, #2d9cf0 0%, #1a7ab5 100%);
-			border-radius: 32rpx;
+			width: 148rpx;
+			height: 148rpx;
+			background: linear-gradient(135deg, #14b8a6 0%, #0369a1 100%);
+			border-radius: 30rpx;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			box-shadow: 0 10rpx 30rpx rgba(45, 156, 240, 0.2);
+			box-shadow: 0 14rpx 36rpx rgba(3, 105, 161, 0.18);
 			transition: transform 0.3s;
 
 			&:active {
@@ -481,30 +519,59 @@
 
 	.header {
 		text-align: center;
-		margin-bottom: 48rpx;
+		margin-bottom: 28rpx;
 
 		.title {
-			font-size: 64rpx;
-			font-weight: bold;
-			color: #0d151c;
+			font-size: 58rpx;
+			font-weight: 900;
+			color: #0f172a;
 			line-height: 1.2;
-			margin-bottom: 24rpx;
+			margin-bottom: 18rpx;
 		}
 
 		.subtitle {
-			font-size: 32rpx;
-			color: #64748b;
-			font-weight: 400;
+			font-size: 28rpx;
+			color: #475569;
+			font-weight: 600;
 		}
+	}
+
+	.feature-list {
+		display: flex;
+		flex-direction: column;
+		gap: 14rpx;
+		margin: 0 0 38rpx;
+		padding: 0 10rpx;
+	}
+
+	.feature-item {
+		display: flex;
+		align-items: center;
+		gap: 12rpx;
+	}
+
+	.feature-dot {
+		width: 10rpx;
+		height: 10rpx;
+		border-radius: 999px;
+		background: linear-gradient(135deg, #14b8a6 0%, #0369a1 100%);
+		box-shadow: 0 0 0 10rpx rgba(20, 184, 166, 0.08);
+		flex-shrink: 0;
+	}
+
+	.feature-text {
+		font-size: 26rpx;
+		color: #475569;
+		font-weight: 600;
 	}
 
 	.loading-card {
 		width: 100%;
-		background: #ffffff;
-		border: 1rpx solid rgba(226, 232, 240, 0.9);
+		background: rgba(255, 255, 255, 0.76);
+		border: 1rpx solid rgba(255, 255, 255, 0.9);
 		border-radius: 24rpx;
 		padding: 32rpx 28rpx;
-		box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.06);
+		box-shadow: 0 18rpx 44rpx rgba(15, 118, 110, 0.10);
 	}
 
 	.loading-row {
@@ -517,8 +584,8 @@
 		width: 36rpx;
 		height: 36rpx;
 		border-radius: 50%;
-		border: 4rpx solid rgba(45, 156, 240, 0.22);
-		border-top-color: #2d9cf0;
+		border: 4rpx solid rgba(3, 105, 161, 0.18);
+		border-top-color: #0369a1;
 		animation: spin 0.9s linear infinite;
 	}
 
@@ -566,15 +633,16 @@
 		}
 	}
 
-		.form {
-			width: 100%;
+	.form {
+		width: 100%;
+		margin-top: 6rpx;
 
-			.wx-login-btn {
+		.wx-login-btn {
 			width: 100%;
 			height: 104rpx;
-			background-color: #10b981;
+			background: linear-gradient(135deg, #07c160 0%, #059669 100%);
 			color: #ffffff;
-			font-size: 36rpx;
+			font-size: 34rpx;
 			font-weight: bold;
 			border-radius: 24rpx;
 			display: flex;
@@ -586,9 +654,9 @@
 			margin-bottom: 26rpx;
 
 				&::after { border: none; }
-				&:active { background-color: #059669; transform: scale(0.98); }
+				&:active { background-color: #059669; transform: scale(0.985); }
 				&[disabled] {
-					background-color: #86efac;
+					background: #9ae6b4;
 					box-shadow: none;
 					opacity: 0.95;
 				}
@@ -614,13 +682,13 @@
 
 			.agree-icon {
 				font-size: 34rpx;
-				color: #2d9cf0;
+				color: #0f766e;
 				line-height: 1;
 			}
 
 			.agree-text {
 				font-size: 24rpx;
-				color: #64748b;
+				color: #475569;
 				font-weight: 600;
 			}
 
@@ -633,11 +701,11 @@
 
 			.agree-link {
 				font-size: 24rpx;
-				color: #2d9cf0;
+				color: #0369a1;
 				font-weight: 700;
 
 				&:active {
-					color: #2563eb;
+					color: #075985;
 				}
 
 				&.disabled {
@@ -729,8 +797,8 @@
 					box-sizing: border-box;
 
 					&:focus {
-						border-color: #2d9cf0;
-						box-shadow: 0 0 0 4rpx rgba(45, 156, 240, 0.1);
+						border-color: #0369a1;
+						box-shadow: 0 0 0 4rpx rgba(3, 105, 161, 0.12);
 					}
 				}
 
@@ -738,8 +806,8 @@
 					position: absolute;
 					right: 16rpx;
 					height: 72rpx;
-					background-color: rgba(45, 156, 240, 0.05);
-					color: #2d9cf0;
+					background-color: rgba(3, 105, 161, 0.06);
+					color: #0369a1;
 					font-size: 28rpx;
 					font-weight: 600;
 					padding: 0 24rpx;
@@ -756,7 +824,7 @@
 					}
 
 					&:active {
-						background-color: rgba(45, 156, 240, 0.1);
+						background-color: rgba(3, 105, 161, 0.10);
 					}
 				}
 			}
@@ -765,7 +833,7 @@
 		.login-btn {
 			width: 100%;
 			height: 104rpx;
-			background-color: #2d9cf0;
+			background-color: #0369a1;
 			color: #ffffff;
 			font-size: 36rpx;
 			font-weight: bold;
@@ -774,7 +842,7 @@
 			align-items: center;
 			justify-content: center;
 			margin-top: 32rpx;
-			box-shadow: 0 8rpx 20rpx rgba(45, 156, 240, 0.2);
+			box-shadow: 0 10rpx 26rpx rgba(3, 105, 161, 0.18);
 			border: none;
 
 			&[disabled] {
@@ -788,7 +856,7 @@
 			}
 
 			&:active {
-				background-color: #1a7ab5;
+				background-color: #075985;
 				transform: scale(0.98);
 			}
 		}
@@ -805,26 +873,27 @@
 			}
 
 			.link-text {
-				color: #2d9cf0;
+				color: #0369a1;
 				font-weight: bold;
 				margin-left: 8rpx;
 			}
 		}
-		}
+	}
 
 	.bottom-agreements {
-		padding: 24rpx 0 calc(env(safe-area-inset-bottom) + 24rpx);
+		padding: 22rpx 0 calc(env(safe-area-inset-bottom) + 22rpx);
 		display: flex;
 		justify-content: center;
 		gap: 24rpx;
+		opacity: 0.92;
 
 		.agreement-link {
-			font-size: 24rpx;
+			font-size: 22rpx;
 			color: #94a3b8;
 			font-weight: 500;
 
 			&:active {
-				color: #2d9cf0;
+				color: #0369a1;
 			}
 
 			&.disabled {

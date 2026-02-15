@@ -74,6 +74,7 @@ const emit = defineEmits<{
 
 type LockRow = {
   ttlock_lock_id: number;
+  lock_alias?: string;
   lock_name?: string;
   lock_mac?: string;
   bind_property_id?: number;
@@ -103,7 +104,7 @@ const modalTitle = computed(() => (lock.value?.bind_property_id ? '更换绑定�
 
 const lockDisplay = computed(() => {
   if (!lock.value) return '-';
-  const name = lock.value.lock_name || '未命名锁';
+  const name = lock.value.lock_alias || lock.value.lock_name || '未命名锁';
   const mac = lock.value.lock_mac ? ` · ${lock.value.lock_mac}` : '';
   return `${name}（${lock.value.ttlock_lock_id}）${mac}`;
 });

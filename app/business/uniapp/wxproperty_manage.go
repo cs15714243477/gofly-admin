@@ -217,19 +217,9 @@ func (api *WxProperty) GetManageList(c *gf.GinCtx) {
 		whereMap.Set("sale_status", saleStatus)
 	}
 
-	// 小程序端：已售/下架房源完全不可见
-	// 若前端主动筛 sold/off_market/in_sale，这里直接返回空数据，避免侧信道判断房源存在
-	if saleStatus == "sold" || saleStatus == "off_market" || saleStatus == "in_sale" {
-		gf.Success().SetMsg("获取房源列表").SetData(gf.Map{
-			"page":     pageNo,
-			"pageSize": pageSize,
-			"total":    0,
-			"items":    make([]gf.Map, 0),
-		}).Regin(c)
-		return
-	}
-
-	MDB := wxApplyPropertyVisibility(gf.Model("business_properties").Where(whereMap))
+	// 说明：这里是“房源管理(可维护房源)”入口，仅返回 agent_id=当前用户 的房源。
+	// 维护者可查看：预售(in_sale) / 下架(off_market) / 已售(sold) 等状态的房源。
+	MDB := gf.Model("business_properties").Where(whereMap)
 	totalCount, _ := MDB.Clone().Count()
 	rows, err := MDB.
 		Fields("id,title,price,price_unit,area,rooms,halls,bathrooms,orientation,community_name,address,tags,cover_image,images,video_url,allow_image_download,allow_video_download,sale_status,status,view_count,follow_count,showing_count,createtime,updatetime").
@@ -312,7 +302,7 @@ func (api *WxProperty) GetManageContent(c *gf.GinCtx) {
 		Where("id", id).
 		Where("agent_id", userID).
 		Where("deletetime", nil).
-		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
+		WhereNotIn("sale_status", wxManageHiddenSaleStatuses()).
 		Find()
 	if err != nil {
 		gf.Failed().SetMsg("获取房源失败：" + err.Error()).Regin(c)
@@ -399,7 +389,7 @@ func (api *WxProperty) GetManageRenovation(c *gf.GinCtx) {
 		Where("id", propertyID).
 		Where("agent_id", userID).
 		Where("deletetime", nil).
-		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
+		WhereNotIn("sale_status", wxManageHiddenSaleStatuses()).
 		Find()
 	if exists == nil || len(exists) == 0 {
 		gf.Failed().SetCode(403).SetMsg("房源不存在或无权限").Regin(c)
@@ -493,7 +483,7 @@ func (api *WxProperty) SaveManageRenovation(c *gf.GinCtx) {
 		Where("id", propertyID).
 		Where("agent_id", userID).
 		Where("deletetime", nil).
-		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
+		WhereNotIn("sale_status", wxManageHiddenSaleStatuses()).
 		Find()
 	if exists == nil || len(exists) == 0 {
 		gf.Failed().SetCode(403).SetMsg("房源不存在或无权限").Regin(c)
@@ -739,7 +729,7 @@ func (api *WxProperty) SaveManage(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("id", editID).
 		Where("agent_id", userID).
-		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
+		WhereNotIn("sale_status", wxManageHiddenSaleStatuses()).
 		Update(saveData)
 	if err != nil {
 		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
@@ -776,7 +766,7 @@ func (api *WxProperty) DelManage(c *gf.GinCtx) {
 		Where("business_id", businessID).
 		Where("id", id).
 		Where("agent_id", userID).
-		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
+		WhereNotIn("sale_status", wxManageHiddenSaleStatuses()).
 		Delete()
 	if err != nil {
 		gf.Failed().SetMsg("删除失败").SetData(err).Regin(c)

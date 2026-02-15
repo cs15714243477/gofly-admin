@@ -30,6 +30,31 @@ func wxBusinessID(c *gf.GinCtx) int64 {
 	return businessID
 }
 
+// wxUserCanManageProperties 校验用户是否具备“小程序端可维护房源”权限。
+//
+// 说明：该校验仅返回 bool，不负责输出响应。
+func wxUserCanManageProperties(businessID int64, userID int64) bool {
+	if businessID <= 0 {
+		businessID = 1
+	}
+	if userID <= 0 {
+		return false
+	}
+	u, err := gf.Model("business_user").
+		Fields("id,status,can_manage_properties").
+		Where("id", userID).
+		Where("business_id", businessID).
+		Where("deletetime", nil).
+		Find()
+	if err != nil || u == nil || len(u) == 0 {
+		return false
+	}
+	if u["status"].Int() == 1 {
+		return false
+	}
+	return u["can_manage_properties"].Int() == 1
+}
+
 // wxSaleStatusLabel 根据销售状态码返回对应的中文状态描述
 //
 // @param status 销售状态码，支持 "on_sale"、"sold"、"off_market"
@@ -136,20 +161,37 @@ func (api *WxProperty) GetDetail(c *gf.GinCtx) {
 		return
 	}
 
-	row, err := gf.Model("business_properties").
+	fields := "id,title,custom_desc,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,video_url,allow_image_download,allow_video_download,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,createtime"
+	base := gf.Model("business_properties").
 		Where("business_id", businessID).
 		Where("id", id).
 		Where("deletetime", nil).
-		Where("status", 0).
+		Where("status", 0)
+
+	// 1) 默认：按“小程序端可见性”过滤（sold/off_market/in_sale 不可见）
+	row, err := base.Clone().
 		WhereNotIn("sale_status", wxHiddenSaleStatuses()).
-		Fields("id,title,custom_desc,price,price_unit,area,rooms,halls,bathrooms,floor_level,total_floors,orientation,build_year,property_type,decoration_type,community_name,address,latitude,longitude,tags,images,cover_image,video_url,allow_image_download,allow_video_download,has_smart_lock,commission_rate,commission_reward,owner_name,owner_phone,receiver_name,receiver_phone,receiver_price,agent_id,sale_status,hot_status,view_count,follow_count,showing_count,createtime").
+		Fields(fields).
 		Find()
 	if err != nil {
 		gf.Failed().SetMsg("获取房源详情失败：" + err.Error()).Regin(c)
 		return
 	}
+
+	// 2) 维护者例外：如果是“经纪人查看(非 public)”且当前用户具备可维护权限，则允许查看自己维护的隐藏状态房源
+	if !isPublicView && (row == nil || len(row) == 0) && wxUserCanManageProperties(businessID, userID) {
+		row, err = base.Clone().
+			Where("agent_id", userID).
+			Fields(fields).
+			Find()
+		if err != nil {
+			gf.Failed().SetMsg("获取房源详情失败：" + err.Error()).Regin(c)
+			return
+		}
+	}
+
 	if row == nil || len(row) == 0 {
-		gf.Failed().SetMsg("房源不存在或已下架").Regin(c)
+		gf.Failed().SetMsg("房源不存在或不可见").Regin(c)
 		return
 	}
 

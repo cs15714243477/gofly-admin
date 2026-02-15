@@ -127,7 +127,7 @@
             <!-- 自定义列渲染 -->
             <template #lockName="{ record }">
               <div class="cell-lock-main">
-                <div class="lock-name">{{ record.lock_name }}</div>
+                <div class="lock-name">{{ record.lock_alias || record.lock_name || '未命名锁' }}</div>
                 <div class="lock-id">ID: {{ record.ttlock_lock_id }}</div>
               </div>
             </template>
@@ -211,7 +211,7 @@
         <div v-if="detailLock" class="detail-panel">
           <div class="detail-hero">
             <div class="hero-icon"><icon-lock /></div>
-            <div class="hero-title">{{ cloudDetail?.lockName || detailLock.lock_name || '未知设备' }}</div>
+            <div class="hero-title">{{ cloudDetail?.lockAlias || cloudDetail?.lockName || detailLock.lock_alias || detailLock.lock_name || '未知设备' }}</div>
             <div class="hero-chip">{{ cloudDetail?.modelNum || detailLock.model_num || '通用型号' }}</div>
           </div>
 
@@ -556,7 +556,7 @@ const fetchData = async () => {
     const kw = String(formModel.keyword || '').trim().toLowerCase();
     renderData.value = kw 
       ? items.filter(it =>
-          `${it.lock_name} ${it.ttlock_lock_id} ${it.lock_mac} ${it.bind_property_title || ''} ${it.bind_property_id || ''}`
+          `${it.lock_alias || ''} ${it.lock_name} ${it.ttlock_lock_id} ${it.lock_mac} ${it.bind_property_title || ''} ${it.bind_property_id || ''}`
             .toLowerCase()
             .includes(kw)
         )

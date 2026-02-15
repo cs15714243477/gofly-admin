@@ -95,12 +95,20 @@
           </view>
 
           <view class="actions">
-            <button class="btn ghost" @tap.stop="goEdit(item)">
+            <button
+              :class="['btn', 'ghost', { disabled: String(item.sale_status) === 'sold' }]"
+              :disabled="String(item.sale_status) === 'sold'"
+              @tap.stop="goEdit(item)"
+            >
               <text class="material-symbols-outlined btn-ic">edit</text>
               <text>编辑</text>
             </button>
 
-            <button class="btn danger" @tap.stop="confirmDelete(item)">
+            <button
+              :class="['btn', 'danger', { disabled: String(item.sale_status) === 'sold' }]"
+              :disabled="String(item.sale_status) === 'sold'"
+              @tap.stop="confirmDelete(item)"
+            >
               <text class="material-symbols-outlined btn-ic">delete</text>
               <text>删除</text>
             </button>

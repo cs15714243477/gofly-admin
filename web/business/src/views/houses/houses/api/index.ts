@@ -5,12 +5,14 @@ import { isArray } from '/@/utils/is';
 enum Api {
   // GoFly 自动路由：/business/{pkg}/{controller}/{action}
   getList = '/houses/houses/getList',
+  getSaleStatusStats = '/houses/houses/getSaleStatusStats',
   getContent = '/houses/houses/getContent',
   save = '/houses/houses/save',
   upStatus = '/houses/houses/upStatus',
   del = '/houses/houses/del',
   getStatusLogs = '/houses/houses/getStatusLogs',
   getBehaviorLogs = '/houses/houses/getBehaviorLogs',
+  getUnlockRequests = '/houses/houses/getUnlockRequests',
   // 表单下拉选项（统一配置/字典兜底）
   getFormOptions = '/uniapp/wxproperty/getFormOptions',
   // 装修信息
@@ -28,6 +30,11 @@ export function getList(params: Record<string, any>) {
     }
   }
   return defHttp.get({ url: Api.getList, params }, { errorMessageMode: 'none' });
+}
+
+// 获取房源销售状态统计（用于列表顶部卡片）
+export function getSaleStatusStats(params: Record<string, any>) {
+  return defHttp.get({ url: Api.getSaleStatusStats, params }, { errorMessageMode: 'none' });
 }
 
 // 获取内容
@@ -53,6 +60,11 @@ export function getStatusLogs(params: Record<string, any>) {
 // 获取经纪人行为记录（浏览/带看/开锁）
 export function getBehaviorLogs(params: Record<string, any>) {
   return defHttp.get({ url: Api.getBehaviorLogs, params }, { errorMessageMode: 'none' });
+}
+
+// 获取房源开锁申请记录（business_unlock_requests）
+export function getUnlockRequests(params: Record<string, any>) {
+  return defHttp.get({ url: Api.getUnlockRequests, params }, { errorMessageMode: 'none' });
 }
 
 // 删除数据

@@ -287,6 +287,76 @@ func (api *Houses) GetList(c *gf.GinCtx) {
 	}
 }
 
+// GetSaleStatusStats 获取房源销售状态统计（用于列表页顶部数据卡片）
+//
+// 说明：
+// - 统计口径：跟随当前筛选条件（title/community_name/property_type/hot_status/status/agent_id 等）
+// - sale_status 本身不参与筛选（因为需要统计各状态数量）
+func (api *Houses) GetSaleStatusStats(c *gf.GinCtx) {
+	param, _ := gf.RequestParam(c)
+	whereMap := gmap.New()
+	whereMap.Set("business_id", c.GetInt64("businessID"))
+	if title, ok := param["title"]; ok && title != "" {
+		whereMap.Set("title like ?", "%"+gconv.String(title)+"%")
+	}
+	if communityName, ok := param["community_name"]; ok && communityName != "" {
+		whereMap.Set("community_name like ?", "%"+gconv.String(communityName)+"%")
+	}
+	if propertyType, ok := param["property_type"]; ok && propertyType != "" {
+		whereMap.Set("property_type", propertyType)
+	}
+	if v, ok := param["hot_status"]; ok && gconv.String(v) != "" {
+		hs := gconv.Int(v)
+		if hs != 0 && hs != 1 {
+			gf.Failed().SetMsg("hot_status参数不合法").Regin(c)
+			return
+		}
+		whereMap.Set("hot_status", hs)
+	}
+	if status, ok := param["status"]; ok && status != "" {
+		whereMap.Set("status", status)
+	}
+	if agentID, ok := param["agent_id"]; ok && agentID != "" && gconv.Int64(agentID) != 0 {
+		whereMap.Set("agent_id", agentID)
+	}
+
+	MDB := gf.Model("business_properties").Where(whereMap)
+	totalCount, err := MDB.Clone().Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取统计失败：" + err.Error()).Regin(c)
+		return
+	}
+
+	rows, err := MDB.Clone().
+		Fields("sale_status").
+		FieldCount("id", "cnt").
+		Group("sale_status").
+		Select()
+	if err != nil {
+		gf.Failed().SetMsg("获取统计失败：" + err.Error()).Regin(c)
+		return
+	}
+
+	out := gf.Map{
+		"total":      totalCount,
+		"on_sale":    0,
+		"in_sale":    0,
+		"sold":       0,
+		"off_market": 0,
+	}
+	for _, r := range rows {
+		if r == nil {
+			continue
+		}
+		k := strings.TrimSpace(r["sale_status"].String())
+		if k == "" {
+			continue
+		}
+		out[k] = r["cnt"].Int()
+	}
+	gf.Success().SetMsg("获取统计成功").SetData(out).Regin(c)
+}
+
 // 获取房源详情
 func (api *Houses) GetContent(c *gf.GinCtx) {
 	id := c.DefaultQuery("id", "")
@@ -600,12 +670,10 @@ func (api *Houses) GetBehaviorLogs(c *gf.GinCtx) {
 	switch recordType {
 	case "view", "showing", "unlock":
 		MDB := gf.Model("business_user_activity_logs a").
-			LeftJoin("business_user u", "u.id = a.user_id").
+			LeftJoin("business_user u", "u.id = a.user_id AND u.business_id = "+gconv.String(businessID)).
 			LeftJoin("business_stores s", "s.id = u.store_id AND s.deletetime IS NULL").
 			Where("a.property_id", propertyID).
-			Where("a.activity_type", recordType).
-			Where("u.business_id", businessID).
-			Where("u.deletetime", nil)
+			Where("a.activity_type", recordType)
 		totalCount, _ = MDB.Clone().Count()
 		rows, err := MDB.
 			Fields("a.id,a.user_id,a.property_id,a.activity_type,a.meta_data,a.createtime,u.name as user_name,u.username as user_username,u.mobile as user_mobile,u.store_id,u.title as user_title,s.name as store_name").
@@ -628,6 +696,64 @@ func (api *Houses) GetBehaviorLogs(c *gf.GinCtx) {
 		"pageSize":    pageSize,
 		"total":       totalCount,
 		"items":       list,
+	}).Regin(c)
+}
+
+// 获取房源的开锁申请记录（蓝牙/密码）
+// 入参：
+// - property_id: 房源ID（必填）
+// - page/pageSize
+func (api *Houses) GetUnlockRequests(c *gf.GinCtx) {
+	pageNo := gconv.Int(c.DefaultQuery("page", "1"))
+	pageSize := gconv.Int(c.DefaultQuery("pageSize", "12"))
+	if pageNo <= 0 {
+		pageNo = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 12
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+
+	propertyID := gconv.Int64(c.DefaultQuery("property_id", "0"))
+	if propertyID <= 0 {
+		gf.Failed().SetMsg("请传参数property_id").Regin(c)
+		return
+	}
+	businessID := c.GetInt64("businessID")
+
+	// 校验房源归属
+	existProperty, _ := gf.Model("business_properties").
+		Where("business_id", businessID).
+		Where("id", propertyID).
+		Where("deletetime", nil).
+		Exist()
+	if !existProperty {
+		gf.Failed().SetMsg("房源不存在或无权限").Regin(c)
+		return
+	}
+
+	MDB := gf.Model("business_unlock_requests ur").
+		LeftJoin("business_user u", "u.id = ur.user_id AND u.business_id = "+gconv.String(businessID)).
+		LeftJoin("business_stores s", "s.id = u.store_id AND s.deletetime IS NULL").
+		Where("ur.property_id", propertyID)
+	totalCount, _ := MDB.Clone().Count()
+	list, err := MDB.
+		Fields("ur.id,ur.user_id,ur.property_id,ur.request_status,ur.request_type,ur.request_time,ur.expires_at,ur.approval_remark,ur.status,ur.createtime,ur.updatetime,u.name as user_name,u.username as user_username,u.mobile as user_mobile,u.store_id,u.title as user_title,s.name as store_name").
+		Page(pageNo, pageSize).
+		Order("ur.id desc").
+		Select()
+	if err != nil {
+		gf.Failed().SetMsg("获取开锁申请记录失败：" + err.Error()).Regin(c)
+		return
+	}
+
+	gf.Success().SetMsg("获取开锁申请记录成功").SetData(gf.Map{
+		"page":     pageNo,
+		"pageSize": pageSize,
+		"total":    totalCount,
+		"items":    list,
 	}).Regin(c)
 }
 

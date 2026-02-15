@@ -861,13 +861,18 @@ export default {
       uni.showToast({ title: "房源ID缺失", icon: "none" });
       return;
     }
-    if (!this.isPublicView) this.ensureCanManageProperties();
+    if (!this.isPublicView || this.isPreSaleView) this.ensureCanManageProperties();
     this.loadDetail();
   },
   computed: {
     canEditThisProperty() {
-      if (this.isPublicView) return false;
+      if (this.isPublicView && !this.isPreSaleView) return false;
       if (!this.canManageProperties) return false;
+      // 已售(sold) 作为终态：小程序端只读，不提供编辑入口
+      const saleStatus = String(
+        (this.property && this.property.sale_status) || "",
+      ).trim();
+      if (saleStatus === "sold") return false;
       const pid = Number(this.propertyId || 0) || 0;
       if (!pid) return false;
       const agentId = Number(this.property && this.property.agent_id) || 0;
@@ -914,7 +919,8 @@ export default {
     },
     async ensureCanManageProperties() {
       // 仅用于 UI 控制；最终权限以后端校验为准
-      if (this.isPublicView) {
+      // 公开详情（非预售）一律不展示“编辑”入口
+      if (this.isPublicView && !this.isPreSaleView) {
         this.canManageProperties = false;
         this.currentUserId = 0;
         return;
