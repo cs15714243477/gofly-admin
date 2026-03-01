@@ -1,26 +1,26 @@
-const domain="";//您的域名//独立部署需要填写Go服务api接口域名(部署在Go目录下可以留空)
+const domain="https://api.kuaixiaofang.com";//您的域名//独立部署需要填写Go服务api接口域名(部署在Go目录下可以留空)
 const localhost="http://localhost:8200";//访问本地的域名和端口，如果您改变Go服务端口，请自行修改
 window.globalConfig = {
-	Main_url:`${domain}`,//域名
-	Main_url_dev:`${localhost}`,//域名
-	Root_url:`${domain}/business`,//Api服务器域名
-    Root_url_dev:`${localhost}/business`,//Api服务器域名-开发环境
-    TencentMapKey:"YBUBZ-EXEKL-ELNPT-EBIW6-7RADV-ODBBF",//腾讯地图 JS API Key（用于房源经纬度地图选点）
-	AppTitle_zhCN:"GoFly开发框架",
-    AppTitle_zhTW:"GoFly開發框架",
-	AppTitle_enUS:"GoFly Dev frame",
-    AppVersion:"2.5.0",
-    CompanySite:"",//公司官网
-    ICP:"",//备案号
-    Company:"",//公司名称
-    Address:"中国·沈阳",
-    
-    TeamSite:"",//技术团队官网
-    Team:"",//技术团队，没有则填空""
-    loginTitle:"登录后台管理系统",
-    loginSubTitle:"管理账号、业务、数据统计、触达事件等",
-    Copyright:"沈阳快销房团队提供技术支持",
-    RouterHome:"home",//路由默认入口
-    MaxSizeImage:5,//最大上传图片大小,单位M
-	MaxSizeVideo:150,//最大上传视频大小,单位M
+  Main_url: `${domain}`, //域名
+  Main_url_dev: `${localhost}`, //域名
+  Root_url: `${domain}/business`, //Api服务器域名
+  Root_url_dev: `${localhost}/business`, //Api服务器域名-开发环境
+  TencentMapKey: 'YBUBZ-EXEKL-ELNPT-EBIW6-7RADV-ODBBF', //腾讯地图 JS API Key（用于房源经纬度地图选点）
+  AppTitle_zhCN: '快销房管理系统',
+  AppTitle_zhTW: '快销房管理系统',
+  AppTitle_enUS: 'KuaiXiaofang',
+  AppVersion: '2.5.0',
+  CompanySite: 'https://web.kuaixiaofang.com', //公司官网
+  ICP: '辽ICP备2026003616号-1', //备案号
+  Company: '快销房（沈阳）网络科技有限公司', //公司名称
+  Address: '中国·沈阳',
+
+  TeamSite: '', //技术团队官网
+  Team: '', //技术团队，没有则填空""
+  loginTitle: '登录后台管理系统',
+  loginSubTitle: '管理账号、业务、数据统计、触达事件等',
+  Copyright: '沈阳快销房团队提供技术支持',
+  RouterHome: 'home', //路由默认入口
+  MaxSizeImage: 5, //最大上传图片大小,单位M
+  MaxSizeVideo: 150, //最大上传视频大小,单位M
 };

@@ -66,7 +66,7 @@
 								</view>
 							</view>
 
-							<!-- 手机号（微信一键登录后自动带入） -->
+							<!-- 手机号（授权后自动带入） -->
 							<view class="form-item">
 								<view class="label">手机号</view>
 								<view class="input-wrapper">
@@ -110,10 +110,15 @@
 							<view class="agreement-row">
 								<checkbox-group @change="agreementChange">
 									<label class="checkbox-label">
-										<checkbox value="agree" checked="true" color="#2d9cf0" style="transform:scale(0.7)" />
-										<text class="agreement-text">我已阅读并同意 <text class="link">《秒卖房用户使用协议》</text></text>
+										<checkbox value="agree" :checked="agreed" color="#2d9cf0" style="transform:scale(0.7)" />
+										<text class="agreement-text">我已阅读并同意</text>
 									</label>
 								</checkbox-group>
+								<view class="agreement-links">
+									<text class="link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click.stop="openAgreement('user_agreement')">《{{ agreementDocs.user_agreement.title }}》</text>
+									<text class="sep">和</text>
+									<text class="link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click.stop="openAgreement('privacy_policy')">《{{ agreementDocs.privacy_policy.title }}》</text>
+								</view>
 							</view>
 						</view>
 					</view>
@@ -137,6 +142,7 @@
 	export default {
 		components: { TopHeader },
 		onLoad(options) {
+			this.loadAgreementDocs()
 			this.mode = (options && options.mode) || 'complete'
 			const mobile = options && options.mobile ? String(options.mobile).trim() : ''
 			if (mobile) this.form.phone = mobile
@@ -149,7 +155,11 @@
 		},
 		data() {
 			return {
-				agreed: true,
+				agreed: false,
+				agreementDocs: {
+					user_agreement: { title: '用户协议', content: '', url: '' },
+					privacy_policy: { title: '隐私政策', content: '', url: '' },
+				},
 				mode: 'complete', // complete | register（预留）
 				submitting: false,
 				region: ['北京市', '北京市', '朝阳区'],
@@ -231,6 +241,55 @@
 			},
 			goLogin() {
 				uni.reLaunch({ url: '/pages/login/login' })
+			},
+			async loadAgreementDocs() {
+				try {
+					const res = await userApi.getLoginDocs(false)
+					if (!res || res.code !== 0 || !res.data || !Array.isArray(res.data.docs)) return
+					const nextDocs = { ...this.agreementDocs }
+					res.data.docs.forEach((item) => {
+						const key = String(item && item.key ? item.key : '').trim()
+						if (!key || !nextDocs[key]) return
+						const title = String(item && item.title ? item.title : '').trim()
+						const content = String(item && item.content ? item.content : '').trim()
+						const url = String(item && item.url ? item.url : '').trim()
+						nextDocs[key] = {
+							title: title || nextDocs[key].title,
+							content,
+							url,
+						}
+					})
+					this.agreementDocs = nextDocs
+				} catch (e) {}
+			},
+			hasAgreementDoc(key) {
+				const doc = (this.agreementDocs && this.agreementDocs[key]) ? this.agreementDocs[key] : null
+				if (!doc) return false
+				return !!(String(doc.content || '').trim() || String(doc.url || '').trim())
+			},
+			openAgreement(key) {
+				const doc = (this.agreementDocs && this.agreementDocs[key]) ? this.agreementDocs[key] : null
+				if (!doc) return
+				const title = doc && doc.title ? String(doc.title).trim() : '文档'
+				const content = doc && doc.content ? String(doc.content).trim() : ''
+				const url = doc && doc.url ? String(doc.url).trim() : ''
+				if (!content && !url) {
+					uni.showToast({ title: `${title}暂未配置`, icon: 'none' })
+					return
+				}
+				if (content) {
+					uni.navigateTo({
+						url: `/pages/doc_webview/doc_webview?key=${encodeURIComponent(key)}`
+					})
+					return
+				}
+				if (/^https?:\/\//i.test(url)) {
+					uni.navigateTo({
+						url: `/pages/doc_webview/doc_webview?key=${encodeURIComponent(key)}`
+					})
+					return
+				}
+				uni.navigateTo({ url })
 			},
 			agreementChange(e) {
 				this.agreed = e.detail.value.length > 0
@@ -343,7 +402,7 @@
 
 				if (!this.agreed) {
 					uni.showToast({
-						title: '请先同意协议',
+						title: '请先阅读并同意协议',
 						icon: 'none'
 					})
 					return
@@ -687,6 +746,8 @@
 			margin-top: 20rpx;
 			display: flex;
 			align-items: flex-start;
+			flex-wrap: wrap;
+			gap: 8rpx;
 			
 			.checkbox-label {
 				display: flex;
@@ -696,10 +757,25 @@
 			.agreement-text {
 				font-size: 24rpx;
 				color: #4b789b;
-				
-				.link {
-					color: #2d9cf0;
-				}
+			}
+
+			.agreement-links {
+				display: flex;
+				align-items: center;
+				flex-wrap: wrap;
+				gap: 8rpx;
+			}
+
+			.link {
+				color: #2d9cf0;
+			}
+
+			.sep {
+				color: #64748b;
+			}
+
+			.disabled {
+				opacity: 0.5;
 			}
 		}
 	}

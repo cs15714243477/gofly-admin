@@ -21,7 +21,8 @@
 
 					<!-- 标题 -->
 					<view class="header">
-						<view class="title">快销房 欢迎你</view>
+						<view class="title">快销房
+						智选经纪人助手欢迎你</view>
 						<view class="subtitle">高效管理房源 · 智能门锁一键通</view>
 					</view>
 
@@ -63,10 +64,10 @@
 				<!-- 未登录：登录表单 -->
 				<view v-else class="form">
 					<!-- #ifdef MP-WEIXIN -->
-					<!-- 微信一键登录（手机号授权）——默认只显示这个 -->
+					<!-- 手机号快捷登录（手机号授权）——默认只显示这个 -->
 					<button class="wx-login-btn" :disabled="submitting || !agreed" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
 						<text class="material-symbols-outlined wx-icon">phone_iphone</text>
-						<text>微信一键登录</text>
+						<text>手机号快捷登录</text>
 					</button>
 					<view class="agree-row">
 						<view class="agree-left" @click="toggleAgree">
@@ -182,7 +183,6 @@
 	export default {
 		onLoad() {
 			this.loadAgreementDocs()
-			this.loadAgreeState()
 			this.bootstrapIfLoggedIn()
 		},
 		data() {
@@ -200,22 +200,8 @@
 			}
 		},
 		methods: {
-			loadAgreeState() {
-				// 记住用户勾选状态（本机生效）
-				try {
-					this.agreed = !!uni.getStorageSync('wxapp_login_agreed')
-				} catch (e) {
-					this.agreed = false
-				}
-			},
-			saveAgreeState() {
-				try {
-					uni.setStorageSync('wxapp_login_agreed', this.agreed ? 1 : '')
-				} catch (e) {}
-			},
 			toggleAgree() {
 				this.agreed = !this.agreed
-				this.saveAgreeState()
 			},
 			ensureAgreed() {
 				if (this.agreed) return true
@@ -389,7 +375,7 @@
 					},
 					fail: () => {
 						this.submitting = false
-						uni.showToast({ title: '获取微信登录凭证失败', icon: 'none' })
+						uni.showToast({ title: '获取登录凭证失败', icon: 'none' })
 					}
 				})
 			},

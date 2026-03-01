@@ -7,6 +7,9 @@ enum Api {
     getContent = '/houses/broker/getContent',
     save = '/houses/broker/save',
     upStatus = '/houses/broker/upStatus',
+    auditSwitch = '/houses/broker/auditSwitch',
+    upCanManageProperties = '/houses/broker/upCanManageProperties',
+    upCanManageLocks = '/houses/broker/upCanManageLocks',
     del = '/houses/broker/del',
 }
 
@@ -32,6 +35,18 @@ export function save(params: object) {
 //更新状态
 export function upStatus(params: object) {
     return defHttp.post({ url: Api.upStatus, params:params}, { errorMessageMode: 'message' });
+}
+// 审核开关（pending <-> approved）
+export function auditSwitch(params: object) {
+    return defHttp.post({ url: Api.auditSwitch, params:params}, { errorMessageMode: 'message' });
+}
+// 切换“可维护房源”权限
+export function upCanManageProperties(params: object) {
+    return defHttp.post({ url: Api.upCanManageProperties, params:params}, { errorMessageMode: 'message' });
+}
+// 切换“可管理智能锁”权限
+export function upCanManageLocks(params: object) {
+    return defHttp.post({ url: Api.upCanManageLocks, params:params}, { errorMessageMode: 'message' });
 }
 //删除数据
 export function del(params: object) {

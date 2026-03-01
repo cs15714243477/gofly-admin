@@ -17,7 +17,7 @@
                 <template #icon><icon-refresh /></template>
                 刷新
               </a-button>
-              <a-button type="primary" @click="handleCreate">
+              <a-button type="primary" @click="handleCreate" v-permission="['add']">
                 <template #icon><icon-plus /></template>
                 新增经纪人
               </a-button>
@@ -60,59 +60,133 @@
       </a-card>
 
       <!-- 列表 -->
-      <a-card class="broker-table" :bordered="false">
+      <a-card class="broker-list" :bordered="false">
         <a-spin :loading="loading" style="width: 100%">
-          <a-table
-            row-key="id"
-            :data="renderData"
-            :columns="columns"
-            :pagination="false"
-            :bordered="false"
-            :stripe="false"
-            :scroll="{ x: '100%' }"
-          >
-            <template #status="{ record }">
-              <a-badge :status="record.status === 0 ? 'success' : 'default'" :text="record.status === 0 ? '启用' : '禁用'" />
-            </template>
-            <template #canManage="{ record }">
-              <a-tag v-if="Number(record.can_manage_properties) === 1" color="green">可维护</a-tag>
-              <a-tag v-else color="gray">不可维护</a-tag>
-            </template>
-            <template #canLock="{ record }">
-              <a-tag v-if="Number(record.can_manage_locks) === 1" color="arcoblue">可管理</a-tag>
-              <a-tag v-else color="gray">不可管理</a-tag>
-            </template>
-            <template #auditStatus="{ record }">
-              <a-tag v-if="String(record.audit_status) === 'approved'" color="green">已通过</a-tag>
-              <a-tag v-else-if="String(record.audit_status) === 'pending'" color="orange">待审核</a-tag>
-              <a-tag v-else-if="String(record.audit_status) === 'rejected'" color="red">已拒绝</a-tag>
-              <a-tag v-else color="gray">-</a-tag>
-            </template>
-            <template #action="{ record }">
-              <a-space>
-                <a-button type="text" size="small" @click="handleEdit(record)">
-                  <template #icon><icon-edit /></template>
-                  编辑
-                </a-button>
-                <a-switch
-                  type="round"
-                  size="small"
-                  v-model="record.status"
-                  :checked-value="0"
-                  :unchecked-value="1"
-                  @change="handleStatus(record)"
-                />
-                <a-popconfirm content="确定删除该经纪人吗?" @ok="handleDel(record)" position="tr">
-                  <a-button type="text" size="small" status="danger">
-                    <template #icon><icon-delete /></template>
-                    删除
-                  </a-button>
-                </a-popconfirm>
-              </a-space>
-            </template>
-          </a-table>
+          <a-grid :cols="24" :col-gap="16" :row-gap="16" class="broker-grid" v-if="renderData.length">
+            <a-grid-item
+              v-for="record in renderData"
+              :key="record.id"
+              :span="{ xs: 24, sm: 12, md: 8, lg: 6, xl: 6, xxl: 6 }"
+            >
+              <a-card class="broker-card" :bordered="false" :body-style="{ padding: '14px' }">
+                <div class="card-head">
+                  <a-avatar :size="48" class="avatar">
+                    <img v-if="record.avatar" :src="GetFullPath(record.avatar)" alt="avatar" />
+                    <span v-else>{{ getAvatarText(record) }}</span>
+                  </a-avatar>
+                  <div class="head-main">
+                    <div class="name-row">
+                      <div class="name">{{ record.name || record.nickname || record.username || '未命名' }}</div>
+                      <a-badge
+                        :status="record.status === 0 ? 'success' : 'default'"
+                        :text="record.status === 0 ? '启用' : '禁用'"
+                      />
+                    </div>
+                    <div class="sub-row">
+                      <span class="title">{{ record.title || '经纪人' }}</span>
+                      <span class="sep">·</span>
+                      <span class="store">{{ record.store_name || '未绑定门店' }}</span>
+                    </div>
+                  </div>
+                </div>
 
-          <a-empty v-if="!loading && renderData.length === 0" description="暂无数据" />
+                <div class="info">
+                  <div class="info-line">
+                    <icon-phone />
+                    <span class="text">{{ record.mobile || '—' }}</span>
+                  </div>
+                  <div class="info-line audit-line">
+                    <icon-check-circle />
+                    <span class="label">审核</span>
+                    <a-tag
+                      size="small"
+                      bordered
+                      :color="auditStatusColor(record.audit_status)"
+                    >
+                      {{ auditStatusText(record.audit_status) }}
+                    </a-tag>
+                    <a-switch
+                      v-permission="['audit']"
+                      size="small"
+                      type="round"
+                      :model-value="isAuditApproved(record)"
+                      :loading="isToggleLoading(record, 'audit')"
+                      @change="(val) => handleAuditSwitch(record, val)"
+                    >
+                      <template #checked>通过</template>
+                      <template #unchecked>待审</template>
+                    </a-switch>
+                  </div>
+                  <div class="info-line">
+                    <icon-location />
+                    <span class="text ellipsis">{{ record.store_address || '—' }}</span>
+                  </div>
+                </div>
+
+                <div class="tags">
+                  <div class="tag-item">
+                    <a-tag
+                      size="small"
+                      :color="Number(record.can_manage_properties) === 1 ? 'green' : 'gray'"
+                      bordered
+                    >
+                      {{ Number(record.can_manage_properties) === 1 ? '可维护房源' : '不可维护房源' }}
+                    </a-tag>
+                    <a-switch
+                      v-permission="['canManageProperties']"
+                      v-model="record.can_manage_properties"
+                      :checked-value="1"
+                      :unchecked-value="0"
+                      size="small"
+                      type="round"
+                      :loading="isToggleLoading(record, 'canManageProperties')"
+                      @change="(val) => handleCanManageProperties(record, val)"
+                    />
+                  </div>
+                  <div class="tag-item">
+                    <a-tag size="small" :color="Number(record.can_manage_locks) === 1 ? 'arcoblue' : 'gray'" bordered>
+                      {{ Number(record.can_manage_locks) === 1 ? '可管智能锁' : '不可管智能锁' }}
+                    </a-tag>
+                    <a-switch
+                      v-permission="['canManageLocks']"
+                      v-model="record.can_manage_locks"
+                      :checked-value="1"
+                      :unchecked-value="0"
+                      size="small"
+                      type="round"
+                      :loading="isToggleLoading(record, 'canManageLocks')"
+                      @change="(val) => handleCanManageLocks(record, val)"
+                    />
+                  </div>
+                </div>
+
+                <div class="actions">
+                  <a-button type="text" size="small" @click="handleEdit(record)" v-permission="['add']">
+                    <template #icon><icon-edit /></template>
+                    编辑
+                  </a-button>
+                  <a-space size="mini">
+                    <a-switch
+                      type="round"
+                      size="small"
+                      v-model="record.status"
+                      :checked-value="0"
+                      :unchecked-value="1"
+                      v-permission="['upStatus']"
+                      @change="handleStatus(record)"
+                    />
+                    <a-popconfirm content="确定删除该经纪人吗?" @ok="handleDel(record)" position="tr" v-permission="['del']">
+                      <a-button type="text" size="small" status="danger">
+                        <template #icon><icon-delete /></template>
+                      </a-button>
+                    </a-popconfirm>
+                  </a-space>
+                </div>
+              </a-card>
+            </a-grid-item>
+          </a-grid>
+
+          <a-empty v-else-if="!loading" description="暂无数据" />
         </a-spin>
       </a-card>
 
@@ -140,9 +214,10 @@ import useLoading from '@/hooks/loading';
 import { Message } from '@arco-design/web-vue';
 import { Pagination } from '@/types/global';
 import { useModal } from '/@/components/Modal';
+import { GetFullPath } from '@/utils/tool';
 
 import AddForm from './modal/AddForm.vue';
-import { getList, upStatus, del } from './api';
+import { getList, upStatus, del, auditSwitch, upCanManageProperties, upCanManageLocks } from './api';
 
 const [registerModal, { openModal }] = useModal();
 
@@ -167,23 +242,87 @@ const formModel = ref({
 const { loading, setLoading } = useLoading(true);
 const renderData = ref<any[]>([]);
 
-const columns = [
-  { title: 'ID', dataIndex: 'id', width: 80, align: 'center' },
-  { title: '姓名', dataIndex: 'name', width: 120, ellipsis: true },
-  { title: '昵称', dataIndex: 'nickname', width: 120, ellipsis: true },
-  { title: '手机号', dataIndex: 'mobile', width: 140, ellipsis: true },
-  { title: '邮箱', dataIndex: 'email', minWidth: 220, ellipsis: true },
-  { title: '审核状态', dataIndex: 'audit_status', width: 120, align: 'center', slotName: 'auditStatus' },
-  { title: '门店名称', dataIndex: 'store_name', minWidth: 180, ellipsis: true },
-  { title: '门店地址', dataIndex: 'store_address', minWidth: 260, ellipsis: true },
-  { title: '门店电话', dataIndex: 'store_contact_phone', width: 140, ellipsis: true },
-  { title: '店长', dataIndex: 'store_manager_name', width: 120, ellipsis: true },
-  { title: '头衔', dataIndex: 'title', minWidth: 140, ellipsis: true },
-  { title: '可维护房源', dataIndex: 'can_manage_properties', width: 120, align: 'center', slotName: 'canManage' },
-  { title: '可管智能锁', dataIndex: 'can_manage_locks', width: 120, align: 'center', slotName: 'canLock' },
-  { title: '状态', dataIndex: 'status', width: 110, align: 'center', slotName: 'status' },
-  { title: '操作', dataIndex: 'action', width: 240, fixed: 'right', align: 'center', slotName: 'action' },
-] as any[];
+const getAvatarText = (record: any) => {
+  const name = String(record?.name || record?.nickname || '').trim();
+  if (name) return name.slice(-2);
+  const mobile = String(record?.mobile || '').trim();
+  if (mobile) return mobile.slice(-2);
+  const username = String(record?.username || '').trim();
+  if (username) return username.slice(0, 2);
+  return '经纪';
+};
+
+const auditStatusText = (status: any) => {
+  const s = String(status || '').trim().toLowerCase();
+  if (s === 'approved') return '已通过';
+  if (s === 'pending') return '待审核';
+  if (s === 'rejected') return '已拒绝';
+  return '未设置';
+};
+
+const auditStatusColor = (status: any) => {
+  const s = String(status || '').trim().toLowerCase();
+  if (s === 'approved') return 'green';
+  if (s === 'pending') return 'orange';
+  if (s === 'rejected') return 'red';
+  return 'gray';
+};
+
+const normalizeAuditStatus = (status: any) => String(status || '').trim().toLowerCase();
+const isAuditApproved = (record: any) => normalizeAuditStatus(record?.audit_status) === 'approved';
+
+const toggleLoading = ref<Record<string, boolean>>({});
+const toggleLoadingKey = (record: any, key: string) => `${record?.id || 0}:${key}`;
+const isToggleLoading = (record: any, key: string) => !!toggleLoading.value[toggleLoadingKey(record, key)];
+const setToggleLoading = (record: any, key: string, val: boolean) => {
+  toggleLoading.value[toggleLoadingKey(record, key)] = val;
+};
+
+const handleAuditSwitch = async (record: any, checked: boolean) => {
+  if (!record?.id) return;
+  const status = checked ? 'approved' : 'pending';
+  setToggleLoading(record, 'audit', true);
+  try {
+    await auditSwitch({ id: record.id, audit_status: status });
+    record.audit_status = status;
+    Message.success('更新成功');
+  } catch (e: any) {
+    Message.error(e?.message || '更新失败');
+    fetchData();
+  } finally {
+    setToggleLoading(record, 'audit', false);
+  }
+};
+
+const handleCanManageProperties = async (record: any, val: number) => {
+  if (!record?.id) return;
+  const oldVal = Number(val) === 1 ? 0 : 1;
+  setToggleLoading(record, 'canManageProperties', true);
+  try {
+    await upCanManageProperties({ id: record.id, can_manage_properties: val });
+    Message.success('更新成功');
+  } catch (e: any) {
+    Message.error(e?.message || '更新失败');
+    record.can_manage_properties = oldVal;
+  } finally {
+    setToggleLoading(record, 'canManageProperties', false);
+  }
+};
+
+const handleCanManageLocks = async (record: any, val: number) => {
+  if (!record?.id) return;
+  const oldVal = Number(val) === 1 ? 0 : 1;
+  setToggleLoading(record, 'canManageLocks', true);
+  try {
+    await upCanManageLocks({ id: record.id, can_manage_locks: val });
+    Message.success('更新成功');
+  } catch (e: any) {
+    Message.error(e?.message || '更新失败');
+    record.can_manage_locks = oldVal;
+  } finally {
+    setToggleLoading(record, 'canManageLocks', false);
+  }
+};
 
 const fetchData = async () => {
   setLoading(true);
@@ -202,7 +341,13 @@ const fetchData = async () => {
             ? resp.data.data
             : resp?.data ?? resp;
 
-    renderData.value = Array.isArray(data?.items) ? data.items : [];
+    const items = Array.isArray(data?.items) ? data.items : [];
+    renderData.value = items.map((it: any) => ({
+      ...it,
+      status: Number(it?.status ?? 0),
+      can_manage_properties: Number(it?.can_manage_properties ?? 0),
+      can_manage_locks: Number(it?.can_manage_locks ?? 0),
+    }));
     pagination.total = Number(data?.total) || 0;
     pagination.current = Number(data?.page) || pagination.current;
   } catch (e: any) {
@@ -282,8 +427,9 @@ const handlePageSizeChange = (pageSize: number) => {
 .broker-hero {
   margin-bottom: 12px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--color-bg-2), rgba(var(--primary-1), 0.6));
-  border: 1px solid var(--color-border-2);
+  background: var(--color-bg-2);
+  border: 1px solid rgb(var(--gray-2));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .hero-inner {
   display: flex;
@@ -320,7 +466,8 @@ const handlePageSizeChange = (pageSize: number) => {
 .broker-filter {
   margin-bottom: 12px;
   border-radius: 12px;
-  border: 1px solid var(--color-border-2);
+  border: 1px solid rgb(var(--gray-2));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .search-row {
   display: flex;
@@ -328,9 +475,10 @@ const handlePageSizeChange = (pageSize: number) => {
   align-items: flex-start;
   gap: 12px;
 }
-.broker-table {
+.broker-list {
   border-radius: 12px;
-  border: 1px solid var(--color-border-2);
+  border: 1px solid rgb(var(--gray-2));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .pagination-wrapper {
   display: flex;
@@ -338,11 +486,117 @@ const handlePageSizeChange = (pageSize: number) => {
   padding: 20px 0 4px;
 }
 
-:deep(.arco-table-th) {
+.broker-grid {
+  width: 100%;
+}
+
+.broker-card {
+  border-radius: 12px;
+  border: 1px solid rgb(var(--gray-2));
+  background: var(--color-fill-1);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+.broker-card:hover {
+  border-color: rgb(var(--arcoblue-3));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.avatar {
+  flex: 0 0 auto;
+  background: rgba(var(--arcoblue-6), 0.12);
+  color: rgb(var(--arcoblue-6));
+  font-weight: 700;
+}
+.head-main {
+  flex: 1;
+  min-width: 0;
+}
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-1);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 22px;
+}
+.sub-row {
+  margin-top: 4px;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.store {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sep {
+  color: rgb(var(--gray-5));
+}
+
+.info {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 66px;
+}
+.info-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-2);
+  font-size: 12px;
+  line-height: 18px;
+}
+.audit-line .label {
+  color: var(--color-text-3);
+}
+.info-line :deep(.arco-icon) {
+  font-size: 14px;
+  color: var(--color-text-3);
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:deep(.arco-table-td) {
-  white-space: nowrap;
+.tags {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tag-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgb(var(--gray-2));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 </style>

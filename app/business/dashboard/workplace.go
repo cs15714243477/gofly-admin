@@ -72,46 +72,72 @@ func (api *Workplace) Get_statistical(c *gf.GinCtx) {
 	businessID := c.GetInt64("businessID") // 当前商户ID
 	if businessID == 0 {
 		gf.Success().SetMsg("获取概况统计成功").SetData(gf.Map{
-			"propertyTotal":       0,
-			"propertyOnSale":      0,
-			"lockBindTotal":       0,
-			"unlockPendingTotal":  0,
-			"todayPropertyAdd":    0,
-			"todayUnlockRequests": 0,
+			"propertyTotal":         0,
+			"propertyOnSale":        0,
+			"propertyInSale":        0,
+			"propertySold":          0,
+			"propertyOffMarket":     0,
+			"lockBindTotal":         0,
+			"lockBindPropertyTotal": 0,
+			"unlockPendingTotal":    0,
+			"todayPropertyAdd":      0,
+			"todayUnlockRequests":   0,
+			"todayViewCount":        0,
+			"todayShowingCount":     0,
 		}).Regin(c)
 		return
 	}
 
 	// 1) 房源统计
-	propertyTotal, err := gf.Model("business_properties").
+	propertyBase := gf.Model("business_properties").
 		Where("business_id", businessID).
-		Count()
+		Where("deletetime", nil)
+
+	propertyTotal, err := propertyBase.Clone().Count()
 	if err != nil {
 		gf.Failed().SetMsg("获取房源统计失败").SetData(err).Regin(c)
 		return
 	}
-	propertyOnSale, err := gf.Model("business_properties").
-		Where("business_id", businessID).
-		Where("sale_status", "on_sale").
-		Count()
+	propertyOnSale, err := propertyBase.Clone().Where("sale_status", "on_sale").Count()
 	if err != nil {
 		gf.Failed().SetMsg("获取在售房源统计失败").SetData(err).Regin(c)
+		return
+	}
+	propertyInSale, err := propertyBase.Clone().Where("sale_status", "in_sale").Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取预售房源统计失败").SetData(err).Regin(c)
+		return
+	}
+	propertySold, err := propertyBase.Clone().Where("sale_status", "sold").Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取已售房源统计失败").SetData(err).Regin(c)
+		return
+	}
+	propertyOffMarket, err := propertyBase.Clone().Where("sale_status", "off_market").Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取下架房源统计失败").SetData(err).Regin(c)
 		return
 	}
 
 	// 2) 智能锁绑定统计
 	lockBindTotal, err := gf.Model("business_property_locks").
 		Where("business_id", businessID).
+		Where("deletetime", 0).
 		Where("bind_status", 1).
 		Count()
 	if err != nil {
 		gf.Failed().SetMsg("获取智能锁统计失败").SetData(err).Regin(c)
 		return
 	}
+	lockBindPropertyTotal, err := propertyBase.Clone().Where("has_smart_lock", 1).Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取已绑锁房源统计失败").SetData(err).Regin(c)
+		return
+	}
 
 	// 3) 待审核开锁申请（按房源归属商户过滤）
 	unlockPendingTotal, err := gf.Model("business_unlock_requests", "ur").
-		InnerJoin("business_properties", "p", "p.id=ur.property_id").
+		InnerJoin("business_properties", "p", "p.id=ur.property_id AND p.deletetime IS NULL").
 		Where("p.business_id", businessID).
 		Where("ur.request_status", "pending").
 		Count()
@@ -120,34 +146,59 @@ func (api *Workplace) Get_statistical(c *gf.GinCtx) {
 		return
 	}
 
-	// 4) 今日新增房源 / 今日开锁申请
+	// 4) 今日新增房源 / 今日开锁申请 / 今日浏览 / 今日带看
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	todayPropertyAdd, err := gf.Model("business_properties").
-		Where("business_id", businessID).
-		Where("createtime", ">=", todayStart).
-		Count()
+	todayPropertyAdd, err := propertyBase.Clone().WhereGTE("createtime", todayStart).Count()
 	if err != nil {
 		gf.Failed().SetMsg("获取今日新增房源失败").SetData(err).Regin(c)
 		return
 	}
 	todayUnlockRequests, err := gf.Model("business_unlock_requests", "ur").
-		InnerJoin("business_properties", "p", "p.id=ur.property_id").
+		InnerJoin("business_properties", "p", "p.id=ur.property_id AND p.deletetime IS NULL").
 		Where("p.business_id", businessID).
-		Where("ur.createtime", ">=", todayStart).
+		WhereGTE("ur.createtime", todayStart).
 		Count()
 	if err != nil {
 		gf.Failed().SetMsg("获取今日开锁申请失败").SetData(err).Regin(c)
 		return
 	}
 
+	todayViewCount, err := gf.Model("business_user_activity_logs", "a").
+		InnerJoin("business_properties", "p", "p.id=a.property_id AND p.deletetime IS NULL").
+		Where("p.business_id", businessID).
+		Where("a.activity_type", "view").
+		WhereGTE("a.createtime", todayStart).
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取今日浏览记录失败").SetData(err).Regin(c)
+		return
+	}
+
+	todayShowingCount, err := gf.Model("business_user_activity_logs", "a").
+		InnerJoin("business_properties", "p", "p.id=a.property_id AND p.deletetime IS NULL").
+		Where("p.business_id", businessID).
+		Where("a.activity_type", "showing").
+		WhereGTE("a.createtime", todayStart).
+		Count()
+	if err != nil {
+		gf.Failed().SetMsg("获取今日带看记录失败").SetData(err).Regin(c)
+		return
+	}
+
 	gf.Success().SetMsg("获取概况统计成功").SetData(gf.Map{
-		"propertyTotal":       propertyTotal,
-		"propertyOnSale":      propertyOnSale,
-		"lockBindTotal":       lockBindTotal,
-		"unlockPendingTotal":  unlockPendingTotal,
-		"todayPropertyAdd":    todayPropertyAdd,
-		"todayUnlockRequests": todayUnlockRequests,
+		"propertyTotal":         propertyTotal,
+		"propertyOnSale":        propertyOnSale,
+		"propertyInSale":        propertyInSale,
+		"propertySold":          propertySold,
+		"propertyOffMarket":     propertyOffMarket,
+		"lockBindTotal":         lockBindTotal,
+		"lockBindPropertyTotal": lockBindPropertyTotal,
+		"unlockPendingTotal":    unlockPendingTotal,
+		"todayPropertyAdd":      todayPropertyAdd,
+		"todayUnlockRequests":   todayUnlockRequests,
+		"todayViewCount":        todayViewCount,
+		"todayShowingCount":     todayShowingCount,
 	}).Regin(c)
 }
 
@@ -174,7 +225,8 @@ func (api *Workplace) Get_visitlist(c *gf.GinCtx) {
 		list, err := gf.Model("business_properties").
 			Fields("DATE_FORMAT(createtime,'%Y-%m-%d') as x, COUNT(*) as y").
 			Where("business_id", businessID).
-			Where("createtime", ">=", start).
+			Where("deletetime", nil).
+			WhereGTE("createtime", start).
 			Group("DATE_FORMAT(createtime,'%Y-%m-%d')").
 			Order("x asc").
 			Select()

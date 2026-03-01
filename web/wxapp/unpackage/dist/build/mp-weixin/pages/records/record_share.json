@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "分享记录",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "top-header": "../../components/TopHeader",
-    "bottom-tab-bar": "../../components/BottomTabBar"
-  }
-}

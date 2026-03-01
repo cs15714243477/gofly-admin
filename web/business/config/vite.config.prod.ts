@@ -9,9 +9,9 @@ import configImageminPlugin from './plugin/imagemin';
 export default mergeConfig(
   {
     // 1 配置二级访问目录（位置：webbusiness）
-    base: process.env.NODE_ENV === 'production' ? '/webbusiness/' : '',
+    // base: process.env.NODE_ENV === 'production' ? '/webbusiness/' : '',
     // 2 独立部署
-    // base: '',
+    base: '',
     mode: 'production',
     plugins: [
       configCompressPlugin('gzip'),

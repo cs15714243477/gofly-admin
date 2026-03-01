@@ -15,10 +15,16 @@ enum Api {
 export interface WorkplaceStatistical {
   propertyTotal: number;
   propertyOnSale: number;
+  propertyInSale: number;
+  propertySold: number;
+  propertyOffMarket: number;
   lockBindTotal: number;
+  lockBindPropertyTotal: number;
   unlockPendingTotal: number;
   todayPropertyAdd: number;
   todayUnlockRequests: number;
+  todayViewCount: number;
+  todayShowingCount: number;
 }
 export function getStatistical(params: object) {
   return defHttp.get<WorkplaceStatistical>({ url: Api.getStatistical, params }, { errorMessageMode: 'message' });

@@ -267,6 +267,194 @@ func (api *Broker) Save(c *gf.GinCtx) {
 	gf.Success().SetMsg("更新成功").Regin(c)
 }
 
+// 审核开关（仅支持 pending <-> approved）
+func (api *Broker) AuditSwitch(c *gf.GinCtx) {
+	if !gf.DbHaseField("business_user", "audit_status") {
+		gf.Failed().SetMsg("当前库未启用审核字段").Regin(c)
+		return
+	}
+	param, _ := gf.RequestParam(c)
+	id := gconv.Int64(param["id"])
+	if id == 0 {
+		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	status := strings.ToLower(strings.TrimSpace(gconv.String(param["audit_status"])))
+	if status == "" {
+		// 兼容前端传 bool/int
+		v := gconv.Int(param["approved"])
+		if v == 1 {
+			status = "approved"
+		} else {
+			status = "pending"
+		}
+	}
+	if status != "pending" && status != "approved" {
+		gf.Failed().SetMsg("audit_status参数不合法").Regin(c)
+		return
+	}
+	update := gf.Map{"audit_status": status}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		update["audit_reason"] = ""
+	}
+	if gf.DbHaseField("business_user", "audit_time") {
+		update["audit_time"] = time.Now()
+	}
+	_, err := gf.Model("business_user").Where("business_id", c.GetInt64("businessID")).Where("id", id).Update(update)
+	if err != nil {
+		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
+		return
+	}
+	if status == "approved" {
+		gf.Success().SetMsg("已审核通过").Regin(c)
+	} else {
+		gf.Success().SetMsg("已设置为待审核").Regin(c)
+	}
+}
+
+// 切换“可维护房源”权限
+func (api *Broker) UpCanManageProperties(c *gf.GinCtx) {
+	if !gf.DbHaseField("business_user", "can_manage_properties") {
+		gf.Failed().SetMsg("当前库未启用可维护房源字段").Regin(c)
+		return
+	}
+	param, _ := gf.RequestParam(c)
+	id := gconv.Int64(param["id"])
+	if id == 0 {
+		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	val := gconv.Int(param["can_manage_properties"])
+	if val != 0 && val != 1 {
+		gf.Failed().SetMsg("can_manage_properties参数不合法").Regin(c)
+		return
+	}
+	_, err := gf.Model("business_user").Where("business_id", c.GetInt64("businessID")).Where("id", id).Update(gf.Map{
+		"can_manage_properties": val,
+	})
+	if err != nil {
+		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("更新成功").Regin(c)
+}
+
+// 切换“可管理智能锁”权限
+func (api *Broker) UpCanManageLocks(c *gf.GinCtx) {
+	if !gf.DbHaseField("business_user", "can_manage_locks") {
+		gf.Failed().SetMsg("当前库未启用可管理智能锁字段").Regin(c)
+		return
+	}
+	param, _ := gf.RequestParam(c)
+	id := gconv.Int64(param["id"])
+	if id == 0 {
+		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	val := gconv.Int(param["can_manage_locks"])
+	if val != 0 && val != 1 {
+		gf.Failed().SetMsg("can_manage_locks参数不合法").Regin(c)
+		return
+	}
+	_, err := gf.Model("business_user").Where("business_id", c.GetInt64("businessID")).Where("id", id).Update(gf.Map{
+		"can_manage_locks": val,
+	})
+	if err != nil {
+		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("更新成功").Regin(c)
+}
+
+// 审核：设置为待审核
+func (api *Broker) AuditPending(c *gf.GinCtx) {
+	if !gf.DbHaseField("business_user", "audit_status") {
+		gf.Failed().SetMsg("当前库未启用审核字段").Regin(c)
+		return
+	}
+	param, _ := gf.RequestParam(c)
+	id := gconv.Int64(param["id"])
+	if id == 0 {
+		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	update := gf.Map{"audit_status": "pending"}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		update["audit_reason"] = ""
+	}
+	if gf.DbHaseField("business_user", "audit_time") {
+		update["audit_time"] = time.Now()
+	}
+	_, err := gf.Model("business_user").Where("business_id", c.GetInt64("businessID")).Where("id", id).Update(update)
+	if err != nil {
+		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("已设置为待审核").Regin(c)
+}
+
+// 审核：通过
+func (api *Broker) AuditApprove(c *gf.GinCtx) {
+	if !gf.DbHaseField("business_user", "audit_status") {
+		gf.Failed().SetMsg("当前库未启用审核字段").Regin(c)
+		return
+	}
+	param, _ := gf.RequestParam(c)
+	id := gconv.Int64(param["id"])
+	if id == 0 {
+		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	update := gf.Map{"audit_status": "approved"}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		update["audit_reason"] = ""
+	}
+	if gf.DbHaseField("business_user", "audit_time") {
+		update["audit_time"] = time.Now()
+	}
+	_, err := gf.Model("business_user").Where("business_id", c.GetInt64("businessID")).Where("id", id).Update(update)
+	if err != nil {
+		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("已审核通过").Regin(c)
+}
+
+// 审核：拒绝（需传原因 reason 或 audit_reason）
+func (api *Broker) AuditReject(c *gf.GinCtx) {
+	if !gf.DbHaseField("business_user", "audit_status") {
+		gf.Failed().SetMsg("当前库未启用审核字段").Regin(c)
+		return
+	}
+	param, _ := gf.RequestParam(c)
+	id := gconv.Int64(param["id"])
+	if id == 0 {
+		gf.Failed().SetMsg("请传参数id").Regin(c)
+		return
+	}
+	reason := strings.TrimSpace(gconv.String(param["reason"]))
+	if reason == "" {
+		reason = strings.TrimSpace(gconv.String(param["audit_reason"]))
+	}
+	if reason == "" {
+		gf.Failed().SetMsg("请填写拒绝原因").Regin(c)
+		return
+	}
+	update := gf.Map{"audit_status": "rejected"}
+	if gf.DbHaseField("business_user", "audit_reason") {
+		update["audit_reason"] = reason
+	}
+	if gf.DbHaseField("business_user", "audit_time") {
+		update["audit_time"] = time.Now()
+	}
+	_, err := gf.Model("business_user").Where("business_id", c.GetInt64("businessID")).Where("id", id).Update(update)
+	if err != nil {
+		gf.Failed().SetMsg("更新失败").SetData(err).Regin(c)
+		return
+	}
+	gf.Success().SetMsg("已拒绝").Regin(c)
+}
+
 // 更新状态
 func (api *Broker) UpStatus(c *gf.GinCtx) {
 	param, _ := gf.RequestParam(c)

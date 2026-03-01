@@ -1,11 +1,10 @@
 <template>
   <a-spin :loading="loading" style="width: 100%">
     <a-card
-      class="general-card"
-      :header-style="{ paddingBottom: 0 }"
-      :body-style="{
-        paddingTop: '20px',
-      }"
+      class="dash-card"
+      :bordered="false"
+      :header-style="{ padding: '16px 16px 0 16px', borderBottom: 'none' }"
+      :body-style="{ padding: '0 16px 16px 16px' }"
       :title="$t('workplace.contentData')"
     >
       <Chart height="289px" :option="chartOption" />
@@ -83,7 +82,7 @@
         axisPointer: {
           show: true,
           lineStyle: {
-            color: '#23ADFF',
+            color: '#165DFF',
             width: 2,
           },
         },
@@ -137,20 +136,7 @@
           },
           lineStyle: {
             width: 3,
-            color: new graphic.LinearGradient(0, 0, 1, 0, [
-              {
-                offset: 0,
-                color: 'rgba(30, 231, 255, 1)',
-              },
-              {
-                offset: 0.5,
-                color: 'rgba(36, 154, 255, 1)',
-              },
-              {
-                offset: 1,
-                color: 'rgba(111, 66, 251, 1)',
-              },
-            ]),
+            color: '#165DFF',
           },
           showSymbol: false,
           areaStyle: {
@@ -158,11 +144,11 @@
             color: new graphic.LinearGradient(0, 0, 0, 1, [
               {
                 offset: 0,
-                color: 'rgba(17, 126, 255, 0.16)',
+                color: 'rgba(22, 93, 255, 0.18)',
               },
               {
                 offset: 1,
-                color: 'rgba(17, 128, 255, 0)',
+                color: 'rgba(22, 93, 255, 0)',
               },
             ]),
           },
@@ -195,4 +181,8 @@
   fetchData();
 </script>
 
-<style scoped lang="less"></style>
+<style scoped lang="less">
+  :deep(.arco-card-body) {
+    padding-top: 6px;
+  }
+</style>

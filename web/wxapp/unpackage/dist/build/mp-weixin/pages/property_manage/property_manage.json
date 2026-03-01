@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "房源管理",
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "top-header": "../../components/TopHeader"
-  }
-}

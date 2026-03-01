@@ -86,7 +86,6 @@ declare module '@vue/runtime-core' {
     ATreeSelect: typeof import('@arco-design/web-vue')['TreeSelect']
     ATypographyParagraph: typeof import('@arco-design/web-vue')['TypographyParagraph']
     ATypographyText: typeof import('@arco-design/web-vue')['TypographyText']
-    ATypographyTitle: typeof import('@arco-design/web-vue')['TypographyTitle']
     AUpload: typeof import('@arco-design/web-vue')['Upload']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

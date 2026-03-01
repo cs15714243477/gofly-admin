@@ -1,9 +1,10 @@
 <template>
   <a-spin :loading="loading" style="width: 100%">
     <a-card
-      class="general-card"
-      :header-style="{ paddingBottom: '0' }"
-      :body-style="{ padding: '10px 20px 18px 20px' }"
+      class="dash-card"
+      :bordered="false"
+      :header-style="{ padding: '16px 16px 0 16px', borderBottom: 'none' }"
+      :body-style="{ padding: '0 16px 16px 16px' }"
       :title="$t('workplace.popularContent')"
     >
       <a-table
@@ -59,12 +60,14 @@
 
   const saleStatusText = (status: PopularPropertyRecord['saleStatus']) => {
     if (status === 'on_sale') return '在售';
+    if (status === 'in_sale') return '预售';
     if (status === 'sold') return '已售';
     if (status === 'off_market') return '下架';
     return '未知';
   };
   const saleStatusColor = (status: PopularPropertyRecord['saleStatus']) => {
     if (status === 'on_sale') return 'green';
+    if (status === 'in_sale') return 'gold';
     if (status === 'sold') return 'orange';
     if (status === 'off_market') return 'gray';
     return 'blue';
@@ -84,7 +87,7 @@
 </script>
 
 <style scoped lang="less">
-  .general-card {
+  .dash-card {
     min-height: 395px;
   }
   :deep(.arco-table-tr) {
