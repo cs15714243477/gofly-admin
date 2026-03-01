@@ -21,8 +21,7 @@
 
 					<!-- 标题 -->
 					<view class="header">
-						<view class="title">快销房
-						智选经纪人助手欢迎你</view>
+						<view class="title">快销房智选经纪人助手欢迎你</view>
 						<view class="subtitle">高效管理房源 · 智能门锁一键通</view>
 					</view>
 
