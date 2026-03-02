@@ -146,9 +146,18 @@
 			this.mode = (options && options.mode) || 'complete'
 			const mobile = options && options.mobile ? String(options.mobile).trim() : ''
 			if (mobile) this.form.phone = mobile
+			const ticketFromQuery = options && (options.ticket || options.register_ticket) ? String(options.ticket || options.register_ticket).trim() : ''
+			if (ticketFromQuery) {
+				this.registerTicket = ticketFromQuery
+				try { uni.setStorageSync('wxapp_register_ticket', ticketFromQuery) } catch (e) {}
+			}
 			// 取登录页保存的手机号（兜底）
 			const cachedPhone = uni.getStorageSync('hm_phone')
 			if (!this.form.phone && cachedPhone) this.form.phone = cachedPhone
+			if (!this.registerTicket) {
+				const cachedTicket = uni.getStorageSync('wxapp_register_ticket')
+				if (cachedTicket) this.registerTicket = String(cachedTicket).trim()
+			}
 
 			this.fetchStores()
 			this.fetchAuditStatus(false)
@@ -162,6 +171,7 @@
 				},
 				mode: 'complete', // complete | register（预留）
 				submitting: false,
+				registerTicket: '',
 				region: ['北京市', '北京市', '朝阳区'],
 				storeMode: 'select', // select | manual
 				storeOptions: [],
@@ -423,16 +433,19 @@
 					return
 				}
 
-				const phoneCode = uni.getStorageSync('wxapp_register_phone_code')
-				if (!phoneCode) {
-					uni.showToast({ title: '请返回登录页授权手机号后再提交', icon: 'none' })
+				const registerTicket = String(this.registerTicket || uni.getStorageSync('wxapp_register_ticket') || '').trim()
+				const phoneCode = String(uni.getStorageSync('wxapp_register_phone_code') || '').trim()
+				if (!registerTicket && !phoneCode) {
+					uni.showToast({ title: '授权已失效，请返回登录页重新授权手机号', icon: 'none' })
 					return
 				}
 
 				this.submitting = true
 				try {
 					const payload = {
-						phone_code: String(phoneCode),
+						phone_code: phoneCode,
+						register_ticket: registerTicket,
+						mobile: String(this.form.phone || '').trim(),
 						name: String(this.form.name).trim(),
 						region_province: this.region && this.region[0] ? String(this.region[0]) : '',
 						region_city: this.region && this.region[1] ? String(this.region[1]) : '',
@@ -446,6 +459,7 @@
 					if (res.code !== 0) return
 					uni.showToast({ title: '提交成功，请等待审核', icon: 'none' })
 					try { uni.setStorageSync('hm_phone', String(this.form.phone)) } catch (e) {}
+					try { uni.removeStorageSync('wxapp_register_ticket') } catch (e) {}
 					try { uni.removeStorageSync('wxapp_register_phone_code') } catch (e) {}
 					await this.fetchAuditStatus(false)
 				} finally {

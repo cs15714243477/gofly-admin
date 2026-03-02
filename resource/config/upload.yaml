@@ -27,7 +27,7 @@ tencentcos:
   TDirPath: /goflys
 # 七牛云存储配置
 qiniuoss:
-  QBaseUrl: http://t3wcppubp.hn-bkt.clouddn.com/
+  QBaseUrl: https://image.kuaixiaofang.com
   QEndpoint: https://image.kuaixiaofang.com
   QKeyId: 5oef82M0q3e01eTWP0q6NmCYP0IsRTXn52KQCria
   QSecret: hU0V1raqd1Z1hl_HXprv922O1ItMcOacK1r2mB6q

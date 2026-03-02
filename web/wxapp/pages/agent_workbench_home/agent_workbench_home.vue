@@ -7,7 +7,7 @@
     <view class="main-content">
       <!-- 个人信息卡片 -->
       <view class="profile-section">
-        <view class="profile-card">
+        <view v-if="!isGuest" class="profile-card">
           <view class="profile-bg-decor"></view>
           <button class="edit-btn" @click="goEditCard">
             <text class="material-symbols-outlined edit-icon">edit</text>
@@ -33,13 +33,21 @@
             </view>
           </view>
         </view>
+        <view v-else class="guest-card">
+          <view class="guest-title">当然未登录</view>
+          <view class="guest-desc">你可以先浏览推荐、房源等服务，需要时再自主登录。</view>
+          <view class="guest-actions">
+            <button class="guest-login-btn" @click="goLogin">去登录</button>
+            <button class="guest-back-btn" @click="goHome">返回首页</button>
+          </view>
+        </view>
       </view>
 
       <scroll-view scroll-y="true" class="content-scroll">
         <view class="scroll-content">
           <view class="section">
             <view class="section-title">快捷工作台</view>
-            <view class="records-grid">
+            <view class="records-grid" :class="{ 'is-guest': isGuest }">
               <view
                 class="record-grid-item"
                 v-for="(item, index) in displayRecords"
@@ -54,6 +62,9 @@
                 </view>
                 <text class="record-grid-name">{{ item.name }}</text>
               </view>
+            </view>
+            <view v-if="isGuest" class="guest-hint">
+              工作台功能需登录后使用，你也可以先继续浏览其他页面。
             </view>
           </view>
 
@@ -72,6 +83,7 @@
               </view>
               <view class="service-divider"></view>
               <button
+                v-if="!isGuest"
                 class="service-item service-share-btn"
                 open-type="share"
                 @longpress="copyAgentLink"
@@ -86,11 +98,22 @@
                   >chevron_right</text
                 >
               </button>
+              <view v-else class="service-item" @click="promptLogin('登录后可推荐给朋友')">
+                <view class="service-left">
+                  <text class="material-symbols-outlined service-icon"
+                    >share</text
+                  >
+                  <text class="service-name">推荐给朋友（登录后）</text>
+                </view>
+                <text class="material-symbols-outlined arrow-icon"
+                  >chevron_right</text
+                >
+              </view>
             </view>
           </view>
 
           <!-- 退出按钮 -->
-          <view class="logout-section">
+          <view class="logout-section" v-if="!isGuest">
             <button class="logout-btn" @click="handleLogout">退出登录</button>
           </view>
         </view>
@@ -111,6 +134,12 @@ import $store from "@/store";
 export default {
   components: { BottomTabBar, TopHeader },
   onShareAppMessage() {
+    if (this.isGuest) {
+      return {
+        title: "快销房智选",
+        path: "/pages/home/home",
+      };
+    }
     const name = this.displayName || "我";
     const agentId = Number((this.userInfo && this.userInfo.id) || 0);
     return {
@@ -121,6 +150,8 @@ export default {
   data() {
     return {
       loadingUser: false,
+      isGuest: true,
+      lastLoginPromptAt: 0,
       debugLogged: false,
       userInfo: {},
       recordSummary: {
@@ -220,6 +251,45 @@ export default {
     this.ensureLoginAndLoadUser();
   },
   methods: {
+    setGuestState() {
+      this.isGuest = true;
+      this.userInfo = {
+        name: "游客",
+        title: "",
+        role: "",
+        mobile: "",
+        store_name: "",
+      };
+      this.recordSummary = {
+        follow_count: 0,
+        unlock_count: 0,
+        showing_count: 0,
+        view_count: 0,
+        share_count: 0,
+        call_count: 0,
+        unlock_has_notice: false,
+      };
+    },
+    goLogin() {
+      uni.navigateTo({ url: "/pages/login/login" });
+    },
+    goHome() {
+      uni.reLaunch({ url: "/pages/home/home" });
+    },
+    promptLogin(content = "登录后可使用该功能") {
+      const now = Date.now();
+      if (now - Number(this.lastLoginPromptAt || 0) < 1200) return;
+      this.lastLoginPromptAt = now;
+      uni.showModal({
+        title: "需要登录",
+        content,
+        cancelText: "继续浏览",
+        confirmText: "去登录",
+        success: (res) => {
+          if (res && res.confirm) this.goLogin();
+        },
+      });
+    },
     debugPrintUserInfo(tag = "") {
       if (this.debugLogged) return;
       this.debugLogged = true;
@@ -273,7 +343,7 @@ export default {
         userStore.setToken(token);
       }
       if (!token && !userStore.isLogin) {
-        uni.reLaunch({ url: "/pages/login/login" });
+        this.setGuestState();
         return;
       }
       if (this.loadingUser) return;
@@ -281,11 +351,25 @@ export default {
       try {
         const info = await userStore.getInfo();
         this.userInfo = info || userStore.userInfo || {};
+        this.isGuest = !(
+          this.userInfo && Number(this.userInfo.id || 0) > 0
+        );
+        if (this.isGuest) {
+          this.setGuestState();
+          return;
+        }
         this.debugPrintUserInfo("after getInfo");
         await this.loadWorkbenchSummary(false);
       } catch (e) {
         // 请求失败：优先保留本地态，不强制跳转（避免短暂网络抖动导致回登录）
         this.userInfo = userStore.userInfo || {};
+        this.isGuest = !(
+          this.userInfo && Number(this.userInfo.id || 0) > 0
+        );
+        if (this.isGuest) {
+          this.setGuestState();
+          return;
+        }
         this.debugPrintUserInfo("fallback userStore.userInfo");
         await this.loadWorkbenchSummary(false);
       } finally {
@@ -308,6 +392,10 @@ export default {
       } catch (e) {}
     },
     goEditCard() {
+      if (this.isGuest) {
+        this.promptLogin("登录后可编辑你的名片资料");
+        return;
+      }
       // 跳转到“获客-编辑资料”页（tab=1）
       uni.reLaunch({
         url: "/pages/my_business_card/my_business_card?tab=1",
@@ -317,6 +405,10 @@ export default {
       uni.navigateTo({ url: "/pages/doc_webview/doc_webview?key=about_us" });
     },
     async copyAgentLink() {
+      if (this.isGuest) {
+        this.promptLogin("登录后可复制你的专属推广链接");
+        return;
+      }
       const res = await userApi.getAgentUrlLink({}, true);
       const urlLink =
         res && res.code === 0 && res.data
@@ -332,6 +424,10 @@ export default {
       });
     },
     openRecord(item) {
+      if (this.isGuest) {
+        this.promptLogin("登录后可查看工作台记录");
+        return;
+      }
       const map = {
         property_manage: "/pages/property_manage/property_manage",
         lock_manage: "/pages/lock_manage/lock_manage",
@@ -366,6 +462,10 @@ export default {
       return "点击进入查看明细";
     },
     handleLogout() {
+      if (this.isGuest) {
+        this.goLogin();
+        return;
+      }
       uni.showModal({
         title: "提示",
         content: "确定要退出登录吗？",
@@ -409,6 +509,66 @@ export default {
 .profile-section {
   padding: 0;
   flex-shrink: 0;
+}
+
+.guest-card {
+  background: linear-gradient(145deg, #f8fbff, #eef6ff);
+  border: 1px solid #dbeafe;
+  border-radius: 28rpx;
+  padding: 28rpx 24rpx;
+  box-shadow: 0 8rpx 20rpx rgba(37, 99, 235, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.guest-title {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.guest-desc {
+  font-size: 24rpx;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.guest-actions {
+  display: flex;
+  gap: 14rpx;
+}
+
+.guest-login-btn,
+.guest-back-btn {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guest-login-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+}
+
+.guest-login-btn::after {
+  border: none;
+}
+
+.guest-back-btn {
+  background: #ffffff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.guest-back-btn::after {
+  border: none;
 }
 
 .content-scroll {
@@ -553,6 +713,10 @@ export default {
   overflow: hidden;
 }
 
+.records-grid.is-guest {
+  opacity: 0.92;
+}
+
 .record-grid-item {
   background: transparent;
   border: none;
@@ -627,6 +791,13 @@ export default {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.guest-hint {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #64748b;
+  line-height: 1.6;
 }
 
 

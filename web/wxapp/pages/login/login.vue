@@ -263,6 +263,7 @@
 				const exdata = (res && res.exdata) ? res.exdata : {}
 				const mobile = String(data.mobile || exdata.mobile || extra.mobile || '').trim()
 				const reason = String(data.audit_reason || '').trim()
+				const registerTicket = String(data.register_ticket || exdata.register_ticket || extra.register_ticket || '').trim()
 
 				if (mobile) {
 					try { uni.setStorageSync('hm_phone', mobile) } catch (e) {}
@@ -273,12 +274,17 @@
 					try { uni.removeStorageSync('wxapp_register_reject_reason') } catch (e) {}
 				}
 
-				if (extra && extra.phone_code) {
-					try { uni.setStorageSync('wxapp_register_phone_code', String(extra.phone_code)) } catch (e) {}
+				if (registerTicket) {
+					try { uni.setStorageSync('wxapp_register_ticket', registerTicket) } catch (e) {}
+				} else {
+					try { uni.removeStorageSync('wxapp_register_ticket') } catch (e) {}
 				}
+				try { uni.removeStorageSync('wxapp_register_phone_code') } catch (e) {}
 
+				const q = [`mobile=${encodeURIComponent(mobile || '')}`]
+				if (registerTicket) q.push(`ticket=${encodeURIComponent(registerTicket)}`)
 				uni.navigateTo({
-					url: `/pages/registration/registration?mobile=${encodeURIComponent(mobile || '')}`
+					url: `/pages/registration/registration?${q.join('&')}`
 				})
 				return true
 			},

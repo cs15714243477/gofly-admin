@@ -2,10 +2,13 @@ package uniapp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"gofly/utils/gf"
+	"gofly/utils/tools/gcache"
 	"gofly/utils/tools/gcfg"
+	"gofly/utils/tools/grand"
 	"gofly/utils/tools/gtime"
 	"gofly/utils/tools/gvar"
 	"io"
@@ -40,6 +43,12 @@ const (
 	userAuditStatusRejected = "rejected"
 )
 
+var (
+	wxRegisterTicketCache = gcache.New()
+)
+
+const wxRegisterTicketTTL = 10 * time.Minute
+
 func normalizeUserAuditStatus(v string) string {
 	s := strings.ToLower(strings.TrimSpace(v))
 	switch s {
@@ -52,6 +61,37 @@ func normalizeUserAuditStatus(v string) string {
 	default:
 		return s
 	}
+}
+
+func buildWxRegisterTicket(mobile string) (string, error) {
+	mobile = strings.TrimSpace(mobile)
+	if mobile == "" {
+		return "", errors.New("手机号为空")
+	}
+	raw := mobile + "|" + strconv.FormatInt(time.Now().UnixNano(), 10) + "|" + grand.S(16)
+	ticket := gf.Md5(raw)
+	cacheKey := "wxreg_ticket:" + ticket
+	if err := wxRegisterTicketCache.Set(context.Background(), cacheKey, mobile, wxRegisterTicketTTL); err != nil {
+		return "", err
+	}
+	return ticket, nil
+}
+
+func resolveWxRegisterTicketMobile(ticket string) (string, error) {
+	ticket = strings.TrimSpace(ticket)
+	if ticket == "" {
+		return "", errors.New("注册授权为空")
+	}
+	cacheKey := "wxreg_ticket:" + ticket
+	val, err := wxRegisterTicketCache.Get(context.Background(), cacheKey)
+	if err != nil {
+		return "", err
+	}
+	mobile := strings.TrimSpace(gf.String(val))
+	if mobile == "" {
+		return "", errors.New("注册授权已失效，请返回登录页重新授权手机号")
+	}
+	return mobile, nil
 }
 
 func init() {
@@ -187,6 +227,7 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 		gf.Failed().SetMsg("获取手机号失败：" + err.Error()).Regin(c)
 		return
 	}
+	registerTicket, _ := buildWxRegisterTicket(phone)
 
 	// business_id：可由前端传 business_id；未传则使用请求头 Businessid（再兜底 1）
 	businessID := wxBusinessID(c)
@@ -209,10 +250,16 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 		Where("deletetime", nil).
 		Find()
 	if err != nil || user == nil {
-		gf.Failed().SetCode(wxappCodeNotRegistered).SetMsg("账号未注册，请先完善资料提交审核").SetData(gf.Map{
+		data := gf.Map{
 			"mobile":      phone,
 			"business_id": businessID,
-		}).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
+		}
+		exdata := gf.Map{"mobile": phone, "wx_code": wxCode}
+		if registerTicket != "" {
+			data["register_ticket"] = registerTicket
+			exdata["register_ticket"] = registerTicket
+		}
+		gf.Failed().SetCode(wxappCodeNotRegistered).SetMsg("账号未注册，请先完善资料提交审核").SetData(data).SetExdata(exdata).Regin(c)
 		return
 	}
 
@@ -230,21 +277,33 @@ func (api *Index) WxLogin(c *gf.GinCtx) {
 		}
 		switch auditStatus {
 		case userAuditStatusPending:
-			gf.Failed().SetCode(wxappCodeAuditPending).SetMsg("资料审核中，请等待管理员审核").SetData(gf.Map{
+			data := gf.Map{
 				"mobile":       phone,
 				"audit_status": auditStatus,
-			}).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
+			}
+			exdata := gf.Map{"mobile": phone, "wx_code": wxCode}
+			if registerTicket != "" {
+				data["register_ticket"] = registerTicket
+				exdata["register_ticket"] = registerTicket
+			}
+			gf.Failed().SetCode(wxappCodeAuditPending).SetMsg("资料审核中，请等待管理员审核").SetData(data).SetExdata(exdata).Regin(c)
 			return
 		case userAuditStatusRejected:
 			msg := "审核未通过，请重新提交资料"
 			if auditReason != "" {
 				msg = msg + "：" + auditReason
 			}
-			gf.Failed().SetCode(wxappCodeAuditRejected).SetMsg(msg).SetData(gf.Map{
+			data := gf.Map{
 				"mobile":       phone,
 				"audit_status": auditStatus,
 				"audit_reason": auditReason,
-			}).SetExdata(gf.Map{"mobile": phone, "wx_code": wxCode}).Regin(c)
+			}
+			exdata := gf.Map{"mobile": phone, "wx_code": wxCode}
+			if registerTicket != "" {
+				data["register_ticket"] = registerTicket
+				exdata["register_ticket"] = registerTicket
+			}
+			gf.Failed().SetCode(wxappCodeAuditRejected).SetMsg(msg).SetData(data).SetExdata(exdata).Regin(c)
 			return
 		}
 	}
@@ -295,6 +354,7 @@ func (api *Index) RegisterApply(c *gf.GinCtx) {
 	}
 
 	phoneCode := strings.TrimSpace(gf.String(param["phone_code"]))
+	registerTicket := strings.TrimSpace(gf.String(param["register_ticket"]))
 	mobile := strings.TrimSpace(gf.String(param["mobile"]))
 	if phoneCode != "" {
 		appid, secretkey := getWxappAppidSecret(c)
@@ -314,12 +374,24 @@ func (api *Index) RegisterApply(c *gf.GinCtx) {
 		}
 		mobile = strings.TrimSpace(phone)
 	}
+	if phoneCode == "" && registerTicket != "" {
+		ticketMobile, terr := resolveWxRegisterTicketMobile(registerTicket)
+		if terr != nil {
+			gf.Failed().SetMsg(terr.Error()).Regin(c)
+			return
+		}
+		if mobile != "" && mobile != ticketMobile {
+			gf.Failed().SetMsg("注册手机号校验失败，请返回登录页重新授权手机号").Regin(c)
+			return
+		}
+		mobile = ticketMobile
+	}
 	if mobile == "" {
 		gf.Failed().SetMsg("请先授权手机号或填写手机号").Regin(c)
 		return
 	}
 	// 非小程序环境下的验证码校验（可选）
-	if phoneCode == "" {
+	if phoneCode == "" && registerTicket == "" {
 		code, emerr := gf.GetVerifyCode(mobile)
 		if emerr != nil || code != gf.Int(param["captcha"]) {
 			gf.Failed().SetMsg("验证码无效").SetData(emerr).Regin(c)
@@ -598,19 +670,19 @@ func (api *Index) GetRegisterStatus(c *gf.GinCtx) {
 	}
 
 	gf.Success().SetMsg("获取审核状态").SetData(gf.Map{
-		"id":           user["id"].Int64(),
+		"id":            user["id"].Int64(),
 		"business_id":   user["business_id"].Int64(),
-		"name":         user["name"].String(),
-		"mobile":       mobile,
-		"store_id":     user["store_id"].Int64(),
-		"store_name":   storeName,
+		"name":          user["name"].String(),
+		"mobile":        mobile,
+		"store_id":      user["store_id"].Int64(),
+		"store_name":    storeName,
 		"store_address": storeAddr,
-		"status":       user["status"].Int(),
-		"audit_status": auditStatus,
-		"audit_reason": auditReason,
-		"apply_time":   user["apply_time"],
-		"audit_time":   user["audit_time"],
-		"can_login":    auditStatus == userAuditStatusApproved && user["status"].Int() == 0,
+		"status":        user["status"].Int(),
+		"audit_status":  auditStatus,
+		"audit_reason":  auditReason,
+		"apply_time":    user["apply_time"],
+		"audit_time":    user["audit_time"],
+		"can_login":     auditStatus == userAuditStatusApproved && user["status"].Int() == 0,
 	}).Regin(c)
 }
 
