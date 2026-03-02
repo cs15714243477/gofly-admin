@@ -136,6 +136,7 @@ func (api *Upfile) LocalFile(c *gf.GinCtx) {
 		gf.Failed().SetMsg("获取数据失败").SetData(err).Regin(c)
 		return
 	}
+	filetype := c.DefaultPostForm("filetype", "file")
 	businessID := c.GetInt64("businessID") //当前商户ID
 	//判断文件是否已经传过
 	fileContent, _ := file.Open()
@@ -156,24 +157,38 @@ func (api *Upfile) LocalFile(c *gf.GinCtx) {
 		}
 		gf.Success().SetMsg("文件已上传").SetData(attachment).Regin(c)
 	} else {
+		location, _ := gcfg.Instance("upload").Get(c, "Type")
 		//处理文件上传，bin返回地址
-		url, cover_url, err := uploads.New("local").UploadFile(c, file)
+		url, cover_url, err := uploads.New().UploadFile(c, file)
 		if err != nil {
 			gf.Failed().SetMsg("上传文件失败").SetData(err).Regin(c)
 			return
 		}
 		filename_arr := strings.Split(file.Filename, ".")
 		//文件类型
+		var ftype int64 = 4
+		switch filetype {
+		case "video":
+			ftype = 2
+		case "audio":
+			ftype = 3
+		case "image":
+			ftype = 0
+		case "file":
+			ftype = 4
+		default:
+			ftype = 5
+		}
 		fileData := gf.Map{
 			"business_id": 1,
-			"type":        0, //图片
+			"type":        ftype,
 			"pid":         1, //存储在默认文件夹
 			"sha1":        sha1_str,
 			"title":       filename_arr[0],
 			"name":        file.Filename,
 			"url":         url,       //附件路径
 			"cover_url":   cover_url, //封面
-			"storage":     "local",
+			"storage":     location,
 			"createtime":  time.Now().Unix(),
 			"filesize":    file.Size,
 			"mimetype":    file.Header["Content-Type"][0],

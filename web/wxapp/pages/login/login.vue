@@ -1,176 +1,145 @@
 <template>
 	<view class="login-container">
-		<!-- 顶部导航栏 -->
-		<!-- <view class="nav-bar">
-			<view class="back-btn" @click="goBack">
-				<text class="material-symbols-outlined">arrow_back</text>
-			</view>
-			<view class="nav-title">经纪人登录</view>
-			<view class="placeholder-box"></view>
-		</view> -->
-
 		<view class="body">
 			<view class="main">
-				<view class="login-card">
-					<!-- Logo -->
-					<view class="logo-box">
-						<view class="logo-icon">
-							<text class="material-symbols-outlined logo-symbol">real_estate_agent</text>
-						</view>
+				<!-- Logo区域 - Exaggerated Minimalism -->
+				<view class="logo-section">
+					<view class="logo-icon">
+						<text class="material-symbols-outlined logo-symbol">real_estate_agent</text>
 					</view>
+					<view class="brand-name">快销房智选</view>
+					<view class="brand-slogan">经纪人助手</view>
+				</view>
 
-					<!-- 标题 -->
-					<view class="header">
-						<view class="title">快销房智选经纪人助手欢迎你</view>
-						<view class="subtitle">高效管理房源 · 智能门锁一键通</view>
-					</view>
-
-					<!-- 亮点（简洁三条） -->
-					<view class="feature-list">
-						<view class="feature-item">
-							<view class="feature-dot"></view>
-							<text class="feature-text">房源管理更高效</text>
-						</view>
-						<view class="feature-item">
-							<view class="feature-dot"></view>
-							<text class="feature-text">智能门锁一键开锁</text>
-						</view>
-						<view class="feature-item">
-							<view class="feature-dot"></view>
-							<text class="feature-text">记录可追溯更安心</text>
-						</view>
-					</view>
-
-				<!-- 特别提示 -->
-<!--				<view class="alert-box">-->
-<!--					<view class="alert-icon">-->
-<!--						<text class="material-symbols-outlined warning-icon">warning</text>-->
-<!--					</view>-->
-<!--					<view class="alert-text">-->
-<!--						特别提示：使用本系统用户能够通过手机获得房源智能门锁开启权限，账号仅限经纪人本人使用，严禁外借他用。-->
-<!--					</view>-->
-<!--				</view>-->
-
-				<!-- 已登录：加载并跳转首页 -->
-				<view v-if="checkingLogin" class="loading-card">
-					<view class="loading-row">
-						<view class="loading-spinner"></view>
-						<view class="loading-text">正在加载数据中...</view>
-					</view>
-					<view class="loading-sub">即将进入首页</view>
+				<!-- 已登录：加载状态 -->
+				<view v-if="checkingLogin" class="loading-section">
+					<view class="loading-spinner"></view>
+					<view class="loading-text">正在加载中...</view>
 				</view>
 
 				<!-- 未登录：登录表单 -->
-				<view v-else class="form">
+				<view v-else class="form-section">
 					<!-- #ifdef MP-WEIXIN -->
-					<!-- 手机号快捷登录（手机号授权）——默认只显示这个 -->
-					<button class="wx-login-btn" :disabled="submitting || !agreed" open-type="getPhoneNumber" @getphonenumber="onGetPhoneNumber">
-						<text class="material-symbols-outlined wx-icon">phone_iphone</text>
-						<text>手机号快捷登录</text>
-					</button>
-					<view class="agree-row">
-						<view class="agree-left" @click="toggleAgree">
-							<text class="material-symbols-outlined agree-icon">{{ agreed ? 'check_circle' : 'radio_button_unchecked' }}</text>
-							<text class="agree-text">我已阅读并同意</text>
-						</view>
-						<view class="agree-links">
-							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click.stop="openAgreement('user_agreement')">《{{ agreementDocs.user_agreement.title }}》</text>
+					<view class="login-form">
+						<button 
+							class="wx-login-btn" 
+							:disabled="submitting || !agreed" 
+							open-type="getPhoneNumber" 
+							@getphonenumber="onGetPhoneNumber"
+						>
+							<text class="material-symbols-outlined wx-icon">phone_iphone</text>
+							<text>{{ submitting ? '登录中...' : '手机号一键登录' }}</text>
+						</button>
+					</view>
+
+					<view class="agree-section">
+						<view class="agree-line">
+							<view class="agree-left" @click="toggleAgree">
+								<text class="material-symbols-outlined agree-icon">{{ agreed ? 'check_circle' : 'radio_button_unchecked' }}</text>
+								<text class="agree-text">我已阅读并同意</text>
+							</view>
+							<text
+								class="agree-link"
+								:class="{ disabled: !hasAgreementDoc('user_agreement') }"
+								@click.stop="openAgreement('user_agreement')"
+							>《{{ agreementDocs.user_agreement.title }}》</text>
 							<text class="agree-sep">和</text>
-							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click.stop="openAgreement('privacy_policy')">《{{ agreementDocs.privacy_policy.title }}》</text>
+							<text
+								class="agree-link"
+								:class="{ disabled: !hasAgreementDoc('privacy_policy') }"
+								@click.stop="openAgreement('privacy_policy')"
+							>《{{ agreementDocs.privacy_policy.title }}》</text>
 						</view>
 					</view>
-					<!-- 临时注释：更多登录方式先隐藏
-					<button class="more-login-btn" @click="toggleMoreLogin">
-						<text>{{ showMoreLogin ? '收起其他登录方式' : '更多登录方式' }}</text>
-						<text class="material-symbols-outlined more-icon">{{ showMoreLogin ? 'expand_less' : 'expand_more' }}</text>
-					</button>
-					-->
-					<!-- #endif -->
-
-					<!-- #ifdef MP-WEIXIN -->
-					<!-- 临时注释：更多登录方式先隐藏
-					<view v-if="showMoreLogin">
-						<view class="divider-row">
-							<view class="divider-line"></view>
-							<text class="divider-text">手机号验证码登录</text>
-							<view class="divider-line"></view>
-						</view>
-
-						<view class="form-item">
-							<view class="label">手机号</view>
-							<view class="input-wrapper">
-								<text class="material-symbols-outlined input-icon">smartphone</text>
-								<input v-model="mobile" class="input" type="tel" maxlength="11" placeholder="请输入11位手机号码" placeholder-class="placeholder" />
-							</view>
-						</view>
-
-						<view class="form-item">
-							<view class="label">验证码</view>
-							<view class="input-wrapper">
-								<text class="material-symbols-outlined input-icon">shield</text>
-								<input v-model="captcha" class="input" type="number" maxlength="6" placeholder="请输入验证码" placeholder-class="placeholder" />
-								<button class="code-btn">获取验证码</button>
-							</view>
-						</view>
-
-						<button class="login-btn" :disabled="submitting" @click="handleLogin">{{ submitting ? '登录中...' : '登录' }}</button>
-
-						<view class="footer-links">
-							<text class="text-grey">还没有账号？</text>
-							<text class="link-text" @click="goToRegister">完善信息</text>
-						</view>
-					</view>
-					-->
 					<!-- #endif -->
 
 					<!-- #ifndef MP-WEIXIN -->
-					<view class="form-item">
-						<view class="label">手机号</view>
-						<view class="input-wrapper">
-							<text class="material-symbols-outlined input-icon">smartphone</text>
-							<input v-model="mobile" class="input" type="tel" maxlength="11" placeholder="请输入11位手机号码" placeholder-class="placeholder" />
+					<view class="login-form">
+						<view class="form-item">
+							<text class="form-label">手机号</text>
+							<view class="input-wrapper">
+								<text class="material-symbols-outlined input-icon">smartphone</text>
+								<input 
+									v-model="mobile" 
+									class="input" 
+									type="tel" 
+									inputmode="numeric"
+									maxlength="11" 
+									placeholder="请输入手机号" 
+									placeholder-class="placeholder" 
+								/>
+							</view>
 						</view>
-					</view>
 
-					<view class="form-item">
-						<view class="label">验证码</view>
-						<view class="input-wrapper">
-							<text class="material-symbols-outlined input-icon">shield</text>
-							<input v-model="captcha" class="input" type="number" maxlength="6" placeholder="请输入验证码" placeholder-class="placeholder" />
-							<button class="code-btn">获取验证码</button>
+						<view class="form-item">
+							<text class="form-label">验证码</text>
+							<view class="input-wrapper">
+								<text class="material-symbols-outlined input-icon">shield</text>
+								<input 
+									v-model="captcha" 
+									class="input" 
+									type="number" 
+									inputmode="numeric"
+									maxlength="6" 
+									placeholder="请输入验证码" 
+									placeholder-class="placeholder" 
+								/>
+								<button class="code-btn" :disabled="true">获取验证码</button>
+							</view>
 						</view>
-					</view>
 
-					<view class="agree-row">
-						<view class="agree-left" @click="toggleAgree">
-							<text class="material-symbols-outlined agree-icon">{{ agreed ? 'check_circle' : 'radio_button_unchecked' }}</text>
-							<text class="agree-text">我已阅读并同意</text>
+						<view class="agree-section">
+							<view class="agree-line">
+								<view class="agree-left" @click="toggleAgree">
+									<text class="material-symbols-outlined agree-icon">{{ agreed ? 'check_circle' : 'radio_button_unchecked' }}</text>
+									<text class="agree-text">我已阅读并同意</text>
+								</view>
+								<text
+									class="agree-link"
+									:class="{ disabled: !hasAgreementDoc('user_agreement') }"
+									@click.stop="openAgreement('user_agreement')"
+								>《{{ agreementDocs.user_agreement.title }}》</text>
+								<text class="agree-sep">和</text>
+								<text
+									class="agree-link"
+									:class="{ disabled: !hasAgreementDoc('privacy_policy') }"
+									@click.stop="openAgreement('privacy_policy')"
+								>《{{ agreementDocs.privacy_policy.title }}》</text>
+							</view>
 						</view>
-						<view class="agree-links">
-							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click.stop="openAgreement('user_agreement')">《{{ agreementDocs.user_agreement.title }}》</text>
-							<text class="agree-sep">和</text>
-							<text class="agree-link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click.stop="openAgreement('privacy_policy')">《{{ agreementDocs.privacy_policy.title }}》</text>
+
+						<button class="login-btn" :disabled="submitting || !agreed" @click="handleLogin">
+							{{ submitting ? '登录中...' : '登录' }}
+						</button>
+
+						<view class="footer-links">
+							<text class="text-grey">还没有账号？</text>
+							<text class="link-text" @click="goToRegister">去完善信息</text>
 						</view>
-					</view>
-
-					<button class="login-btn" :disabled="submitting || !agreed" @click="handleLogin">{{ submitting ? '登录中...' : '登录' }}</button>
-
-					<view class="footer-links">
-						<text class="text-grey">还没有账号？</text>
-						<text class="link-text" @click="goToRegister">完善信息</text>
 					</view>
 					<!-- #endif -->
 				</view>
-				</view>
 			</view>
 
-			<!-- 底部协议（固定贴底，避免撑高出现滚动） -->
+			<!-- 底部协议 -->
 			<view class="bottom-agreements">
-				<text class="agreement-link" :class="{ disabled: !hasAgreementDoc('user_agreement') }" @click="openAgreement('user_agreement')">{{ agreementDocs.user_agreement.title }}</text>
-				<text class="divider">|</text>
-				<text class="agreement-link" :class="{ disabled: !hasAgreementDoc('privacy_policy') }" @click="openAgreement('privacy_policy')">{{ agreementDocs.privacy_policy.title }}</text>
-				<text class="divider">|</text>
-				<text class="agreement-link" :class="{ disabled: !hasAgreementDoc('help_center') }" @click="openAgreement('help_center')">{{ agreementDocs.help_center.title }}</text>
+				<text 
+					class="agreement-link" 
+					:class="{ disabled: !hasAgreementDoc('user_agreement') }" 
+					@click="openAgreement('user_agreement')"
+				>{{ agreementDocs.user_agreement.title }}</text>
+				<text class="divider">·</text>
+				<text 
+					class="agreement-link" 
+					:class="{ disabled: !hasAgreementDoc('privacy_policy') }" 
+					@click="openAgreement('privacy_policy')"
+				>{{ agreementDocs.privacy_policy.title }}</text>
+				<text class="divider">·</text>
+				<text 
+					class="agreement-link" 
+					:class="{ disabled: !hasAgreementDoc('help_center') }" 
+					@click="openAgreement('help_center')"
+				>{{ agreementDocs.help_center.title }}</text>
 			</view>
 		</view>
 	</view>
@@ -304,7 +273,6 @@
 					try { uni.removeStorageSync('wxapp_register_reject_reason') } catch (e) {}
 				}
 
-				// 登录页拿到的手机号授权 code：用于注册页提交审核（一次性）
 				if (extra && extra.phone_code) {
 					try { uni.setStorageSync('wxapp_register_phone_code', String(extra.phone_code)) } catch (e) {}
 				}
@@ -330,11 +298,9 @@
 					const res = await userApi.login({ mobile: this.mobile, captcha: this.captcha })
 					if (!res) return
 					if (res.code !== 0) {
-						// 未注册/审核中/已拒绝：跳转注册页
 						if (this.handleAuditGate(res, { mobile: this.mobile })) return
 						return
 					}
-					// token 由后端 token 字段返回，拦截器也会自动 setToken；这里兜底一次
 					if (res.token) $store('user').setToken(res.token)
 					await $store('user').getInfo().catch(() => {})
 					this.afterLoginSuccess()
@@ -345,7 +311,6 @@
 			// #ifdef MP-WEIXIN
 			onGetPhoneNumber(e) {
 				if (!this.ensureAgreed()) return
-				// 需要用户点击按钮触发；e.detail.code 需传后端换取手机号（解密）
 				const phoneCode = e && e.detail && e.detail.code
 				if (!phoneCode) {
 					uni.showToast({ title: '未授权手机号', icon: 'none' })
@@ -361,7 +326,6 @@
 							const res = await userApi.wxLogin({ wx_code: wxCode, phone_code: phoneCode })
 							if (!res) return
 							if (res.code !== 0) {
-								// 未注册/审核中/已拒绝：跳转注册页
 								if (this.handleAuditGate(res, { phone_code: phoneCode })) return
 								return
 							}
@@ -380,7 +344,6 @@
 			},
 			// #endif
 			afterLoginSuccess() {
-				// 登录成功后默认进入房源列表（tab 最左）
 				uni.reLaunch({ url: '/pages/property_list/property_list' })
 			}
 		}
@@ -388,55 +351,46 @@
 </script>
 
 <style lang="scss">
+	$primary: #0f766e;
+	$primary-2: #0ea5a4;
+	$accent: #0b79d0;
+	$text: #0f172a;
+	$muted: #5f6f81;
+	$surface: rgba(255, 255, 255, 0.88);
+
 	.login-container {
-		height: 100vh;
-		position: relative;
-		background: linear-gradient(180deg, #f0fdfa 0%, #ecfeff 46%, #f8fafc 100%);
-		background-image:
-			radial-gradient(circle at 18% 12%, rgba(20, 184, 166, 0.18), transparent 56%),
-			radial-gradient(circle at 84% 0%, rgba(3, 105, 161, 0.14), transparent 52%);
+		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
+		position: relative;
 		overflow: hidden;
-	}
+		background: linear-gradient(165deg, #eef8f5 0%, #edf7ff 52%, #f7fbfe 100%);
 
-	.nav-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 40rpx 30rpx 20rpx;
-		position: absolute;
-		top: 0;
-		width: 100%;
-		z-index: 10;
-		box-sizing: border-box;
-
-		.back-btn {
-			width: 96rpx;
-			height: 96rpx;
-			display: flex;
-			align-items: center;
-			justify-content: center;
+		&::before,
+		&::after {
+			content: '';
+			position: absolute;
 			border-radius: 50%;
-
-			.material-symbols-outlined {
-				color: #64748b;
-				font-size: 48rpx;
-			}
-
-			&:active {
-				background-color: rgba(226, 232, 240, 0.5);
-			}
+			filter: blur(8rpx);
+			opacity: 0.75;
+			animation: auraMove 11s ease-in-out infinite;
 		}
 
-		.nav-title {
-			font-size: 28rpx;
-			font-weight: 500;
-			color: #64748b;
+		&::before {
+			width: 520rpx;
+			height: 520rpx;
+			top: -170rpx;
+			left: -120rpx;
+			background: radial-gradient(circle, rgba(14, 165, 164, 0.28) 0%, rgba(14, 165, 164, 0) 72%);
 		}
 
-		.placeholder-box {
-			width: 96rpx;
+		&::after {
+			width: 620rpx;
+			height: 620rpx;
+			right: -230rpx;
+			bottom: -220rpx;
+			background: radial-gradient(circle, rgba(11, 121, 208, 0.22) 0%, rgba(11, 121, 208, 0) 70%);
+			animation-delay: 1.7s;
 		}
 	}
 
@@ -444,455 +398,351 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		align-items: stretch;
-		padding: calc(env(safe-area-inset-top) + 96rpx) 48rpx 0;
-		max-width: 920rpx;
-		margin: 0 auto;
-		width: 100%;
 		box-sizing: border-box;
+		width: 100%;
+		padding: 0 40rpx;
+		padding-top: calc(env(safe-area-inset-top) + 28rpx);
+		padding-bottom: calc(env(safe-area-inset-bottom) + 14rpx);
 		position: relative;
 		z-index: 1;
 	}
 
 	.main {
 		flex: 1;
+		width: 100%;
+		max-width: 690rpx;
+		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
-		align-items: stretch;
 		justify-content: center;
-		min-height: 0;
 	}
 
-	.login-card {
-		width: 100%;
-		padding: 56rpx 44rpx 44rpx;
-		border-radius: 32rpx;
-		background: rgba(255, 255, 255, 0.72);
-		border: 1rpx solid rgba(255, 255, 255, 0.9);
-		box-shadow: 0 26rpx 70rpx rgba(15, 118, 110, 0.14);
-		backdrop-filter: blur(18px);
-		-webkit-backdrop-filter: blur(18px);
-		box-sizing: border-box;
-	}
-
-	.logo-box {
+	.logo-section {
 		display: flex;
-		justify-content: center;
-		margin-bottom: 36rpx;
+		flex-direction: column;
+		align-items: center;
+		padding: 0 0 44rpx;
+		animation: fadeUp 0.62s ease both;
 
 		.logo-icon {
-			width: 148rpx;
-			height: 148rpx;
-			background: linear-gradient(135deg, #14b8a6 0%, #0369a1 100%);
-			border-radius: 30rpx;
+			width: 132rpx;
+			height: 132rpx;
+			border-radius: 34rpx;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			box-shadow: 0 14rpx 36rpx rgba(3, 105, 161, 0.18);
-			transition: transform 0.3s;
-
-			&:active {
-				transform: scale(1.05);
-			}
+			margin-bottom: 24rpx;
+			background: linear-gradient(135deg, $primary 0%, $accent 100%);
+			box-shadow: 0 18rpx 44rpx rgba(15, 118, 110, 0.26);
 
 			.logo-symbol {
 				color: #ffffff;
-				font-size: 80rpx;
+				font-size: 74rpx;
+				font-weight: 700;
 			}
 		}
-	}
 
-	.header {
-		text-align: center;
-		margin-bottom: 28rpx;
-
-		.title {
-			font-size: 58rpx;
+		.brand-name {
+			font-size: 54rpx;
 			font-weight: 900;
-			color: #0f172a;
-			line-height: 1.2;
-			margin-bottom: 18rpx;
+			color: $text;
+			letter-spacing: 2rpx;
+			margin-bottom: 6rpx;
+			text-shadow: 0 4rpx 14rpx rgba(15, 23, 42, 0.1);
 		}
 
-		.subtitle {
-			font-size: 28rpx;
-			color: #475569;
-			font-weight: 600;
+		.brand-slogan {
+			font-size: 24rpx;
+			color: $muted;
+			letter-spacing: 2rpx;
 		}
 	}
 
-	.feature-list {
+	.loading-section,
+	.form-section {
+		width: 100%;
+		background: $surface;
+		border-radius: 30rpx;
+		backdrop-filter: blur(16rpx);
+		-webkit-backdrop-filter: blur(16rpx);
+	}
+
+	.loading-section {
+		flex: 0 0 auto;
 		display: flex;
 		flex-direction: column;
-		gap: 14rpx;
-		margin: 0 0 38rpx;
-		padding: 0 10rpx;
-	}
-
-	.feature-item {
-		display: flex;
 		align-items: center;
-		gap: 12rpx;
-	}
+		justify-content: center;
+		min-height: 320rpx;
 
-	.feature-dot {
-		width: 10rpx;
-		height: 10rpx;
-		border-radius: 999px;
-		background: linear-gradient(135deg, #14b8a6 0%, #0369a1 100%);
-		box-shadow: 0 0 0 10rpx rgba(20, 184, 166, 0.08);
-		flex-shrink: 0;
-	}
-
-	.feature-text {
-		font-size: 26rpx;
-		color: #475569;
-		font-weight: 600;
-	}
-
-	.loading-card {
-		width: 100%;
-		background: rgba(255, 255, 255, 0.76);
-		border: 1rpx solid rgba(255, 255, 255, 0.9);
-		border-radius: 24rpx;
-		padding: 32rpx 28rpx;
-		box-shadow: 0 18rpx 44rpx rgba(15, 118, 110, 0.10);
-	}
-
-	.loading-row {
-		display: flex;
-		align-items: center;
-		gap: 18rpx;
-	}
-
-	.loading-spinner {
-		width: 36rpx;
-		height: 36rpx;
-		border-radius: 50%;
-		border: 4rpx solid rgba(3, 105, 161, 0.18);
-		border-top-color: #0369a1;
-		animation: spin 0.9s linear infinite;
-	}
-
-	.loading-text {
-		font-size: 30rpx;
-		font-weight: 600;
-		color: #0f172a;
-	}
-
-	.loading-sub {
-		margin-top: 14rpx;
-		font-size: 24rpx;
-		color: #64748b;
-	}
-
-	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
-	}
-
-	.alert-box {
-		width: 100%;
-		background-color: #fef2f2;
-		border: 1px solid #fee2e2;
-		border-radius: 24rpx;
-		padding: 28rpx;
-		display: flex;
-		gap: 24rpx;
-		margin-bottom: 40rpx;
-		box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
-		box-sizing: border-box;
-
-		.warning-icon {
-			color: #dc2626;
-			font-size: 40rpx;
+		.loading-spinner {
+			width: 56rpx;
+			height: 56rpx;
+			border-radius: 50%;
+			border: 6rpx solid rgba(15, 118, 110, 0.18);
+			border-top-color: $primary;
+			animation: spin 0.76s linear infinite;
+			margin-bottom: 20rpx;
 		}
 
-		.alert-text {
-			flex: 1;
-			font-size: 28rpx;
-			color: #dc2626;
+		.loading-text {
+			font-size: 27rpx;
+			color: $muted;
 			font-weight: 500;
-			line-height: 1.6;
-			text-align: justify;
 		}
 	}
 
-	.form {
+	.form-section {
+		flex: 0 0 auto;
+		display: flex;
+		flex-direction: column;
+		padding: 28rpx;
+		animation: fadeUp 0.7s ease both;
+	}
+
+	.login-form {
 		width: 100%;
-		margin-top: 6rpx;
+	}
 
-		.wx-login-btn {
-			width: 100%;
-			height: 104rpx;
-			background: linear-gradient(135deg, #07c160 0%, #059669 100%);
-			color: #ffffff;
-			font-size: 34rpx;
-			font-weight: bold;
-			border-radius: 24rpx;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 16rpx;
-			box-shadow: 0 8rpx 20rpx rgba(16, 185, 129, 0.22);
+	.wx-login-btn,
+	.login-btn {
+		width: 100%;
+		height: 96rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12rpx;
+		font-size: 33rpx;
+		font-weight: 700;
+		border: none;
+		padding: 0;
+		margin: 0;
+		letter-spacing: 1rpx;
+		border-radius: 18rpx;
+		color: #ffffff;
+
+		&::after {
 			border: none;
-			margin-bottom: 26rpx;
+		}
 
-				&::after { border: none; }
-				&:active { background-color: #059669; transform: scale(0.985); }
-				&[disabled] {
-					background: #9ae6b4;
-					box-shadow: none;
-					opacity: 0.95;
-				}
+		&:active {
+			opacity: 0.86;
+			transform: scale(0.992);
+		}
 
-				.wx-icon { font-size: 44rpx; }
-			}
+		&[disabled] {
+			opacity: 0.5;
+		}
+	}
 
-		.agree-row {
-			margin-top: 10rpx;
+	.wx-login-btn {
+		background: linear-gradient(135deg, #07c160 0%, #059669 100%);
+		margin-bottom: 16rpx;
+
+		.wx-icon {
+			font-size: 42rpx;
+		}
+	}
+
+	.form-item {
+		margin-bottom: 20rpx;
+
+		.form-label {
+			display: block;
+			font-size: 25rpx;
+			font-weight: 600;
+			color: $text;
+			margin-bottom: 10rpx;
+		}
+
+		.input-wrapper {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
-			gap: 16rpx;
-			padding: 0 4rpx;
-			flex-wrap: wrap;
+			min-height: 92rpx;
+			box-sizing: border-box;
+			padding: 0 22rpx;
+			background: #ffffff;
+			border-radius: 16rpx;
 
-			.agree-left {
-				display: flex;
-				align-items: center;
-				gap: 10rpx;
-				min-width: 0;
+			&:focus-within {
+				background: #ffffff;
+				box-shadow: 0 0 0 4rpx rgba(15, 118, 110, 0.12);
 			}
 
-			.agree-icon {
+			.input-icon {
 				font-size: 34rpx;
-				color: #0f766e;
-				line-height: 1;
+				color: rgba(15, 118, 110, 0.9);
+				margin-right: 12rpx;
 			}
 
-			.agree-text {
+			.input {
+				flex: 1;
+				height: 92rpx;
+				line-height: 92rpx;
+				font-size: 30rpx;
+				color: $text;
+				font-weight: 500;
+			}
+
+			.placeholder {
+				color: rgba(100, 116, 139, 0.86);
+			}
+
+			.code-btn {
+				min-width: 150rpx;
+				background: rgba(15, 118, 110, 0.1);
+				color: $primary;
 				font-size: 24rpx;
-				color: #475569;
 				font-weight: 600;
-			}
+				padding: 0 18rpx;
+				border-radius: 999rpx;
+				text-align: center;
 
-			.agree-links {
-				display: flex;
-				align-items: center;
-				gap: 8rpx;
-				flex-wrap: wrap;
-			}
-
-			.agree-link {
-				font-size: 24rpx;
-				color: #0369a1;
-				font-weight: 700;
-
-				&:active {
-					color: #075985;
+				&::after {
+					border: none;
 				}
 
-				&.disabled {
-					color: #cbd5e1;
+				&[disabled] {
+					color: rgba(100, 116, 139, 0.58);
+					background: rgba(100, 116, 139, 0.11);
 				}
 			}
-
-			.agree-sep {
-				font-size: 24rpx;
-				color: #94a3b8;
-				font-weight: 600;
-			}
 		}
+	}
 
-		.more-login-btn {
-			width: 100%;
-			height: 84rpx;
-			background-color: #ffffff;
-			border: 1px solid #e2e8f0;
-			color: #334155;
-			font-size: 28rpx;
-			font-weight: 800;
-			border-radius: 24rpx;
+	.login-btn {
+		margin-top: 24rpx;
+		margin-bottom: 14rpx;
+		background: linear-gradient(135deg, $primary 0%, $primary-2 100%);
+	}
+
+	.agree-section {
+		margin-top: 8rpx;
+	}
+
+	.agree-line {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6rpx;
+		flex-wrap: nowrap;
+		white-space: nowrap;
+		overflow: hidden;
+
+		.agree-left {
 			display: flex;
 			align-items: center;
-			justify-content: center;
-			gap: 10rpx;
-			box-shadow: 0 6rpx 16rpx rgba(15, 23, 42, 0.05);
-			margin-bottom: 22rpx;
-
-			&::after { border: none; }
-			&:active { background-color: #f8fafc; transform: scale(0.99); }
-
-			.more-icon { font-size: 36rpx; color: #64748b; }
+			gap: 6rpx;
+			min-width: 0;
 		}
 
-		.divider-row {
-			display: flex;
-			align-items: center;
-			gap: 16rpx;
-			margin-bottom: 22rpx;
-			color: #94a3b8;
-			font-size: 24rpx;
+		.agree-icon {
+			font-size: 30rpx;
+			color: $primary;
+		}
+
+		.agree-text {
+			font-size: 22rpx;
+			color: $muted;
+		}
+
+		.agree-link {
+			font-size: 22rpx;
+			color: $primary;
 			font-weight: 600;
 
-			.divider-line {
-				flex: 1;
-				height: 1px;
-				background-color: #e2e8f0;
+			&:active {
+				opacity: 0.72;
 			}
 
-			.divider-text { white-space: nowrap; }
-		}
-
-		.form-item {
-			margin-bottom: 28rpx;
-
-			.label {
-				font-size: 28rpx;
-				font-weight: 500;
-				color: #0d151c;
-				margin-bottom: 16rpx;
-			}
-
-			.input-wrapper {
-				position: relative;
-				display: flex;
-				align-items: center;
-
-				.input-icon {
-					position: absolute;
-					left: 28rpx;
-					color: #94a3b8;
-					font-size: 40rpx;
-					z-index: 1;
-				}
-
-				.input {
-					width: 100%;
-					height: 104rpx;
-					background-color: #ffffff;
-					border: 1px solid #cfdde8;
-					border-radius: 24rpx;
-					padding-left: 88rpx;
-					padding-right: 32rpx;
-					font-size: 32rpx;
-					color: #0d151c;
-					transition: all 0.3s;
-					box-sizing: border-box;
-
-					&:focus {
-						border-color: #0369a1;
-						box-shadow: 0 0 0 4rpx rgba(3, 105, 161, 0.12);
-					}
-				}
-
-				.code-btn {
-					position: absolute;
-					right: 16rpx;
-					height: 72rpx;
-					background-color: rgba(3, 105, 161, 0.06);
-					color: #0369a1;
-					font-size: 28rpx;
-					font-weight: 600;
-					padding: 0 24rpx;
-					border-radius: 16rpx;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					border: none;
-					line-height: 1;
-					z-index: 2;
-
-					&::after {
-						border: none;
-					}
-
-					&:active {
-						background-color: rgba(3, 105, 161, 0.10);
-					}
-				}
+			&.disabled {
+				color: rgba(100, 116, 139, 0.56);
 			}
 		}
 
-		.login-btn {
-			width: 100%;
-			height: 104rpx;
-			background-color: #0369a1;
-			color: #ffffff;
-			font-size: 36rpx;
-			font-weight: bold;
-			border-radius: 24rpx;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			margin-top: 32rpx;
-			box-shadow: 0 10rpx 26rpx rgba(3, 105, 161, 0.18);
-			border: none;
+		.agree-sep {
+			font-size: 22rpx;
+			color: $muted;
+		}
+	}
 
-			&[disabled] {
-				background-color: #93c5fd;
-				box-shadow: none;
-				opacity: 0.9;
-			}
+	.footer-links {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10rpx;
+		margin-top: 8rpx;
 
-			&::after {
-				border: none;
-			}
+		.text-grey {
+			font-size: 24rpx;
+			color: $muted;
+		}
+
+		.link-text {
+			font-size: 24rpx;
+			color: $primary;
+			font-weight: 600;
 
 			&:active {
-				background-color: #075985;
-				transform: scale(0.98);
-			}
-		}
-
-		.footer-links {
-			margin-top: 36rpx;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			font-size: 28rpx;
-
-			.text-grey {
-				color: #64748b;
-			}
-
-			.link-text {
-				color: #0369a1;
-				font-weight: bold;
-				margin-left: 8rpx;
+				opacity: 0.72;
 			}
 		}
 	}
 
 	.bottom-agreements {
-		padding: 22rpx 0 calc(env(safe-area-inset-bottom) + 22rpx);
 		display: flex;
+		align-items: center;
 		justify-content: center;
-		gap: 24rpx;
-		opacity: 0.92;
+		gap: 10rpx;
+		padding: 22rpx 0 4rpx;
+		flex-wrap: wrap;
 
 		.agreement-link {
 			font-size: 22rpx;
-			color: #94a3b8;
-			font-weight: 500;
+			color: rgba(80, 97, 118, 0.9);
 
 			&:active {
-				color: #0369a1;
+				opacity: 0.72;
 			}
 
 			&.disabled {
-				color: #cbd5e1;
+				opacity: 0.52;
 			}
 		}
 
 		.divider {
-			font-size: 24rpx;
-			color: #e2e8f0;
+			font-size: 20rpx;
+			color: rgba(80, 97, 118, 0.42);
 		}
 	}
 
-	.placeholder {
-		color: #94a3b8;
+	@keyframes spin {
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
+	}
+
+	@keyframes fadeUp {
+		0% {
+			opacity: 0;
+			transform: translateY(20rpx);
+		}
+		100% {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes auraMove {
+		0%,
+		100% {
+			transform: translate3d(0, 0, 0) scale(1);
+		}
+		50% {
+			transform: translate3d(10rpx, -10rpx, 0) scale(1.05);
+		}
 	}
 </style>

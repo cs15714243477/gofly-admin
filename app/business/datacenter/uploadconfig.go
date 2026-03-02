@@ -39,7 +39,7 @@ func (api *Uploadconfig) GetConfig(c *gf.GinCtx) {
 func (api *Uploadconfig) SaveConfig(c *gf.GinCtx) {
 	param, _ := gf.RequestParam(c)
 	path, _ := os.Getwd()
-	configPath := filepath.Join(path, "/resource/config/upload.yaml")
+	configPath := filepath.Join(path, "resource", "config", "upload.yaml")
 	//更新基础配置
 	err := gf.UpConfigFild(configPath, gf.Map{
 		"Type":        param["Type"],

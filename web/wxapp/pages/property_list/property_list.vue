@@ -1252,9 +1252,6 @@ export default {
       try {
         res = await propertyApi.getList(params);
       } catch (e) {
-        if (!uni.getStorageSync("token")) {
-          uni.reLaunch({ url: "/pages/login/login" });
-        }
         this.loading = false;
         uni.stopPullDownRefresh();
         return false;

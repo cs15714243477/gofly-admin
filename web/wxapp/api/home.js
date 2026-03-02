@@ -8,8 +8,9 @@ export default {
       data,
       custom: {
         showSuccess: false,
+        showError: false,
         showLoading: true,
-        auth: true,
+        auth: false,
         loadingMsg: "加载中",
       },
     }),

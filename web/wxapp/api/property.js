@@ -8,8 +8,9 @@ export default {
       data,
       custom: {
         showSuccess: false,
+        showError: false,
         showLoading: true,
-        auth: true,
+        auth: false,
         loadingMsg: "加载中",
       },
     }),
@@ -22,8 +23,9 @@ export default {
       data,
       custom: {
         showSuccess: false,
+        showError: false,
         showLoading: true,
-        auth: true,
+        auth: false,
         loadingMsg: "加载中",
       },
     }),
@@ -65,7 +67,8 @@ export default {
       custom: {
         showSuccess: false,
         showLoading: false,
-        auth: true,
+        showError: false,
+        auth: false,
       },
     }),
 

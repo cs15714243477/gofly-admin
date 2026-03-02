@@ -1,12 +1,12 @@
 # 存储方式
-Type: local
+Type: qiniuoss
 # 配置传输文件最大值，如上传文件最大上限，单位为MB
 MaxBodySize: 600
 # 允许上传的文件类型
 AllowedExt: .jpg,.jpng,.jpeg,.pdf,.mp4
 # 本地存储配置
 local: 
-  LBaseUrl: http://localhost:8200
+  LBaseUrl: https://api.kuaixiaofang.com
   LDirPath: /resource/uploads/
 # 阿里云静态云存储配置
 alioss:
@@ -28,11 +28,11 @@ tencentcos:
 # 七牛云存储配置
 qiniuoss:
   QBaseUrl: http://t3wcppubp.hn-bkt.clouddn.com/
-  QEndpoint: 
-  QKeyId: 
-  QSecret: 
-  QBucketName: goflys
+  QEndpoint: https://image.kuaixiaofang.com
+  QKeyId: 5oef82M0q3e01eTWP0q6NmCYP0IsRTXn52KQCria
+  QSecret: hU0V1raqd1Z1hl_HXprv922O1ItMcOacK1r2mB6q
+  QBucketName: kuaixiaofang
   QDirPath: image
   QDestBucketName: 
-  QUseHTTPS: false
-  QZone: 4
+  QUseHTTPS: true
+  QZone: 3

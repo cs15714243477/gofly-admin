@@ -236,9 +236,6 @@ export default {
         res = await homeApi.Homedata({ page: 1, pageSize: 6 });
       } catch (e) {
         this.loading = false;
-        if (!uni.getStorageSync("token")) {
-          uni.reLaunch({ url: "/pages/login/login" });
-        }
         return false;
       }
       this.loading = false;

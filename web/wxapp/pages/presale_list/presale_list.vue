@@ -188,10 +188,6 @@ export default {
         });
       } catch (e) {
         this.loading = false;
-        // auth=true 且无 token 时，request 会拦截，这里兜底跳登录
-        if (!uni.getStorageSync("token")) {
-          uni.reLaunch({ url: "/pages/login/login" });
-        }
         return false;
       }
       this.loading = false;

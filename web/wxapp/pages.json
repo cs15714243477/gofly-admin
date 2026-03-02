@@ -1,6 +1,13 @@
 {
 	"pages": [
 		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": "推荐",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/login/login",
 			"style": {
 				"navigationBarTitleText": "登录",
@@ -17,13 +24,6 @@
 			"path": "pages/registration/registration",
 			"style": {
 				"navigationBarTitleText": "注册",
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/home/home",
-			"style": {
-				"navigationBarTitleText": "推荐",
 				"navigationStyle": "custom"
 			}
 		},
