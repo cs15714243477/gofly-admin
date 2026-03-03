@@ -34,7 +34,7 @@
           </view>
         </view>
         <view v-else class="guest-card">
-          <view class="guest-title">当然未登录</view>
+          <view class="guest-title">当前未登录</view>
           <view class="guest-desc">你可以先浏览推荐、房源等服务，需要时再自主登录。</view>
           <view class="guest-actions">
             <button class="guest-login-btn" @click="goLogin">去登录</button>
